@@ -1,166 +1,129 @@
+import 'package:flutter/material.dart';
 import 'package:another_telephony/telephony.dart';
-import 'database_helper.dart';
-import 'dart:developer';
 import 'package:shared_preferences/shared_preferences.dart';
-
-@pragma('vm:entry-point')
-backgroundMessageHandler(SmsMessage message) async {
-  MessageHelper.handleNewMessage(message);
-}
+import 'database_helper.dart';
 
 class MessageHelper {
-  static final transactionTable = 'transactions';
-  static final messageAddress = 'AXISBK';
+  final Telephony _telephony = Telephony.instance;
 
-  static Future<void> initTelephony() async {
-    final Telephony telephony = Telephony.instance;
-    bool? permissionsGranted = await telephony.requestPhoneAndSmsPermissions;
-    if (permissionsGranted == true) {
-      log("SMS permissions granted.");
-      // telephony.listenIncomingSms(
-      //     onNewMessage: (SmsMessage message) async {
-      //       handleNewMessage(message);
-      //     },
-      //     onBackgroundMessage: backgroundMessageHandler
-      // );
-    } else {
-      log("SMS permissions not granted or user denied.");
+  // Modified to allow looking back X days
+  Future<int> processNewMessages({int lookBackDays = 60}) async {
+    final prefs = await SharedPreferences.getInstance();
+    final dbHelper = DatabaseHelper.instance;
+
+    debugPrint("--- STARTING SYNC ---");
+
+    // 1. Fetch all patterns
+    final patterns = await dbHelper.database.then((db) => db.query('patterns'));
+    if (patterns.isEmpty) {
+      debugPrint("No patterns found in DB.");
+      return 0;
     }
-  }
 
-  static void handleNewMessage(SmsMessage message) async {
-    log(
-      "New SMS: ${message.body} ${message.address} ${message.date} ${message.read}",
+    // 2. Calculate the Look-back Date
+    // We want to scan messages from [Today - lookBackDays]
+    final DateTime sinceDate = DateTime.now().subtract(
+      Duration(days: lookBackDays),
     );
-    try {
-      insertTransactionsIntoDb({
-        "cost": "10",
-        "date": "${message.date}",
-        "type": "DEBITED",
-        "entity": "${message.address}",
-      });
-    } catch (e) {
-      log("Error: $e");
-    }
-  }
+    final int sinceTimestamp = sinceDate.millisecondsSinceEpoch;
 
-  static String getIsoDateStringFromEpoch(String? date) {
-    if (date != null) {
-      return DateTime.fromMillisecondsSinceEpoch(
-        int.parse(date),
-      ).toIso8601String();
-    } else {
-      return DateTime.now().toIso8601String();
-    }
-  }
-
-  static void insertTransactionsIntoDb(Map<String, String> data) async {
-    try {
-      final dbHelper = DatabaseHelper.instance;
-      final db = await dbHelper.database;
-      data["date"] = getIsoDateStringFromEpoch(data['date']);
-      int id = await db.insert(transactionTable, data);
-      log("$id inserted -  data $data");
-      List<Map> maps = await db.query(transactionTable);
-      log("$maps");
-    } catch (e) {
-      log("Error: $e");
-      throw Exception("Error inserting into db error $e");
-    }
-  }
-
-  static String getCurrentMonthFirstDate() {
-    final DateTime now = DateTime.now();
-    final DateTime firstDayOfMonth = DateTime(now.year, now.month, 1);
-    return firstDayOfMonth.millisecondsSinceEpoch.toString();
-  }
-
-  static Future<void> getNewTransactions() async {
-    try {
-      List<SmsMessage> messages;
-      final SharedPreferencesAsync storage = SharedPreferencesAsync();
-      String? latestTimeStamp = await storage.getString("latestTimeStamp");
-      log("latestTimeStamp $latestTimeStamp");
-      if (latestTimeStamp == null) {
-        messages = await Telephony.instance.getInboxSms(
-          columns: [SmsColumn.ADDRESS, SmsColumn.BODY, SmsColumn.DATE],
-          filter: SmsFilter.where(SmsColumn.ADDRESS)
-              .like("%$messageAddress%")
-              .and(SmsColumn.DATE)
-              .greaterThan(getCurrentMonthFirstDate()),
-          sortOrder: [OrderBy(SmsColumn.DATE, sort: Sort.DESC)],
-        );
-      } else {
-        messages = await Telephony.instance.getInboxSms(
-          columns: [SmsColumn.ADDRESS, SmsColumn.BODY, SmsColumn.DATE],
-          filter: SmsFilter.where(SmsColumn.ADDRESS)
-              .like("%$messageAddress%")
-              .and(SmsColumn.DATE)
-              .greaterThan(latestTimeStamp),
-        );
-      }
-      log("messages - $messages");
-      latestTimeStamp = DateTime.now().millisecondsSinceEpoch.toString();
-      await storage.setString("latestTimeStamp", latestTimeStamp);
-      for (var message in messages) {
-        parseMessageAndInsert(message);
-        log('''
-          new messages - 
-            ${message.body} 
-            ${getIsoDateStringFromEpoch(message.date.toString())}
-            ${message.address}
-        ''');
-      }
-    } catch (e) {
-      log("$e");
-    }
-  }
-
-  static void parseMessageAndInsert(SmsMessage message) {
-    if (message.address!.contains("AXISBK")) {
-      if (message.body!.contains("debited")) {
-        final RegExp regex = RegExp(
-          r"INR\s(?<cost>[\d.]+)\s(debited)\s.+\s(?<date>[\d+\-\,\s:]+)(?<entity>.+)",
-        );
-        final RegExpMatch? match = regex.firstMatch(message.body!);
-        final Map<String, String?> extractedData = {};
-        if (match != null) {
-          for (final String groupName in match.groupNames) {
-            extractedData[groupName] = match.namedGroup(groupName);
-          }
-        }
-        log("extraced data $extractedData");
-        if (extractedData["cost"] != null &&
-            extractedData["date"] != null &&
-            extractedData["entity"] != null) {
-          final monthOfTransaction =
-              DateTime.fromMillisecondsSinceEpoch(message.date!).month;
-          final yearOfTransaction =
-              DateTime.fromMillisecondsSinceEpoch(message.date!).year;
-          insertTransactionsIntoDb({
-            "cost": extractedData["cost"]!,
-            "date": message.date.toString(),
-            "type": "DEBITED",
-            "entity": extractedData["entity"]!,
-            "month": monthOfTransaction.toString(),
-            "year": yearOfTransaction.toString(),
-          });
-        }
-      }
-    }
-  }
-
-  static Future<List<SmsMessage>> getFewMessagesFromCurrentBank(String value) async {
-    List<SmsMessage> messages = await Telephony.instance.getInboxSms(
+    // 3. Fetch Inbox (Filtered by Date in Dart for reliability)
+    List<SmsMessage> messages = await _telephony.getInboxSms(
       columns: [SmsColumn.ADDRESS, SmsColumn.BODY, SmsColumn.DATE],
-      filter: SmsFilter.where(SmsColumn.ADDRESS)
-          .like("%$value%"),
       sortOrder: [OrderBy(SmsColumn.DATE, sort: Sort.DESC)],
     );
-    if (messages.length > 10) {
-      return messages.sublist(0, 10);
+
+    int newTransactionsCount = 0;
+
+    // 4. Iterate through messages
+    for (var msg in messages) {
+      final msgDate = msg.date ?? 0;
+
+      // STOP if the message is too old (older than our lookback window)
+      if (msgDate < sinceTimestamp) {
+        debugPrint(
+          "Stopping scan: Message date ${DateTime.fromMillisecondsSinceEpoch(msgDate)} is older than lookback limit.",
+        );
+        break;
+      }
+
+      final body = msg.body ?? "";
+      final msgAddress = (msg.address ?? "").toUpperCase();
+
+      // Find patterns matching this Sender ID
+      final applicablePatterns =
+          patterns.where((p) {
+            final patternSenderId = (p['senderId'] as String).toUpperCase();
+            return msgAddress.toUpperCase().contains(patternSenderId);
+          }).toList();
+      for (var pattern in applicablePatterns) {
+        final regexString = pattern['patternRegex'] as String;
+
+        try {
+          final regExp = RegExp(regexString, caseSensitive: false);
+          final match = regExp.firstMatch(body);
+
+          if (match != null) {
+            String rawAmount = match.group(1) ?? "0";
+            rawAmount = rawAmount.replaceAll(RegExp(r'[^0-9.]'), '');
+            double amount = double.tryParse(rawAmount) ?? 0.0;
+
+            // CRITICAL CHECK: Does this exact transaction already exist?
+            final isDuplicate = await _checkForDuplicate(
+              msg.address ?? "",
+              amount,
+              msgDate,
+            );
+
+            if (!isDuplicate) {
+              debugPrint("Found NEW Transaction: $amount from ${msg.address}");
+              await dbHelper.insertTransaction({
+                'amount': amount,
+                'sender': msg.address,
+                'body': body,
+                'date': msgDate,
+                'type': pattern['messageType'],
+                'categoryId': 1,
+                'patternId': pattern['id'],
+              });
+              newTransactionsCount++;
+            } else {
+              // debugPrint("Duplicate ignored: $amount");
+            }
+
+            // Match found for this SMS, stop trying other patterns
+            break;
+          } else {
+            debugPrint("--- Messages $regExp msg.body: ${msg.body}---");
+          }
+        } catch (e) {
+          debugPrint("Regex Error for ${pattern['name']}: $e");
+        }
+      }
     }
-    return messages;
+
+    // Update sync time (optional now, mostly for reference)
+    await prefs.setInt(
+      'lastSmsSyncTime',
+      DateTime.now().millisecondsSinceEpoch,
+    );
+
+    debugPrint("--- SYNC COMPLETE: Added $newTransactionsCount new items ---");
+    return newTransactionsCount;
   }
 
+  Future<bool> _checkForDuplicate(
+    String sender,
+    double amount,
+    int date,
+  ) async {
+    final db = await DatabaseHelper.instance.database;
+    // Check for same sender, same amount, and same timestamp (msgDate is very precise)
+    final result = await db.query(
+      'transactions',
+      where: 'sender = ? AND amount = ? AND date = ?',
+      whereArgs: [sender, amount, date],
+    );
+    return result.isNotEmpty;
+  }
 }
