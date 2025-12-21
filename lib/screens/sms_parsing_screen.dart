@@ -215,7 +215,7 @@ class _SmsParsingScreenState extends State<SmsParsingScreen> {
       });
 
       final prefs = await SharedPreferences.getInstance();
-      await prefs.setBool('initialSetupShown', true);
+      await prefs.setBool('initialSetupDone', true);
 
       if (!mounted) return;
 
