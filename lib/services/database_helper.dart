@@ -120,4 +120,59 @@ class DatabaseHelper {
     ORDER BY t.date DESC
   ''');
   }
+  // Inside DatabaseHelper class
+
+  Future<List<Map<String, dynamic>>> getFilteredTransactions({
+    int? startEpoch, // Start Date timestamp
+    int? endEpoch, // End Date timestamp
+    int? categoryId, // Optional Category Filter
+    int? patternId, // Optional Payment Method Filter
+  }) async {
+    final db = await instance.database;
+
+    // 1. Build Dynamic WHERE Clause
+    List<String> conditions = [];
+    List<dynamic> args = [];
+
+    // Always true condition to simplify logic
+    conditions.add('1=1');
+
+    if (startEpoch != null) {
+      conditions.add('t.date >= ?');
+      args.add(startEpoch);
+    }
+
+    if (endEpoch != null) {
+      conditions.add('t.date <= ?');
+      args.add(endEpoch);
+    }
+
+    if (categoryId != null) {
+      conditions.add('t.categoryId = ?');
+      args.add(categoryId);
+    }
+
+    if (patternId != null) {
+      conditions.add('t.patternId = ?');
+      args.add(patternId);
+    }
+
+    // 2. Execute Query
+    final whereString = conditions.join(' AND ');
+
+    return await db.rawQuery('''
+    SELECT 
+      t.*, 
+      c.name as categoryName, 
+      c.color as categoryColor, 
+      c.icon as categoryIcon,
+      p.name as patternName,
+      p.senderId as senderId
+    FROM transactions t
+    LEFT JOIN categories c ON t.categoryId = c.id
+    LEFT JOIN patterns p ON t.patternId = p.id
+    WHERE $whereString
+    ORDER BY t.date DESC
+  ''', args);
+  }
 }

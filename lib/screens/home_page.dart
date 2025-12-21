@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:intl/intl.dart';
 import '../services/database_helper.dart';
-import '../services/message_helper.dart'; // Import the new helper
-import 'transaction_detail_screen.dart';
+import '../services/message_helper.dart';
+import 'transaction_detail_screen.dart'; // Ensure this import exists
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -14,7 +15,7 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> {
   String _userName = "";
   List<Map<String, dynamic>> _transactions = [];
-  bool _isSyncing = false; // To show loading spinner
+  bool _isSyncing = false;
 
   @override
   void initState() {
@@ -24,26 +25,22 @@ class _HomePageState extends State<HomePage> {
 
   Future<void> _loadData() async {
     final prefs = await SharedPreferences.getInstance();
-    // Fetch transactions joined with Categories
     final data = await DatabaseHelper.instance.getTransactionsWithDetails();
 
-    setState(() {
-      _userName = prefs.getString('userName') ?? "User";
-      _transactions = data;
-    });
+    if (mounted) {
+      setState(() {
+        _userName = prefs.getString('userName') ?? "User";
+        _transactions = data;
+      });
+    }
   }
 
-  // --- THE NEW SYNC FUNCTION ---
   Future<void> _syncMessages() async {
     setState(() => _isSyncing = true);
-
     final helper = MessageHelper();
-
-    // We scan the last 60 days by default to catch old messages for new patterns
+    // Scan last 60 days
     int newCount = await helper.processNewMessages(lookBackDays: 60);
-
     await _loadData();
-
     setState(() => _isSyncing = false);
 
     if (mounted) {
@@ -61,23 +58,35 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
+  // --- Date Helpers ---
+  bool _isSameDay(DateTime a, DateTime b) {
+    return a.year == b.year && a.month == b.month && a.day == b.day;
+  }
+
+  String _formatDateHeader(DateTime date) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final yesterday = today.subtract(const Duration(days: 1));
+    final dateToCheck = DateTime(date.year, date.month, date.day);
+
+    if (dateToCheck == today) return "Today";
+    if (dateToCheck == yesterday) return "Yesterday";
+    return DateFormat.yMMMd().format(date); // e.g., Dec 18, 2025
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: Text("Hello, $_userName"),
         actions: [
-          // Manual Sync Button
           IconButton(
             icon:
                 _isSyncing
                     ? const SizedBox(
                       width: 20,
                       height: 20,
-                      child: CircularProgressIndicator(
-                        color: Colors.white,
-                        strokeWidth: 2,
-                      ),
+                      child: CircularProgressIndicator(strokeWidth: 2),
                     )
                     : const Icon(Icons.refresh),
             onPressed: _isSyncing ? null : _syncMessages,
@@ -85,12 +94,10 @@ class _HomePageState extends State<HomePage> {
         ],
       ),
       body: RefreshIndicator(
-        // Pull to refresh support
         onRefresh: _syncMessages,
         child:
             _transactions.isEmpty
                 ? ListView(
-                  // ListView is needed for RefreshIndicator to work even if empty
                   children: const [
                     SizedBox(height: 200),
                     Center(
@@ -105,12 +112,32 @@ class _HomePageState extends State<HomePage> {
                   itemCount: _transactions.length,
                   itemBuilder: (context, index) {
                     final tx = _transactions[index];
-                    return ListTile(
+                    final date = DateTime.fromMillisecondsSinceEpoch(
+                      tx['date'],
+                    );
+
+                    // Logic to determine if we need a header
+                    bool showHeader = false;
+                    if (index == 0) {
+                      showHeader = true; // First item always shows header
+                    } else {
+                      final prevTx = _transactions[index - 1];
+                      final prevDate = DateTime.fromMillisecondsSinceEpoch(
+                        prevTx['date'],
+                      );
+                      // If current date != previous date, show header
+                      if (!_isSameDay(date, prevDate)) {
+                        showHeader = true;
+                      }
+                    }
+
+                    // Build the Transaction Tile
+                    final tile = ListTile(
                       leading: CircleAvatar(
                         backgroundColor:
                             tx['type'] == 'credit'
-                                ? Colors.green.shade100
-                                : Colors.red.shade100,
+                                ? Colors.green.shade50
+                                : Colors.red.shade50,
                         child: Icon(
                           tx['type'] == 'credit'
                               ? Icons.arrow_downward
@@ -119,9 +146,13 @@ class _HomePageState extends State<HomePage> {
                               tx['type'] == 'credit'
                                   ? Colors.green
                                   : Colors.red,
+                          size: 20,
                         ),
                       ),
-                      title: Text(tx['sender']),
+                      title: Text(
+                        tx['sender'] ?? "Unknown",
+                        style: const TextStyle(fontWeight: FontWeight.w500),
+                      ),
                       subtitle: Text(tx['categoryName'] ?? "Uncategorized"),
                       trailing: Text(
                         "${tx['amount']}",
@@ -135,7 +166,6 @@ class _HomePageState extends State<HomePage> {
                         ),
                       ),
                       onTap: () async {
-                        // Navigate to Detail Screen
                         await Navigator.push(
                           context,
                           MaterialPageRoute(
@@ -144,10 +174,32 @@ class _HomePageState extends State<HomePage> {
                                     TransactionDetailScreen(transaction: tx),
                           ),
                         );
-                        // Refresh list when coming back (in case category changed)
-                        _loadData();
+                        _loadData(); // Refresh list on return
                       },
                     );
+
+                    // Return Column if header is needed, otherwise just the tile
+                    if (showHeader) {
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(16, 24, 16, 8),
+                            child: Text(
+                              _formatDateHeader(date),
+                              style: TextStyle(
+                                color: Colors.grey[700],
+                                fontWeight: FontWeight.bold,
+                                fontSize: 14,
+                              ),
+                            ),
+                          ),
+                          tile,
+                        ],
+                      );
+                    } else {
+                      return tile;
+                    }
                   },
                 ),
       ),
