@@ -255,8 +255,9 @@ class _SmsParsingScreenState extends State<SmsParsingScreen> {
                         label: Text(token),
                         selected: isSelected,
                         onSelected: (selected) {
-                          if (selected)
+                          if (selected) {
                             setState(() => _selectedSenderToken = token);
+                          }
                         },
                       );
                     }).toList(),
@@ -373,8 +374,9 @@ class _SmsParsingScreenState extends State<SmsParsingScreen> {
                                 : Colors.black,
                       ),
                       onSelected: (bool selected) {
-                        if (selected)
+                        if (selected) {
                           setState(() => _transactionType = 'debit');
+                        }
                       },
                     ),
                     const SizedBox(width: 12),
@@ -389,8 +391,9 @@ class _SmsParsingScreenState extends State<SmsParsingScreen> {
                                 : Colors.black,
                       ),
                       onSelected: (bool selected) {
-                        if (selected)
+                        if (selected) {
                           setState(() => _transactionType = 'credit');
+                        }
                       },
                     ),
                   ],
@@ -428,8 +431,9 @@ class _SmsParsingScreenState extends State<SmsParsingScreen> {
                                   );
                                 }).toList(),
                             onChanged: (val) {
-                              if (val != null)
+                              if (val != null) {
                                 setState(() => _selectedCategoryId = val);
+                              }
                             },
                           ),
                         ),
