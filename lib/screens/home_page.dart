@@ -3,7 +3,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:intl/intl.dart';
 import '../services/database_helper.dart';
 import '../services/message_helper.dart';
-import 'transaction_detail_screen.dart'; // Ensure this import exists
+import 'transaction_detail_screen.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -15,6 +15,7 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> {
   String _userName = "";
   List<Map<String, dynamic>> _transactions = [];
+  Map<DateTime, double> _dailyTotals = {}; // <--- New Map to store daily sums
   bool _isSyncing = false;
 
   @override
@@ -27,18 +28,42 @@ class _HomePageState extends State<HomePage> {
     final prefs = await SharedPreferences.getInstance();
     final data = await DatabaseHelper.instance.getTransactionsWithDetails();
 
+    // Calculate totals whenever data loads
+    final totals = _calculateDailyTotals(data);
+
     if (mounted) {
       setState(() {
         _userName = prefs.getString('userName') ?? "User";
         _transactions = data;
+        _dailyTotals = totals; // <--- Store calculated totals
       });
     }
+  }
+
+  // --- NEW: Helper to sum amounts per day ---
+  Map<DateTime, double> _calculateDailyTotals(List<Map<String, dynamic>> txs) {
+    Map<DateTime, double> totals = {};
+    for (var tx in txs) {
+      final date = DateTime.fromMillisecondsSinceEpoch(tx['date']);
+      final key = DateTime(
+        date.year,
+        date.month,
+        date.day,
+      ); // Normalize to midnight
+
+      if (!totals.containsKey(key)) {
+        totals[key] = 0.0;
+      }
+      // We sum the amounts. You can choose to subtract credits if you want "Net Spend"
+      // For now, this shows "Total Activity" (Volume)
+      totals[key] = totals[key]! + (tx['amount'] as num).toDouble();
+    }
+    return totals;
   }
 
   Future<void> _syncMessages() async {
     setState(() => _isSyncing = true);
     final helper = MessageHelper();
-    // Scan last 60 days
     int newCount = await helper.processNewMessages(lookBackDays: 60);
     await _loadData();
     setState(() => _isSyncing = false);
@@ -71,7 +96,7 @@ class _HomePageState extends State<HomePage> {
 
     if (dateToCheck == today) return "Today";
     if (dateToCheck == yesterday) return "Yesterday";
-    return DateFormat.yMMMd().format(date); // e.g., Dec 18, 2025
+    return DateFormat.yMMMd().format(date);
   }
 
   @override
@@ -115,17 +140,20 @@ class _HomePageState extends State<HomePage> {
                     final date = DateTime.fromMillisecondsSinceEpoch(
                       tx['date'],
                     );
+                    final normalizedDate = DateTime(
+                      date.year,
+                      date.month,
+                      date.day,
+                    );
 
-                    // Logic to determine if we need a header
                     bool showHeader = false;
                     if (index == 0) {
-                      showHeader = true; // First item always shows header
+                      showHeader = true;
                     } else {
                       final prevTx = _transactions[index - 1];
                       final prevDate = DateTime.fromMillisecondsSinceEpoch(
                         prevTx['date'],
                       );
-                      // If current date != previous date, show header
                       if (!_isSameDay(date, prevDate)) {
                         showHeader = true;
                       }
@@ -150,7 +178,7 @@ class _HomePageState extends State<HomePage> {
                         ),
                       ),
                       title: Text(
-                        tx['sender'] ?? "Unknown",
+                        tx['patternName'] ?? tx['sender'] ?? "Unknown",
                         style: const TextStyle(fontWeight: FontWeight.w500),
                       ),
                       subtitle: Text(tx['categoryName'] ?? "Uncategorized"),
@@ -174,24 +202,43 @@ class _HomePageState extends State<HomePage> {
                                     TransactionDetailScreen(transaction: tx),
                           ),
                         );
-                        _loadData(); // Refresh list on return
+                        _loadData();
                       },
                     );
 
-                    // Return Column if header is needed, otherwise just the tile
                     if (showHeader) {
+                      // Get the total for this day from our map
+                      final dailyTotal = _dailyTotals[normalizedDate] ?? 0.0;
+
                       return Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Padding(
                             padding: const EdgeInsets.fromLTRB(16, 24, 16, 8),
-                            child: Text(
-                              _formatDateHeader(date),
-                              style: TextStyle(
-                                color: Colors.grey[700],
-                                fontWeight: FontWeight.bold,
-                                fontSize: 14,
-                              ),
+                            // CHANGED: Row to show Date on Left, Total on Right
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(
+                                  _formatDateHeader(date),
+                                  style: TextStyle(
+                                    color: Colors.grey[800],
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 15,
+                                  ),
+                                ),
+                                Text(
+                                  NumberFormat.currency(
+                                    symbol: "INR ",
+                                    locale: "en_IN",
+                                  ).format(dailyTotal),
+                                  style: TextStyle(
+                                    color: Colors.grey[600],
+                                    fontWeight: FontWeight.w600,
+                                    fontSize: 13,
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
                           tile,
