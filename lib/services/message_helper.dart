@@ -64,10 +64,26 @@ class MessageHelper {
           final match = regExp.firstMatch(body);
 
           if (match != null) {
-            String rawAmount = match.group(1) ?? "0";
-            rawAmount = rawAmount.replaceAll(RegExp(r'[^0-9.]'), '');
-            double amount = double.tryParse(rawAmount) ?? 0.0;
+            // String rawAmount = match.group(1) ?? "0";
+            // rawAmount = rawAmount.replaceAll(RegExp(r'[^0-9.]'), '');
+            // double amount = double.tryParse(rawAmount) ?? 0.0;
 
+            // 1. Get the raw string (e.g. "Rs.409.00")
+            String rawString = match.group(1) ?? "0";
+
+            // 2. Cleanup: Remove commas (common in currency like 1,000)
+            String cleanString = rawString.replaceAll(',', '');
+
+            // 3. Smart Extraction: Find the first valid number (e.g. "409.00" inside ".409.00")
+            // This regex looks for: Digits + Optional (Dot + Digits)
+            RegExp numberRegex = RegExp(r'(\d+)(\.\d+)?');
+            Match? numMatch = numberRegex.firstMatch(cleanString);
+
+            double amount = 0.0;
+            if (numMatch != null) {
+              // If we found a valid number pattern, parse THAT.
+              amount = double.tryParse(numMatch.group(0) ?? "0") ?? 0.0;
+            }
             // CRITICAL CHECK: Does this exact transaction already exist?
             final isDuplicate = await _checkForDuplicate(
               msg.address ?? "",
