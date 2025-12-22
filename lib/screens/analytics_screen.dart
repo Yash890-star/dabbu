@@ -12,8 +12,8 @@ class AnalyticsScreen extends StatefulWidget {
 
 class _AnalyticsScreenState extends State<AnalyticsScreen> {
   // --- Filter State ---
-  String _timeFrame = 'Month'; // 'Month', 'Week', 'Day'
-  DateTime _focusedDate = DateTime.now(); // The date we are looking at
+  String _timeFrame = 'Month';
+  DateTime _focusedDate = DateTime.now();
   int? _selectedCategoryId;
   int? _selectedPatternId;
 
@@ -21,6 +21,10 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
   List<Map<String, dynamic>> _transactions = [];
   List<Map<String, dynamic>> _allCategories = [];
   List<Map<String, dynamic>> _allPatterns = [];
+
+  // New: Pre-calculated summary for the chart & legend
+  List<_CategorySummary> _categorySummaries = [];
+
   bool _isLoading = true;
 
   @override
@@ -28,6 +32,11 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
     super.initState();
     _loadFilters();
     _fetchData();
+  }
+
+  Future<void> _refreshAll() async {
+    await _loadFilters();
+    await _fetchData();
   }
 
   Future<void> _loadFilters() async {
@@ -40,18 +49,9 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
     });
   }
 
-  Future<void> _refreshAll() async {
-    // Reload categories and patterns in case settings changed
-    await _loadFilters();
-    // Reload transactions in case new SMS were parsed
-    await _fetchData();
-  }
-
-  // --- Date Calculation Logic ---
+  // --- Date Logic (Same as before) ---
   (int, int) _getDateRange() {
     DateTime start, end;
-
-    // Reset to start of day for cleaner calculations
     final date = DateTime(
       _focusedDate.year,
       _focusedDate.month,
@@ -62,21 +62,17 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
       start = date;
       end = date.add(const Duration(hours: 23, minutes: 59, seconds: 59));
     } else if (_timeFrame == 'Week') {
-      // Find Monday of this week
       start = date.subtract(Duration(days: date.weekday - 1));
       end = start.add(const Duration(days: 6, hours: 23, minutes: 59));
     } else {
-      // Month (Default)
       start = DateTime(date.year, date.month, 1);
       end = DateTime(date.year, date.month + 1, 0, 23, 59, 59);
     }
-
     return (start.millisecondsSinceEpoch, end.millisecondsSinceEpoch);
   }
 
   Future<void> _fetchData() async {
     setState(() => _isLoading = true);
-
     final (start, end) = _getDateRange();
 
     final data = await DatabaseHelper.instance.getFilteredTransactions(
@@ -86,29 +82,19 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
       patternId: _selectedPatternId,
     );
 
-    setState(() {
-      _transactions = data;
-      _isLoading = false;
-    });
-  }
-
-  // --- Chart Data Preparation ---
-  List<PieChartSectionData> _getChartSections() {
-    if (_transactions.isEmpty) return [];
-
-    // Group by Category
+    // --- NEW: Calculate Summaries Here ---
     Map<String, double> totals = {};
     Map<String, Color> colors = {};
+    double totalExpense = 0;
 
-    for (var tx in _transactions) {
-      // Only chart Debits (Expenses)
+    for (var tx in data) {
       if (tx['type'] == 'debit') {
         final catName = tx['categoryName'] ?? 'Uncategorized';
         final amount = (tx['amount'] as num).toDouble();
+        totalExpense += amount;
 
         totals[catName] = (totals[catName] ?? 0) + amount;
 
-        // Handle Color
         if (!colors.containsKey(catName)) {
           int? colorInt = tx['categoryColor'];
           colors[catName] = colorInt != null ? Color(colorInt) : Colors.grey;
@@ -116,22 +102,26 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
       }
     }
 
-    final totalExpense = totals.values.fold(0.0, (sum, item) => sum + item);
+    // Convert map to list of objects and sort by highest spend
+    List<_CategorySummary> summaries =
+        totals.entries.map((e) {
+          return _CategorySummary(
+            name: e.key,
+            amount: e.value,
+            color: colors[e.key] ?? Colors.grey,
+            percentage: totalExpense == 0 ? 0 : (e.value / totalExpense) * 100,
+          );
+        }).toList();
 
-    return totals.entries.map((entry) {
-      final percentage = (entry.value / totalExpense) * 100;
-      return PieChartSectionData(
-        color: colors[entry.key],
-        value: entry.value,
-        title: '${percentage.toStringAsFixed(0)}%',
-        radius: 50,
-        titleStyle: const TextStyle(
-          fontSize: 12,
-          fontWeight: FontWeight.bold,
-          color: Colors.white,
-        ),
-      );
-    }).toList();
+    summaries.sort((a, b) => b.amount.compareTo(a.amount));
+
+    if (mounted) {
+      setState(() {
+        _transactions = data;
+        _categorySummaries = summaries;
+        _isLoading = false;
+      });
+    }
   }
 
   // --- UI Helpers ---
@@ -165,15 +155,20 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
   }
 
   @override
-  @override
   Widget build(BuildContext context) {
     double totalSpend = _transactions
         .where((t) => t['type'] == 'debit')
         .fold(0.0, (sum, t) => sum + (t['amount'] as num));
 
     return Scaffold(
+      backgroundColor: Colors.grey[50], // Light background for contrast
       appBar: AppBar(
-        title: const Text("Analytics"),
+        title: const Text(
+          "Spending Analytics",
+          style: TextStyle(fontWeight: FontWeight.w600),
+        ),
+        backgroundColor: Colors.white,
+        elevation: 0,
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
@@ -184,177 +179,328 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
       body: RefreshIndicator(
         onRefresh: _refreshAll,
         child: ListView(
-          physics:
-              const AlwaysScrollableScrollPhysics(), // Ensures pull-to-refresh works even if list is short
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.all(16.0),
           children: [
             // 1. TIME CONTROLS
-            Padding(
-              padding: const EdgeInsets.all(8.0),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  IconButton(
-                    icon: const Icon(Icons.chevron_left),
-                    onPressed: () => _changeDate(-1),
-                  ),
-                  Column(
-                    children: [
-                      DropdownButton<String>(
-                        value: _timeFrame,
-                        isDense: true,
-                        underline: Container(),
-                        style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                          color: Colors.black,
-                          fontSize: 16,
-                        ),
-                        items:
-                            ['Day', 'Week', 'Month']
-                                .map(
-                                  (e) => DropdownMenuItem(
-                                    value: e,
-                                    child: Text(e),
-                                  ),
-                                )
-                                .toList(),
-                        onChanged: (val) {
-                          setState(() => _timeFrame = val!);
-                          _fetchData();
-                        },
-                      ),
-                      Text(
-                        _getDateLabel(),
-                        style: const TextStyle(
-                          fontSize: 12,
-                          color: Colors.grey,
-                        ),
-                      ),
-                    ],
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.chevron_right),
-                    onPressed: () => _changeDate(1),
-                  ),
-                ],
-              ),
-            ),
+            _buildTimeControls(),
 
-            // 2. FILTER DROPDOWNS
-            SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Row(
-                children: [
-                  _buildFilterChip<int>(
-                    label: "Category",
-                    value: _selectedCategoryId,
-                    items: _allCategories,
-                    idKey: 'id',
-                    nameKey: 'name',
-                    fetchItems: () => DatabaseHelper.instance.getCategories(),
-                    onChanged: (val) {
-                      setState(() => _selectedCategoryId = val);
-                      _fetchData();
-                    },
-                  ),
-                  const SizedBox(width: 10),
-                  _buildFilterChip<int>(
-                    label: "Method",
-                    value: _selectedPatternId,
-                    items: _allPatterns,
-                    idKey: 'id',
-                    nameKey: 'name',
-                    fetchItems:
-                        () => DatabaseHelper.instance.database.then(
-                          (d) => d.query('patterns'),
-                        ),
-                    onChanged: (val) {
-                      setState(() => _selectedPatternId = val);
-                      _fetchData();
-                    },
-                  ),
-                ],
-              ),
-            ),
+            const SizedBox(height: 16),
 
-            const Divider(),
+            // 2. FILTERS
+            _buildFilters(),
 
-            // 3. CHART SECTION
-            if (_isLoading)
-              const SizedBox(
-                height: 200,
-                child: Center(child: CircularProgressIndicator()),
-              )
-            else if (_transactions.isEmpty)
-              const SizedBox(
-                height: 200,
-                child: Center(child: Text("No transactions found")),
-              )
-            else ...[
-              SizedBox(
-                height: 200,
-                child: Stack(
-                  children: [
-                    PieChart(
-                      PieChartData(
-                        sections: _getChartSections(),
-                        centerSpaceRadius: 40,
-                        sectionsSpace: 2,
-                      ),
+            const SizedBox(height: 16),
+
+            // 3. MAIN DASHBOARD CARD (Split View)
+            if (!_isLoading && _transactions.isNotEmpty)
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.grey.withOpacity(0.1),
+                      blurRadius: 10,
+                      offset: const Offset(0, 5),
                     ),
-                    Center(
-                      child: Text(
-                        "Total\n${totalSpend.toStringAsFixed(0)}",
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(fontWeight: FontWeight.bold),
-                      ),
+                  ],
+                ),
+                child: Column(
+                  children: [
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // LEFT SIDE: Chart
+                        Expanded(
+                          flex: 4,
+                          child: SizedBox(
+                            height: 160,
+                            // CHANGE 1: Explicitly center align elements in the Stack
+                            child: Stack(
+                              alignment: Alignment.center,
+                              children: [
+                                PieChart(
+                                  PieChartData(
+                                    sections:
+                                        _categorySummaries.map((item) {
+                                          return PieChartSectionData(
+                                            color: item.color,
+                                            value: item.amount,
+                                            title:
+                                                '', // Keep title empty to hide labels on the ring
+                                            radius: 25,
+                                            showTitle:
+                                                false, // Ensure no text renders on the chart itself
+                                          );
+                                        }).toList(),
+                                    centerSpaceRadius: 40,
+                                    sectionsSpace:
+                                        0, // Set to 0 for a solid ring, or keeping 2-4 is fine
+                                  ),
+                                ),
+                                // CHANGE 2: The Text in the middle
+                                Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    const Text(
+                                      "Total",
+                                      style: TextStyle(
+                                        fontSize: 10,
+                                        color: Colors.grey,
+                                        height: 1.0,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 2), // Small gap
+                                    Text(
+                                      NumberFormat.compact().format(totalSpend),
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 16,
+                                        height: 1.0,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+
+                        // RIGHT SIDE: Legend / Details
+                        Expanded(
+                          flex: 6,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children:
+                                _categorySummaries.take(5).map((item) {
+                                  return Padding(
+                                    padding: const EdgeInsets.only(
+                                      bottom: 12.0,
+                                    ),
+                                    child: Row(
+                                      children: [
+                                        Container(
+                                          width: 10,
+                                          height: 10,
+                                          decoration: BoxDecoration(
+                                            color: item.color,
+                                            shape: BoxShape.circle,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Expanded(
+                                          child: Text(
+                                            item.name,
+                                            style: const TextStyle(
+                                              fontSize: 12,
+                                              fontWeight: FontWeight.w500,
+                                            ),
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                        ),
+                                        Text(
+                                          "${item.percentage.toStringAsFixed(0)}%",
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            color: Colors.grey[600],
+                                          ),
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Text(
+                                          NumberFormat.compact().format(
+                                            item.amount,
+                                          ),
+                                          style: const TextStyle(
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  );
+                                }).toList(),
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
               ),
 
-              const Divider(),
+            const SizedBox(height: 24),
 
-              // 4. TRANSACTION LIST
-              // We map the items directly into the parent ListView to avoid nesting issues
+            // 4. RECENT TRANSACTIONS HEADER
+            if (_transactions.isNotEmpty) ...[
+              const Text(
+                "Recent Transactions",
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 12),
+
+              // TRANSACTION LIST
               ..._transactions.map((tx) {
                 final isCredit = tx['type'] == 'credit';
-                return ListTile(
-                  dense: true,
-                  leading: CircleAvatar(
-                    backgroundColor:
-                        isCredit ? Colors.green.shade50 : Colors.red.shade50,
-                    child: Icon(
-                      isCredit ? Icons.arrow_downward : Icons.arrow_upward,
-                      size: 16,
-                      color: isCredit ? Colors.green : Colors.red,
+                return Card(
+                  // Use Cards for cleaner look
+                  margin: const EdgeInsets.only(bottom: 8),
+                  elevation: 0,
+                  color: Colors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    side: BorderSide(color: Colors.grey.shade200),
+                  ),
+                  child: ListTile(
+                    dense: true,
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 4,
                     ),
-                  ),
-                  title: Text(tx['sender'] ?? "Unknown"),
-                  subtitle: Text(
-                    "${DateFormat.MMMd().format(DateTime.fromMillisecondsSinceEpoch(tx['date']))} • ${tx['categoryName'] ?? 'Uncategorized'}",
-                    style: const TextStyle(fontSize: 12),
-                  ),
-                  trailing: Text(
-                    "${tx['amount']}",
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      color: isCredit ? Colors.green : Colors.red,
+                    leading: Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color:
+                            isCredit
+                                ? Colors.green.withOpacity(0.1)
+                                : Colors.red.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Icon(
+                        isCredit ? Icons.arrow_downward : Icons.arrow_upward,
+                        size: 18,
+                        color: isCredit ? Colors.green : Colors.red,
+                      ),
+                    ),
+                    title: Text(
+                      tx['patternName'] ?? tx['sender'] ?? "Unknown",
+                      style: const TextStyle(fontWeight: FontWeight.w600),
+                    ),
+                    subtitle: Text(
+                      "${DateFormat.MMMd().format(DateTime.fromMillisecondsSinceEpoch(tx['date']))} • ${tx['categoryName'] ?? 'Uncategorized'}",
+                      style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                    ),
+                    trailing: Text(
+                      "${tx['amount']}",
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 15,
+                        color: isCredit ? Colors.green : Colors.red,
+                      ),
                     ),
                   ),
                 );
               }),
-
-              // Add some padding at the bottom so the last item isn't covered by FAB or Nav Bar
-              const SizedBox(height: 80),
             ],
+
+            if (!_isLoading && _transactions.isEmpty)
+              const Padding(
+                padding: EdgeInsets.only(top: 50),
+                child: Center(
+                  child: Text("No transactions found for this period"),
+                ),
+              ),
+
+            const SizedBox(height: 80),
           ],
         ),
       ),
     );
   }
 
-  // Custom Filter Chip Widget helper
+  // --- Widget Extract: Time Controls ---
+  Widget _buildTimeControls() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey.shade200),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          IconButton(
+            icon: const Icon(Icons.chevron_left),
+            onPressed: () => _changeDate(-1),
+          ),
+          Column(
+            children: [
+              DropdownButton<String>(
+                value: _timeFrame,
+                isDense: true,
+                underline: Container(),
+                icon: const Icon(Icons.keyboard_arrow_down, size: 16),
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black,
+                  fontSize: 16,
+                ),
+                items:
+                    ['Day', 'Week', 'Month']
+                        .map((e) => DropdownMenuItem(value: e, child: Text(e)))
+                        .toList(),
+                onChanged: (val) {
+                  setState(() => _timeFrame = val!);
+                  _fetchData();
+                },
+              ),
+              Text(
+                _getDateLabel(),
+                style: const TextStyle(fontSize: 12, color: Colors.grey),
+              ),
+            ],
+          ),
+          IconButton(
+            icon: const Icon(Icons.chevron_right),
+            onPressed: () => _changeDate(1),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // --- Widget Extract: Filters ---
+  Widget _buildFilters() {
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        children: [
+          _buildFilterChip<int>(
+            label: "Category",
+            value: _selectedCategoryId,
+            items: _allCategories,
+            idKey: 'id',
+            nameKey: 'name',
+            fetchItems: () => DatabaseHelper.instance.getCategories(),
+            onChanged: (val) {
+              setState(() => _selectedCategoryId = val);
+              _fetchData();
+            },
+          ),
+          const SizedBox(width: 10),
+          _buildFilterChip<int>(
+            label: "Method",
+            value: _selectedPatternId,
+            items: _allPatterns,
+            idKey: 'id',
+            nameKey: 'name',
+            fetchItems:
+                () => DatabaseHelper.instance.database.then(
+                  (d) => d.query('patterns'),
+                ),
+            onChanged: (val) {
+              setState(() => _selectedPatternId = val);
+              _fetchData();
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildFilterChip<T>({
     required String label,
     required T? value,
@@ -362,32 +508,20 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
     required String idKey,
     required String nameKey,
     required Function(T?) onChanged,
-    // Add this new line:
     required Future<List<Map<String, dynamic>>> Function() fetchItems,
   }) {
-    // Helper to find the name of the currently selected item
     String labelText = "All ${label}s";
-
-    // Check if we have a selected value and find its name
     if (value != null && items.isNotEmpty) {
       try {
         final found = items.firstWhere((e) => e[idKey] == value);
         labelText = found[nameKey];
-      } catch (e) {
-        // Fallback if item not found (e.g. deleted)
-      }
+      } catch (e) {}
     }
 
-    return InputChip(
-      label: Text(labelText),
-      selected: value != null,
-      onDeleted: value != null ? () => onChanged(null) : null,
-      onPressed: () async {
-        // 1. FETCH FRESH DATA IMMEDIATELY
+    return GestureDetector(
+      onTap: () async {
         final freshItems = await fetchItems();
-
         if (!mounted) return;
-
         final result = await showDialog<T>(
           context: context,
           builder:
@@ -396,7 +530,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                 children: [
                   SimpleDialogOption(
                     child: const Padding(
-                      padding: EdgeInsets.all(8.0),
+                      padding: EdgeInsets.all(12.0),
                       child: Text("All"),
                     ),
                     onPressed: () => Navigator.pop(ctx, null),
@@ -404,7 +538,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                   ...freshItems.map(
                     (item) => SimpleDialogOption(
                       child: Padding(
-                        padding: const EdgeInsets.all(8.0),
+                        padding: const EdgeInsets.all(12.0),
                         child: Text(item[nameKey]),
                       ),
                       onPressed: () => Navigator.pop(ctx, item[idKey]),
@@ -413,18 +547,54 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                 ],
               ),
         );
-
-        // Update if a selection was made
-        if (result != null || (result == null && value != null)) {
-          onChanged(result);
-
-          // Update the local list immediately so the label updates correctly
-          setState(() {
-            if (label == "Category") _allCategories = freshItems;
-            if (label == "Method") _allPatterns = freshItems;
-          });
-        }
+        onChanged(result);
+        setState(() {
+          if (label == "Category") _allCategories = freshItems;
+          if (label == "Method") _allPatterns = freshItems;
+        });
       },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        decoration: BoxDecoration(
+          color: value != null ? Colors.blue.shade50 : Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: value != null ? Colors.blue : Colors.grey.shade300,
+          ),
+        ),
+        child: Row(
+          children: [
+            Text(
+              labelText,
+              style: TextStyle(
+                color: value != null ? Colors.blue.shade700 : Colors.black87,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            const SizedBox(width: 4),
+            Icon(
+              Icons.keyboard_arrow_down,
+              size: 16,
+              color: value != null ? Colors.blue : Colors.grey,
+            ),
+          ],
+        ),
+      ),
     );
   }
+}
+
+// Simple Model Class for the Summary
+class _CategorySummary {
+  final String name;
+  final double amount;
+  final Color color;
+  final double percentage;
+
+  _CategorySummary({
+    required this.name,
+    required this.amount,
+    required this.color,
+    required this.percentage,
+  });
 }

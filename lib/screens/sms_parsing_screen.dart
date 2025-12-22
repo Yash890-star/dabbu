@@ -114,16 +114,15 @@ class _SmsParsingScreenState extends State<SmsParsingScreen> {
       for (int i = _selectedPrefixIndex!; i < _selectedAmountIndex!; i++) {
         prefixParts.add(RegExp.escape(_bodyTokens[i]));
       }
-      // FIX: Use double backslash \\s+ so it saves as \s+
       regex += "${prefixParts.join(r'\s+')}\\s+";
     }
 
-    // 2. AMOUNT PART
-    regex += "([0-9.,]+)";
+    // 2. AMOUNT PART (UPDATED FIX)
+    // We add (?:[^0-9\n]*) to ignore "Rs.", "INR", ":", etc. inside the token
+    regex += r"(?:[^0-9\n]*)([0-9.,]+)";
 
     // 3. SUFFIX PART
     if (_selectedSuffixIndex != null) {
-      // FIX: Use double backslash \\s+ here too
       regex += r"\s+";
       List<String> suffixParts = [];
       for (int i = _selectedAmountIndex! + 1; i <= _selectedSuffixIndex!; i++) {
@@ -198,11 +197,21 @@ class _SmsParsingScreenState extends State<SmsParsingScreen> {
         'extractionIndex': 1,
       });
 
-      String rawAmount = _bodyTokens[_selectedAmountIndex!].replaceAll(
-        RegExp(r'[^0-9.]'),
-        '',
-      );
-      double amount = double.tryParse(rawAmount) ?? 0.0;
+      // NEW & ROBUST logic (Matches MessageHelper)
+      String rawToken = _bodyTokens[_selectedAmountIndex!];
+
+      // 1. Remove commas (e.g. "1,200" -> "1200")
+      String cleanToken = rawToken.replaceAll(',', '');
+
+      // 2. Smart Extraction: Find the first valid number pattern
+      // This handles "Rs.409.00", ".409.00", "409", etc.
+      RegExp numberRegex = RegExp(r'(\d*\.?\d+)');
+      Match? numMatch = numberRegex.firstMatch(cleanToken);
+
+      double amount = 0.0;
+      if (numMatch != null) {
+        amount = double.tryParse(numMatch.group(0) ?? "0") ?? 0.0;
+      }
 
       await DatabaseHelper.instance.insertTransaction({
         'amount': amount,
