@@ -90,39 +90,139 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen> {
     );
   }
 
+  // Copied from SettingsPage for consistency
+  final List<Color> _categoryColors = [
+    Colors.red,
+    Colors.pink,
+    Colors.purple,
+    Colors.deepPurple,
+    Colors.indigo,
+    Colors.blue,
+    Colors.lightBlue,
+    Colors.cyan,
+    Colors.teal,
+    Colors.green,
+    Colors.lightGreen,
+    Colors.lime,
+    Colors.yellow,
+    Colors.amber,
+    Colors.orange,
+    Colors.deepOrange,
+    Colors.brown,
+    Colors.grey,
+    Colors.blueGrey,
+    Colors.black,
+  ];
+
   Future<void> _showCreateCategoryDialog() async {
     final controller = TextEditingController();
+    Color selectedColor = _categoryColors[0]; // Default to Red
+
     await showDialog(
       context: context,
       builder:
-          (ctx) => AlertDialog(
-            title: const Text("New Category"),
-            content: TextField(
-              controller: controller,
-              decoration: const InputDecoration(hintText: "e.g. Utilities"),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(ctx),
-                child: const Text("Cancel"),
-              ),
-              ElevatedButton(
-                onPressed: () async {
-                  if (controller.text.isNotEmpty) {
-                    int newId = await DatabaseHelper.instance.addCategory(
-                      controller.text,
-                    );
-                    await _loadCategories(); // Refresh local list
-                    await _updateCategory(
-                      newId,
-                      controller.text,
-                    ); // Assign immediately
-                    if (mounted) Navigator.pop(ctx);
-                  }
-                },
-                child: const Text("Create & Assign"),
-              ),
-            ],
+          (ctx) => StatefulBuilder(
+            builder: (context, setDialogState) {
+              return AlertDialog(
+                title: const Text("New Category"),
+                content: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      TextField(
+                        controller: controller,
+                        decoration: const InputDecoration(
+                          labelText: "Category Name",
+                          border: OutlineInputBorder(),
+                          hintText: "e.g. Utilities",
+                        ),
+                        textCapitalization: TextCapitalization.sentences,
+                      ),
+                      const SizedBox(height: 16),
+                      const Align(
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          "Pick a Color:",
+                          style: TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      // Color Picker Grid
+                      Wrap(
+                        spacing: 10,
+                        runSpacing: 10,
+                        children:
+                            _categoryColors.map((color) {
+                              final isSelected =
+                                  selectedColor.value == color.value;
+                              return GestureDetector(
+                                onTap: () {
+                                  setDialogState(() {
+                                    selectedColor = color;
+                                  });
+                                },
+                                child: Container(
+                                  width: 36,
+                                  height: 36,
+                                  decoration: BoxDecoration(
+                                    color: color,
+                                    shape: BoxShape.circle,
+                                    border:
+                                        isSelected
+                                            ? Border.all(
+                                              color: Colors.black,
+                                              width: 3,
+                                            )
+                                            : null,
+                                    boxShadow: [
+                                      if (isSelected)
+                                        const BoxShadow(
+                                          color: Colors.black26,
+                                          blurRadius: 4,
+                                          offset: Offset(0, 2),
+                                        ),
+                                    ],
+                                  ),
+                                  child:
+                                      isSelected
+                                          ? const Icon(
+                                            Icons.check,
+                                            color: Colors.white,
+                                            size: 20,
+                                          )
+                                          : null,
+                                ),
+                              );
+                            }).toList(),
+                      ),
+                    ],
+                  ),
+                ),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(ctx),
+                    child: const Text("Cancel"),
+                  ),
+                  ElevatedButton(
+                    onPressed: () async {
+                      if (controller.text.isNotEmpty) {
+                        int newId = await DatabaseHelper.instance.addCategory(
+                          controller.text,
+                          color: selectedColor.value,
+                        );
+                        await _loadCategories(); // Refresh local list
+                        await _updateCategory(
+                          newId,
+                          controller.text,
+                        ); // Assign immediately
+                        if (mounted) Navigator.pop(ctx);
+                      }
+                    },
+                    child: const Text("Create & Assign"),
+                  ),
+                ],
+              );
+            },
           ),
     );
   }

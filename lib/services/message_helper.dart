@@ -6,12 +6,15 @@ import 'database_helper.dart';
 class MessageHelper {
   final Telephony _telephony = Telephony.instance;
 
-  // Modified to allow looking back X days
-  Future<int> processNewMessages({int lookBackDays = 60}) async {
+  // Modified to allow looking back X days and forcing full scan
+  Future<int> processNewMessages({
+    int lookBackDays = 60,
+    bool forceFullScan = false,
+  }) async {
     final prefs = await SharedPreferences.getInstance();
     final dbHelper = DatabaseHelper.instance;
 
-    debugPrint("--- STARTING SYNC ---");
+    debugPrint("--- STARTING SYNC (Force Full: $forceFullScan) ---");
 
     // 1. Fetch all patterns
     final patterns = await dbHelper.database.then((db) => db.query('patterns'));
@@ -21,11 +24,35 @@ class MessageHelper {
     }
 
     // 2. Calculate the Look-back Date
-    // We want to scan messages from [Today - lookBackDays]
-    final DateTime sinceDate = DateTime.now().subtract(
-      Duration(days: lookBackDays),
-    );
-    final int sinceTimestamp = sinceDate.millisecondsSinceEpoch;
+    int sinceTimestamp;
+
+    // Check for existing sync data (Incremental Sync)
+    final int? lastSyncTime = prefs.getInt('lastSmsSyncTime');
+    // Check for user-defined start date (First Run)
+    final int? smsStartDate = prefs.getInt('smsStartDate');
+
+    if (!forceFullScan && lastSyncTime != null) {
+      // If we have synced before, only look for messages since then
+      sinceTimestamp = lastSyncTime;
+      debugPrint(
+        "Syncing since last run: ${DateTime.fromMillisecondsSinceEpoch(sinceTimestamp)}",
+      );
+    } else if (smsStartDate != null) {
+      // First time running sync OR forced full scan, use the user's selected start date
+      sinceTimestamp = smsStartDate;
+      debugPrint(
+        "Full/Initial sync, using selected start date: ${DateTime.fromMillisecondsSinceEpoch(sinceTimestamp)}",
+      );
+    } else {
+      // Fallback (shouldn't happen if setup flow is followed)
+      sinceTimestamp =
+          DateTime.now()
+              .subtract(Duration(days: lookBackDays))
+              .millisecondsSinceEpoch;
+      debugPrint(
+        "Fallback sync (60 days): ${DateTime.fromMillisecondsSinceEpoch(sinceTimestamp)}",
+      );
+    }
 
     // 3. Fetch Inbox (Filtered by Date in Dart for reliability)
     List<SmsMessage> messages = await _telephony.getInboxSms(

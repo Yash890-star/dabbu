@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:permission_handler/permission_handler.dart'; // Explicitly used now
 import 'package:another_telephony/telephony.dart';
 import 'package:intl/intl.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'sms_list_screen.dart';
 
@@ -14,7 +15,12 @@ class SmsSetupScreen extends StatefulWidget {
 
 class _SmsSetupScreenState extends State<SmsSetupScreen> {
   final Telephony _telephony = Telephony.instance;
-  DateTime _selectedDate = DateTime.now().subtract(const Duration(days: 30));
+  // Default to the 1st of the current month
+  late DateTime _selectedDate = DateTime(
+    DateTime.now().year,
+    DateTime.now().month,
+    1,
+  );
   bool _isLoading = false;
 
   Future<void> _fetchSmsAndContinue() async {
@@ -42,6 +48,10 @@ class _SmsSetupScreenState extends State<SmsSetupScreen> {
       }
       return;
     }
+
+    // Save the selected start date for future syncs (First Run Logic)
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt('smsStartDate', _selectedDate.millisecondsSinceEpoch);
 
     try {
       // 2. Fetch Messages

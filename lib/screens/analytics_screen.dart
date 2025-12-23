@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:intl/intl.dart';
 import '../services/database_helper.dart';
+import 'transaction_detail_screen.dart';
 
 class AnalyticsScreen extends StatefulWidget {
   const AnalyticsScreen({super.key});
@@ -14,8 +15,8 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
   // --- Filter State ---
   String _timeFrame = 'Month';
   DateTime _focusedDate = DateTime.now();
-  int? _selectedCategoryId;
-  int? _selectedPatternId;
+  List<int> _selectedCategoryIds = [];
+  List<int> _selectedPatternIds = [];
 
   // --- Data State ---
   List<Map<String, dynamic>> _transactions = [];
@@ -78,8 +79,8 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
     final data = await DatabaseHelper.instance.getFilteredTransactions(
       startEpoch: start,
       endEpoch: end,
-      categoryId: _selectedCategoryId,
-      patternId: _selectedPatternId,
+      categoryIds: _selectedCategoryIds,
+      patternIds: _selectedPatternIds,
     );
 
     // --- NEW: Calculate Summaries Here ---
@@ -390,6 +391,18 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                         color: isCredit ? Colors.green : Colors.red,
                       ),
                     ),
+                    onTap: () async {
+                      await Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder:
+                              (context) =>
+                                  TransactionDetailScreen(transaction: tx),
+                        ),
+                      );
+                      // Refresh data when coming back (in case category was edited)
+                      _refreshAll();
+                    },
                   ),
                 );
               }),
@@ -470,20 +483,20 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
         children: [
           _buildFilterChip<int>(
             label: "Category",
-            value: _selectedCategoryId,
+            selectedIds: _selectedCategoryIds,
             items: _allCategories,
             idKey: 'id',
             nameKey: 'name',
             fetchItems: () => DatabaseHelper.instance.getCategories(),
             onChanged: (val) {
-              setState(() => _selectedCategoryId = val);
+              setState(() => _selectedCategoryIds = val);
               _fetchData();
             },
           ),
           const SizedBox(width: 10),
           _buildFilterChip<int>(
             label: "Method",
-            value: _selectedPatternId,
+            selectedIds: _selectedPatternIds,
             items: _allPatterns,
             idKey: 'id',
             nameKey: 'name',
@@ -492,7 +505,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                   (d) => d.query('patterns'),
                 ),
             onChanged: (val) {
-              setState(() => _selectedPatternId = val);
+              setState(() => _selectedPatternIds = val);
               _fetchData();
             },
           ),
@@ -503,63 +516,99 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
 
   Widget _buildFilterChip<T>({
     required String label,
-    required T? value,
+    required List<int> selectedIds,
     required List<Map<String, dynamic>> items,
     required String idKey,
     required String nameKey,
-    required Function(T?) onChanged,
+    required Function(List<int>) onChanged,
     required Future<List<Map<String, dynamic>>> Function() fetchItems,
   }) {
     String labelText = "All ${label}s";
-    if (value != null && items.isNotEmpty) {
-      try {
-        final found = items.firstWhere((e) => e[idKey] == value);
-        labelText = found[nameKey];
-      } catch (e) {}
+
+    if (selectedIds.isNotEmpty && items.isNotEmpty) {
+      if (selectedIds.length == 1) {
+        try {
+          final found = items.firstWhere((e) => e[idKey] == selectedIds.first);
+          labelText = found[nameKey];
+        } catch (e) {}
+      } else {
+        labelText = "$label (${selectedIds.length})";
+      }
     }
 
     return GestureDetector(
       onTap: () async {
         final freshItems = await fetchItems();
         if (!mounted) return;
-        final result = await showDialog<T>(
+
+        // Create a mutable copy of selected IDs for the dialog state
+        List<int> tempSelected = List.from(selectedIds);
+
+        await showDialog(
           context: context,
           builder:
-              (ctx) => SimpleDialog(
-                title: Text("Select $label"),
-                children: [
-                  SimpleDialogOption(
-                    child: const Padding(
-                      padding: EdgeInsets.all(12.0),
-                      child: Text("All"),
-                    ),
-                    onPressed: () => Navigator.pop(ctx, null),
-                  ),
-                  ...freshItems.map(
-                    (item) => SimpleDialogOption(
-                      child: Padding(
-                        padding: const EdgeInsets.all(12.0),
-                        child: Text(item[nameKey]),
+              (ctx) => StatefulBuilder(
+                builder: (context, setDialogState) {
+                  return AlertDialog(
+                    title: Text("Select $label"),
+                    content: SizedBox(
+                      width: double.maxFinite,
+                      child: ListView(
+                        shrinkWrap: true,
+                        children:
+                            freshItems.map((item) {
+                              final id = item[idKey] as int;
+                              final isChecked = tempSelected.contains(id);
+                              return CheckboxListTile(
+                                value: isChecked,
+                                title: Text(item[nameKey]),
+                                onChanged: (bool? value) {
+                                  setDialogState(() {
+                                    if (value == true) {
+                                      tempSelected.add(id);
+                                    } else {
+                                      tempSelected.remove(id);
+                                    }
+                                  });
+                                },
+                              );
+                            }).toList(),
                       ),
-                      onPressed: () => Navigator.pop(ctx, item[idKey]),
                     ),
-                  ),
-                ],
+                    actions: [
+                      TextButton(
+                        onPressed: () {
+                          // Clear selection means "All"
+                          setDialogState(() {
+                            tempSelected.clear();
+                          });
+                        },
+                        child: const Text("Clear All"),
+                      ),
+                      TextButton(
+                        onPressed: () => Navigator.pop(ctx),
+                        child: const Text("Cancel"),
+                      ),
+                      ElevatedButton(
+                        onPressed: () {
+                          onChanged(tempSelected);
+                          Navigator.pop(ctx);
+                        },
+                        child: const Text("Apply"),
+                      ),
+                    ],
+                  );
+                },
               ),
         );
-        onChanged(result);
-        setState(() {
-          if (label == "Category") _allCategories = freshItems;
-          if (label == "Method") _allPatterns = freshItems;
-        });
       },
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         decoration: BoxDecoration(
-          color: value != null ? Colors.blue.shade50 : Colors.white,
+          color: selectedIds.isNotEmpty ? Colors.blue.shade50 : Colors.white,
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
-            color: value != null ? Colors.blue : Colors.grey.shade300,
+            color: selectedIds.isNotEmpty ? Colors.blue : Colors.grey.shade300,
           ),
         ),
         child: Row(
@@ -567,7 +616,10 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
             Text(
               labelText,
               style: TextStyle(
-                color: value != null ? Colors.blue.shade700 : Colors.black87,
+                color:
+                    selectedIds.isNotEmpty
+                        ? Colors.blue.shade700
+                        : Colors.black87,
                 fontWeight: FontWeight.w500,
               ),
             ),
@@ -575,7 +627,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
             Icon(
               Icons.keyboard_arrow_down,
               size: 16,
-              color: value != null ? Colors.blue : Colors.grey,
+              color: selectedIds.isNotEmpty ? Colors.blue : Colors.grey,
             ),
           ],
         ),

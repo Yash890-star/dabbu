@@ -172,8 +172,41 @@ class _SettingsPageState extends State<SettingsPage>
 
   // --- Pattern Logic ---
   Future<void> _deletePattern(int id) async {
-    final db = await DatabaseHelper.instance.database;
-    await db.delete('patterns', where: 'id = ?', whereArgs: [id]);
+    // Show confirmation dialog
+    final shouldDeleteTransactions = await showDialog<bool>(
+      context: context,
+      builder:
+          (ctx) => AlertDialog(
+            title: const Text("Delete Pattern?"),
+            content: const Text(
+              "Do you want to delete the transactions associated with this pattern as well?",
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, null), // Cancel
+                child: const Text("Cancel"),
+              ),
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, false), // Keep Transactions
+                child: const Text("Keep Transactions"),
+              ),
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, true), // Delete All
+                style: TextButton.styleFrom(foregroundColor: Colors.red),
+                child: const Text("Delete All"),
+              ),
+            ],
+          ),
+    );
+
+    // If cancelled (null), do nothing
+    if (shouldDeleteTransactions == null) return;
+
+    // Proceed with deletion
+    await DatabaseHelper.instance.deletePattern(
+      id,
+      deleteTransactions: shouldDeleteTransactions,
+    );
     _loadData();
   }
 

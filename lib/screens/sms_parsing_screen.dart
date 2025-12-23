@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:another_telephony/telephony.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/database_helper.dart';
+import '../services/message_helper.dart';
 import 'main_screen.dart';
 
 class SmsParsingScreen extends StatefulWidget {
@@ -197,20 +198,27 @@ class _SmsParsingScreenState extends State<SmsParsingScreen> {
         'extractionIndex': 1,
       });
 
-      // NEW & ROBUST logic (Matches MessageHelper)
-      String rawToken = _bodyTokens[_selectedAmountIndex!];
-
-      // 1. Remove commas (e.g. "1,200" -> "1200")
-      String cleanToken = rawToken.replaceAll(',', '');
-
-      // 2. Smart Extraction: Find the first valid number pattern
-      // This handles "Rs.409.00", ".409.00", "409", etc.
-      RegExp numberRegex = RegExp(r'(\d*\.?\d+)');
-      Match? numMatch = numberRegex.firstMatch(cleanToken);
+      // NEW & ROBUST logic: Use the generated regex to extract the amount
+      // This ensures 100% parity with how MessageHelper (and the background sync) will parse it
+      final regExp = RegExp(_generatedRegex, caseSensitive: false);
+      final match = regExp.firstMatch(widget.message.body ?? "");
 
       double amount = 0.0;
-      if (numMatch != null) {
-        amount = double.tryParse(numMatch.group(0) ?? "0") ?? 0.0;
+
+      if (match != null) {
+        // 1. Get raw string from the capture group (matches regex logic)
+        String rawString = match.group(1) ?? "0";
+
+        // 2. Remove commas
+        String cleanString = rawString.replaceAll(',', '');
+
+        // 3. Smart Extraction (Same helper regex)
+        RegExp numberRegex = RegExp(r'(\d*\.?\d+)');
+        Match? numMatch = numberRegex.firstMatch(cleanString);
+
+        if (numMatch != null) {
+          amount = double.tryParse(numMatch.group(0) ?? "0") ?? 0.0;
+        }
       }
 
       await DatabaseHelper.instance.insertTransaction({
@@ -225,6 +233,10 @@ class _SmsParsingScreenState extends State<SmsParsingScreen> {
 
       final prefs = await SharedPreferences.getInstance();
       await prefs.setBool('initialSetupDone', true);
+
+      // FORCE FULL SCAN: Retrospectively find all transactions for this new pattern
+      // This will use the "SmsStartDate" to look back and find old messages
+      await MessageHelper().processNewMessages(forceFullScan: true);
 
       if (!mounted) return;
 

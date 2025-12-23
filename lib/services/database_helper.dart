@@ -90,6 +90,31 @@ class DatabaseHelper {
     return await db.insert('patterns', row);
   }
 
+  Future<void> deletePattern(int id, {required bool deleteTransactions}) async {
+    final db = await instance.database;
+    await db.transaction((txn) async {
+      if (deleteTransactions) {
+        // Option 1: Delete all transactions associated with this pattern
+        await txn.delete(
+          'transactions',
+          where: 'patternId = ?',
+          whereArgs: [id],
+        );
+      } else {
+        // Option 2: Keep transactions, but unlink them (set patternId to NULL)
+        // They will essentially become "Manually Added" or "Unknown Source"
+        await txn.update(
+          'transactions',
+          {'patternId': null},
+          where: 'patternId = ?',
+          whereArgs: [id],
+        );
+      }
+      // Finally, delete the pattern itself
+      await txn.delete('patterns', where: 'id = ?', whereArgs: [id]);
+    });
+  }
+
   Future<int> insertTransaction(Map<String, dynamic> row) async {
     final db = await instance.database;
     return await db.insert('transactions', row);
@@ -125,8 +150,8 @@ class DatabaseHelper {
   Future<List<Map<String, dynamic>>> getFilteredTransactions({
     int? startEpoch, // Start Date timestamp
     int? endEpoch, // End Date timestamp
-    int? categoryId, // Optional Category Filter
-    int? patternId, // Optional Payment Method Filter
+    List<int>? categoryIds, // Multi-select Category Filter
+    List<int>? patternIds, // Multi-select Payment Method Filter
   }) async {
     final db = await instance.database;
 
@@ -147,14 +172,17 @@ class DatabaseHelper {
       args.add(endEpoch);
     }
 
-    if (categoryId != null) {
-      conditions.add('t.categoryId = ?');
-      args.add(categoryId);
+    if (categoryIds != null && categoryIds.isNotEmpty) {
+      // Create a string of question marks: "?, ?, ?"
+      final placeholders = List.filled(categoryIds.length, '?').join(', ');
+      conditions.add('t.categoryId IN ($placeholders)');
+      args.addAll(categoryIds);
     }
 
-    if (patternId != null) {
-      conditions.add('t.patternId = ?');
-      args.add(patternId);
+    if (patternIds != null && patternIds.isNotEmpty) {
+      final placeholders = List.filled(patternIds.length, '?').join(', ');
+      conditions.add('t.patternId IN ($placeholders)');
+      args.addAll(patternIds);
     }
 
     // 2. Execute Query
