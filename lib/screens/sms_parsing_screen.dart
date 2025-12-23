@@ -7,8 +7,17 @@ import 'main_screen.dart';
 
 class SmsParsingScreen extends StatefulWidget {
   final SmsMessage message;
+  final int? existingPatternId; // For "Edit Pattern" mode
+  final String? initialPatternName;
+  final int? initialCategoryId;
 
-  const SmsParsingScreen({super.key, required this.message});
+  const SmsParsingScreen({
+    super.key,
+    required this.message,
+    this.existingPatternId,
+    this.initialPatternName,
+    this.initialCategoryId,
+  });
 
   @override
   State<SmsParsingScreen> createState() => _SmsParsingScreenState();
@@ -39,7 +48,11 @@ class _SmsParsingScreenState extends State<SmsParsingScreen> {
     _tokenizeMessage();
     _tokenizeSender();
     _loadCategories();
-    _patternNameController.text = widget.message.address ?? "Bank";
+    _patternNameController.text =
+        widget.initialPatternName ?? widget.message.address ?? "Bank";
+    if (widget.initialCategoryId != null) {
+      _selectedCategoryId = widget.initialCategoryId!;
+    }
   }
 
   void _tokenizeMessage() {
@@ -190,61 +203,80 @@ class _SmsParsingScreenState extends State<SmsParsingScreen> {
     setState(() => _isLoading = true);
 
     try {
-      final patternId = await DatabaseHelper.instance.insertPattern({
-        'senderId': _selectedSenderToken,
-        'name': _patternNameController.text.trim(),
-        'patternRegex': _generatedRegex,
-        'messageType': _transactionType,
-        'extractionIndex': 1,
-      });
+      if (widget.existingPatternId != null) {
+        // --- EDIT MODE ---
+        // 1. Delete associated transactions
+        await DatabaseHelper.instance.deleteTransactionsByPatternId(
+          widget.existingPatternId!,
+        );
 
-      // NEW & ROBUST logic: Use the generated regex to extract the amount
-      // This ensures 100% parity with how MessageHelper (and the background sync) will parse it
-      final regExp = RegExp(_generatedRegex, caseSensitive: false);
-      final match = regExp.firstMatch(widget.message.body ?? "");
+        // 2. Update Pattern
+        await DatabaseHelper.instance.updatePattern({
+          'id': widget.existingPatternId,
+          'senderId': _selectedSenderToken,
+          'name': _patternNameController.text.trim(),
+          'patternRegex': _generatedRegex,
+          'messageType': _transactionType,
+          'extractionIndex': 1,
+        });
 
-      double amount = 0.0;
+        // 3. Force Rescan
+        // This will re-import the current message AND history
+        await MessageHelper().processNewMessages(forceFullScan: true);
 
-      if (match != null) {
-        // 1. Get raw string from the capture group (matches regex logic)
-        String rawString = match.group(1) ?? "0";
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Pattern updated & history refreshed.")),
+        );
+        Navigator.pop(context); // Go back to Settings
+      } else {
+        // --- CREATE MODE ---
+        final patternId = await DatabaseHelper.instance.insertPattern({
+          'senderId': _selectedSenderToken,
+          'name': _patternNameController.text.trim(),
+          'patternRegex': _generatedRegex,
+          'messageType': _transactionType,
+          'extractionIndex': 1,
+        });
 
-        // 2. Remove commas
-        String cleanString = rawString.replaceAll(',', '');
-
-        // 3. Smart Extraction (Same helper regex)
-        RegExp numberRegex = RegExp(r'(\d*\.?\d+)');
-        Match? numMatch = numberRegex.firstMatch(cleanString);
-
-        if (numMatch != null) {
-          amount = double.tryParse(numMatch.group(0) ?? "0") ?? 0.0;
+        // Insert the current one manually for immediate feedback (optional, but good for UX)
+        // We replicate the parsing logic to get the amount accurately
+        final regExp = RegExp(_generatedRegex, caseSensitive: false);
+        final match = regExp.firstMatch(widget.message.body ?? "");
+        double amount = 0.0;
+        if (match != null) {
+          String rawString = match.group(1) ?? "0";
+          String cleanString = rawString.replaceAll(',', '');
+          RegExp numberRegex = RegExp(r'(\d*\.?\d+)');
+          Match? numMatch = numberRegex.firstMatch(cleanString);
+          if (numMatch != null) {
+            amount = double.tryParse(numMatch.group(0) ?? "0") ?? 0.0;
+          }
         }
+
+        await DatabaseHelper.instance.insertTransaction({
+          'amount': amount,
+          'sender': widget.message.address ?? "Unknown",
+          'body': widget.message.body,
+          'date': widget.message.date ?? DateTime.now().millisecondsSinceEpoch,
+          'type': _transactionType,
+          'categoryId': _selectedCategoryId,
+          'patternId': patternId,
+        });
+
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setBool('initialSetupDone', true);
+
+        // Force Rescan to find older messages
+        await MessageHelper().processNewMessages(forceFullScan: true);
+
+        if (!mounted) return;
+        Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(builder: (context) => const MainScreen()),
+          (route) => false,
+        );
       }
-
-      await DatabaseHelper.instance.insertTransaction({
-        'amount': amount,
-        'sender': widget.message.address ?? "Unknown",
-        'body': widget.message.body,
-        'date': widget.message.date ?? DateTime.now().millisecondsSinceEpoch,
-        'type': _transactionType,
-        'categoryId': _selectedCategoryId,
-        'patternId': patternId,
-      });
-
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setBool('initialSetupDone', true);
-
-      // FORCE FULL SCAN: Retrospectively find all transactions for this new pattern
-      // This will use the "SmsStartDate" to look back and find old messages
-      await MessageHelper().processNewMessages(forceFullScan: true);
-
-      if (!mounted) return;
-
-      Navigator.pushAndRemoveUntil(
-        context,
-        MaterialPageRoute(builder: (context) => const MainScreen()),
-        (route) => false,
-      );
     } catch (e) {
       debugPrint("Error saving: $e");
       if (mounted) setState(() => _isLoading = false);

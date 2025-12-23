@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import '../services/database_helper.dart';
+
+import 'package:another_telephony/telephony.dart';
+import 'sms_parsing_screen.dart';
 import 'sms_setup_screen.dart'; // To add new regex
 
 class SettingsPage extends StatefulWidget {
@@ -171,6 +174,71 @@ class _SettingsPageState extends State<SettingsPage>
   }
 
   // --- Pattern Logic ---
+  Future<void> _editPattern(Map<String, dynamic> pattern) async {
+    // 1. Fetch latest SMS for this sender
+    final senderId = pattern['senderId'];
+    final Telephony telephony = Telephony.instance;
+
+    // Show loading indicator
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => const Center(child: CircularProgressIndicator()),
+    );
+
+    try {
+      final messages = await telephony.getInboxSms(
+        columns: [SmsColumn.ADDRESS, SmsColumn.BODY, SmsColumn.DATE],
+        filter: SmsFilter.where(SmsColumn.ADDRESS).like("%$senderId%"),
+        sortOrder: [OrderBy(SmsColumn.DATE, sort: Sort.DESC)],
+      );
+
+      if (!mounted) return;
+      Navigator.pop(context); // Dismiss loading
+
+      if (messages.isNotEmpty) {
+        // 2. Open Visual Editor with the latest message
+        final sms = messages.first;
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder:
+                (context) => SmsParsingScreen(
+                  message: sms,
+                  existingPatternId: pattern['id'],
+                  initialPatternName: pattern['name'],
+                  // We'd ideally pass the category ID here, but for now user can re-select if needed
+                ),
+          ),
+        ).then((_) => _loadData()); // Refresh after return
+      } else {
+        // No SMS found
+        showDialog(
+          context: context,
+          builder:
+              (ctx) => AlertDialog(
+                title: const Text("No SMS Found"),
+                content: Text(
+                  "Could not find any recent SMS from $senderId to retrain the pattern.",
+                ),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(ctx),
+                    child: const Text("OK"),
+                  ),
+                ],
+              ),
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      Navigator.pop(context); // Dismiss loading if error
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text("Error finding SMS: $e")));
+    }
+  }
+
   Future<void> _deletePattern(int id) async {
     // Show confirmation dialog
     final shouldDeleteTransactions = await showDialog<bool>(
@@ -260,9 +328,18 @@ class _SettingsPageState extends State<SettingsPage>
                 (p) => ListTile(
                   title: Text(p['name'] ?? "Unnamed"),
                   subtitle: Text(p['senderId']),
-                  trailing: IconButton(
-                    icon: const Icon(Icons.delete, color: Colors.red),
-                    onPressed: () => _deletePattern(p['id']),
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.edit, color: Colors.blue),
+                        onPressed: () => _editPattern(p),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.delete, color: Colors.red),
+                        onPressed: () => _deletePattern(p['id']),
+                      ),
+                    ],
                   ),
                 ),
               ),

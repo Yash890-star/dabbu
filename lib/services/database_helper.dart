@@ -115,6 +115,21 @@ class DatabaseHelper {
     });
   }
 
+  Future<int> updatePattern(Map<String, dynamic> row) async {
+    final db = await instance.database;
+    int id = row['id'];
+    return await db.update('patterns', row, where: 'id = ?', whereArgs: [id]);
+  }
+
+  Future<void> deleteTransactionsByPatternId(int patternId) async {
+    final db = await instance.database;
+    await db.delete(
+      'transactions',
+      where: 'patternId = ?',
+      whereArgs: [patternId],
+    );
+  }
+
   Future<int> insertTransaction(Map<String, dynamic> row) async {
     final db = await instance.database;
     return await db.insert('transactions', row);
