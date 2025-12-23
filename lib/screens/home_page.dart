@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import '../services/database_helper.dart';
 import '../services/message_helper.dart';
 import 'transaction_detail_screen.dart';
+import 'add_transaction_screen.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -117,6 +118,18 @@ class _HomePageState extends State<HomePage> {
             onPressed: _isSyncing ? null : _syncMessages,
           ),
         ],
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () async {
+          await Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => const AddTransactionScreen(),
+            ),
+          );
+          _loadData(); // Refresh list on return
+        },
+        child: const Icon(Icons.add),
       ),
       body: RefreshIndicator(
         onRefresh: _syncMessages,

@@ -44,9 +44,21 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
     final db = DatabaseHelper.instance;
     final cats = await db.getCategories();
     final pats = await db.database.then((d) => d.query('patterns'));
+
+    // Create a mutable copy of patterns and add the "Manual" option
+    // using ID -1 as a sentinel value.
+    final List<Map<String, dynamic>> modifiablePatterns = List.from(pats);
+    modifiablePatterns.add({
+      'id': -1,
+      'name': 'Manual Transactions',
+      'senderId': 'MANUAL', // Dummy values for required fields
+      'patternRegex': '',
+      'messageType': 'debit',
+    });
+
     setState(() {
       _allCategories = cats;
-      _allPatterns = pats;
+      _allPatterns = modifiablePatterns;
     });
   }
 
@@ -500,10 +512,21 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
             items: _allPatterns,
             idKey: 'id',
             nameKey: 'name',
-            fetchItems:
-                () => DatabaseHelper.instance.database.then(
-                  (d) => d.query('patterns'),
-                ),
+            fetchItems: () async {
+              final db = DatabaseHelper.instance;
+              final pats = await db.database.then((d) => d.query('patterns'));
+              final List<Map<String, dynamic>> modifiablePatterns = List.from(
+                pats,
+              );
+              modifiablePatterns.add({
+                'id': -1,
+                'name': 'Manual Transactions',
+                'senderId': 'MANUAL',
+                'patternRegex': '',
+                'messageType': 'debit',
+              });
+              return modifiablePatterns;
+            },
             onChanged: (val) {
               setState(() => _selectedPatternIds = val);
               _fetchData();

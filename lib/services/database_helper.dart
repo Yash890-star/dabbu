@@ -120,6 +120,22 @@ class DatabaseHelper {
     return await db.insert('transactions', row);
   }
 
+  Future<int> updateTransaction(Map<String, dynamic> row) async {
+    final db = await instance.database;
+    int id = row['id'];
+    return await db.update(
+      'transactions',
+      row,
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+  }
+
+  Future<int> deleteTransaction(int id) async {
+    final db = await instance.database;
+    return await db.delete('transactions', where: 'id = ?', whereArgs: [id]);
+  }
+
   Future<List<Map<String, dynamic>>> getTransactionsWithDetails() async {
     final db = await instance.database;
 
@@ -180,9 +196,27 @@ class DatabaseHelper {
     }
 
     if (patternIds != null && patternIds.isNotEmpty) {
-      final placeholders = List.filled(patternIds.length, '?').join(', ');
-      conditions.add('t.patternId IN ($placeholders)');
-      args.addAll(patternIds);
+      if (patternIds.contains(-1)) {
+        // Handle "Manual Transactions" (-1)
+        final dbIds = patternIds.where((id) => id != -1).toList();
+
+        if (dbIds.isEmpty) {
+          // ONLY Manual Transactions selected
+          conditions.add('t.patternId IS NULL');
+        } else {
+          // BOTH Manual AND some Specific Patterns selected
+          final placeholders = List.filled(dbIds.length, '?').join(', ');
+          conditions.add(
+            '(t.patternId IN ($placeholders) OR t.patternId IS NULL)',
+          );
+          args.addAll(dbIds);
+        }
+      } else {
+        // Standard filter (Only Specific Patterns)
+        final placeholders = List.filled(patternIds.length, '?').join(', ');
+        conditions.add('t.patternId IN ($placeholders)');
+        args.addAll(patternIds);
+      }
     }
 
     // 2. Execute Query
