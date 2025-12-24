@@ -29,6 +29,9 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
   // New: Pre-calculated summary for the chart & legend
   List<_CategorySummary> _categorySummaries = [];
 
+  // New: Insights State
+  List<_InsightItem> _insights = [];
+
   bool _isLoading = true;
 
   @override
@@ -87,29 +90,69 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
     return (start.millisecondsSinceEpoch, end.millisecondsSinceEpoch);
   }
 
+  (int, int) _getPreviousDateRange() {
+    DateTime start, end;
+    final date = DateTime(
+      _focusedDate.year,
+      _focusedDate.month,
+      _focusedDate.day,
+    );
+
+    if (_timeFrame == 'Day') {
+      // Prev Day
+      final prevDate = date.subtract(const Duration(days: 1));
+      start = prevDate;
+      end = prevDate.add(const Duration(hours: 23, minutes: 59, seconds: 59));
+    } else if (_timeFrame == 'Week') {
+      // Prev Week
+      final startCurrent = date.subtract(Duration(days: date.weekday - 1));
+      start = startCurrent.subtract(const Duration(days: 7));
+      end = start.add(const Duration(days: 6, hours: 23, minutes: 59));
+    } else {
+      // Prev Month
+      // Go to first day of current month, subtract 1 day to get last day of prev month, then find start.
+      // Actually simpler: Month - 1
+      start = DateTime(date.year, date.month - 1, 1);
+      end = DateTime(date.year, date.month, 0, 23, 59, 59);
+    }
+    return (start.millisecondsSinceEpoch, end.millisecondsSinceEpoch);
+  }
+
   Future<void> _fetchData() async {
     setState(() => _isLoading = true);
     final (start, end) = _getDateRange();
+    final (startPrev, endPrev) = _getPreviousDateRange();
 
-    final data = await DatabaseHelper.instance.getFilteredTransactions(
+    final db = DatabaseHelper.instance;
+
+    // 1. Current Period Data
+    final data = await db.getFilteredTransactions(
       startEpoch: start,
       endEpoch: end,
       categoryIds: _selectedCategoryIds,
       patternIds: _selectedPatternIds,
     );
 
-    // --- NEW: Calculate Summaries Here ---
+    // 2. Previous Period Data (For Insights)
+    final prevData = await db.getFilteredTransactions(
+      startEpoch: startPrev,
+      endEpoch: endPrev,
+      categoryIds: _selectedCategoryIds,
+      patternIds: _selectedPatternIds,
+    );
+
+    // --- NEW: Calculate Summaries & Insights ---
     Map<String, double> totals = {};
     Map<String, Color> colors = {};
     double totalFilterAmount = 0;
 
+    // Process Current Data
     for (var tx in data) {
       if (tx['type'] == _transactionType) {
         final catName = tx['categoryName'] ?? 'Uncategorized';
         final amount = (tx['amount'] as num).toDouble();
         totalFilterAmount += amount;
-
-        totals[catName] = (totals[catName] ?? 0) + amount;
+        totals[catName] = (totals[catName] ?? 0) + amount; // Current Total
 
         if (!colors.containsKey(catName)) {
           int? colorInt = tx['categoryColor'];
@@ -118,7 +161,74 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
       }
     }
 
-    // Convert map to list of objects and sort by highest spend
+    // Process Previous Data
+    Map<String, double> prevTotals = {};
+    for (var tx in prevData) {
+      if (tx['type'] == _transactionType) {
+        final catName = tx['categoryName'] ?? 'Uncategorized';
+        final amount = (tx['amount'] as num).toDouble();
+        prevTotals[catName] = (prevTotals[catName] ?? 0) + amount;
+      }
+    }
+
+    // Generate Insights
+    List<_InsightItem> calculatedInsights = [];
+    totals.forEach((catName, currentAmount) {
+      final prevAmount = prevTotals[catName] ?? 0.0;
+      if (prevAmount > 0) {
+        // Only compare if we had spend previously
+        final diff = currentAmount - prevAmount;
+        final pctChange = (diff / prevAmount) * 100;
+
+        // Filter out insignificant changes
+        // Adjust threshold: Show if change is >= 5% OR absolute difference >= 50
+        if (pctChange.abs() >= 5 || diff.abs() >= 50) {
+          calculatedInsights.add(
+            _InsightItem(
+              categoryName: catName,
+              currentAmount: currentAmount,
+              prevAmount: prevAmount,
+              percentageChange: pctChange,
+              diffAmount: diff,
+            ),
+          );
+        }
+      } else if (currentAmount > 0 && prevAmount == 0) {
+        // New Spend Category!
+        calculatedInsights.add(
+          _InsightItem(
+            categoryName: catName,
+            currentAmount: currentAmount,
+            prevAmount: 0,
+            percentageChange: 100, // Treat as 100% increase (or new)
+            diffAmount: currentAmount,
+          ),
+        );
+      }
+    });
+
+    // Check for "Savings" (Categories where spend dropped significantly)
+    prevTotals.forEach((catName, prevAmount) {
+      if (!totals.containsKey(catName) && prevAmount > 0) {
+        // Stopped spending entirely!
+        calculatedInsights.add(
+          _InsightItem(
+            categoryName: catName,
+            currentAmount: 0,
+            prevAmount: prevAmount,
+            percentageChange: -100,
+            diffAmount: -prevAmount,
+          ),
+        );
+      }
+    });
+
+    // Sort by absolute impact (highest change amount)
+    calculatedInsights.sort(
+      (a, b) => b.diffAmount.abs().compareTo(a.diffAmount.abs()),
+    );
+
+    // Convert to Chart Data
     List<_CategorySummary> summaries =
         totals.entries.map((e) {
           return _CategorySummary(
@@ -138,6 +248,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
       setState(() {
         _transactions = data;
         _categorySummaries = summaries;
+        _insights = calculatedInsights;
         _isLoading = false;
       });
     }
@@ -251,6 +362,113 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                 ),
               ),
             ),
+
+            // 1.8 INSIGHTS (MoM Comparison)
+            if (_insights.isNotEmpty && !_isLoading) ...[
+              const SizedBox(height: 16),
+              const Text(
+                "Insights",
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 8),
+              SizedBox(
+                height: 100,
+                child: ListView.builder(
+                  scrollDirection: Axis.horizontal,
+                  itemCount: _insights.length,
+                  itemBuilder: (context, index) {
+                    final insight = _insights[index];
+                    final isPositive = insight.percentageChange > 0;
+                    final isExpense = _transactionType == 'debit';
+
+                    // Logic:
+                    // Expense Increase (+) -> Bad (Red)
+                    // Expense Decrease (-) -> Good (Green)
+                    // Income Increase (+) -> Good (Green)
+                    // Income Decrease (-) -> Bad (Red)
+
+                    bool isGood;
+                    if (isExpense) {
+                      isGood = !isPositive; // Less expense is good
+                    } else {
+                      isGood = isPositive; // More income is good
+                    }
+
+                    final color = isGood ? Colors.green : Colors.red;
+                    final icon =
+                        isGood ? Icons.trending_up : Icons.trending_down;
+                    // Actually trending_up is always "up", so we use boolean to decide icon rotation or just specific icons.
+                    // Let's use specific icons.
+                    // arrow_drop_up is increase, arrow_drop_down is decrease.
+                    final arrowIcon =
+                        isPositive ? Icons.arrow_upward : Icons.arrow_downward;
+
+                    return Container(
+                      width: 200,
+                      margin: const EdgeInsets.only(right: 12),
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: color.withOpacity(0.3)),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.grey.withOpacity(0.05),
+                            blurRadius: 4,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(4),
+                                decoration: BoxDecoration(
+                                  color: color.withOpacity(0.1),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: Icon(arrowIcon, size: 16, color: color),
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  insight.categoryName,
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 13,
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const Spacer(),
+                          Text(
+                            "${isPositive ? '+' : ''}${insight.percentageChange.toStringAsFixed(0)}% vs last ${_timeFrame.toLowerCase()}",
+                            style: TextStyle(
+                              color: color,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 14,
+                            ),
+                          ),
+                          Text(
+                            "${NumberFormat.compact().format(insight.diffAmount)} (${NumberFormat.compact().format(insight.currentAmount)})",
+                            style: TextStyle(
+                              color: Colors.grey[600],
+                              fontSize: 11,
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ],
 
             const SizedBox(height: 16),
 
@@ -777,5 +995,21 @@ class _CategorySummary {
     required this.amount,
     required this.color,
     required this.percentage,
+  });
+}
+
+class _InsightItem {
+  final String categoryName;
+  final double currentAmount;
+  final double prevAmount;
+  final double percentageChange;
+  final double diffAmount;
+
+  _InsightItem({
+    required this.categoryName,
+    required this.currentAmount,
+    required this.prevAmount,
+    required this.percentageChange,
+    required this.diffAmount,
   });
 }
