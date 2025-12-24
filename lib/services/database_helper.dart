@@ -17,7 +17,67 @@ class DatabaseHelper {
     final dbPath = await getDatabasesPath();
     final path = join(dbPath, filePath);
 
-    return await openDatabase(path, version: 1, onCreate: _createDB);
+    return await openDatabase(
+      path,
+      version: 4,
+      onCreate: _createDB,
+      onUpgrade: _onUpgrade,
+    );
+  }
+
+  Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
+    if (oldVersion < 2) {
+      // 1. Create Goals Table
+      await db.execute('''
+        CREATE TABLE goals (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          name TEXT NOT NULL,
+          targetAmount REAL NOT NULL,
+          savedAmount REAL DEFAULT 0.0,
+          deadline INTEGER,
+          color INTEGER,
+          icon TEXT
+        )
+      ''');
+
+      // 2. Add goalId to transactions
+      try {
+        await db.execute(
+          'ALTER TABLE transactions ADD COLUMN goalId INTEGER REFERENCES goals(id)',
+        );
+      } catch (e) {
+        // Column might already exist if we are in a weird state, ignore
+        print("Column goalId might already exist: $e");
+      }
+    }
+
+    if (oldVersion < 3) {
+      // 3. Add isArchived to goals
+      try {
+        await db.execute(
+          'ALTER TABLE goals ADD COLUMN isArchived INTEGER DEFAULT 0',
+        );
+      } catch (e) {
+        print("Column isArchived might already exist: $e");
+      }
+    }
+
+    if (oldVersion < 4) {
+      // 4. Subscriptions Table
+      await db.execute('''
+        CREATE TABLE subscriptions (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          name TEXT NOT NULL,
+          amount REAL NOT NULL,
+          sender TEXT,
+          period INTEGER DEFAULT 30,
+          nextBillDate INTEGER,
+          patternId INTEGER,
+          isActive INTEGER DEFAULT 1,
+          FOREIGN KEY (patternId) REFERENCES patterns (id)
+        )
+      ''');
+    }
   }
 
   Future<void> _createDB(Database db, int version) async {
@@ -54,8 +114,39 @@ class DatabaseHelper {
         date INTEGER NOT NULL,
         type TEXT NOT NULL,         
         categoryId INTEGER DEFAULT 1, -- Defaults to 'Uncategorized' (ID 1)
-        patternId INTEGER,          
+        patternId INTEGER,
+        goalId INTEGER,
         FOREIGN KEY (categoryId) REFERENCES categories (id),
+        FOREIGN KEY (patternId) REFERENCES patterns (id),
+        FOREIGN KEY (goalId) REFERENCES goals (id)
+      )
+    ''');
+
+    // 4. Goals Table
+    await db.execute('''
+      CREATE TABLE goals (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        targetAmount REAL NOT NULL,
+        savedAmount REAL DEFAULT 0.0,
+        deadline INTEGER,
+        color INTEGER,
+        icon TEXT,
+        isArchived INTEGER DEFAULT 0
+      )
+    ''');
+
+    // 5. Subscriptions Table
+    await db.execute('''
+      CREATE TABLE subscriptions (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        amount REAL NOT NULL,
+        sender TEXT,
+        period INTEGER DEFAULT 30, -- Days
+        nextBillDate INTEGER,
+        patternId INTEGER,
+        isActive INTEGER DEFAULT 1,
         FOREIGN KEY (patternId) REFERENCES patterns (id)
       )
     ''');
@@ -253,9 +344,26 @@ class DatabaseHelper {
   Future<int> updateTransaction(Map<String, dynamic> row) async {
     final db = await instance.database;
     int id = row['id'];
+
+    // Sanitize: only allow valid columns
+    final validColumns = [
+      'amount',
+      'sender',
+      'body',
+      'date',
+      'type',
+      'categoryId',
+      'patternId',
+      'goalId',
+    ];
+    final Map<String, dynamic> sanitized = {};
+    for (var key in validColumns) {
+      if (row.containsKey(key)) sanitized[key] = row[key];
+    }
+
     return await db.update(
       'transactions',
-      row,
+      sanitized,
       where: 'id = ?',
       whereArgs: [id],
     );
@@ -281,13 +389,16 @@ class DatabaseHelper {
       t.type, 
       t.categoryId, 
       t.patternId,
+      t.goalId,
       c.name as categoryName, 
       c.color as categoryColor, 
       c.icon as categoryIcon,
-      p.name as patternName
+      p.name as patternName,
+      g.name as goalName
     FROM transactions t
     LEFT JOIN categories c ON t.categoryId = c.id
     LEFT JOIN patterns p ON t.patternId = p.id
+    LEFT JOIN goals g ON t.goalId = g.id
     ORDER BY t.date DESC
   ''');
   }
@@ -366,5 +477,89 @@ class DatabaseHelper {
     WHERE $whereString
     ORDER BY t.date DESC
   ''', args);
+  }
+  // --- Goals CRUD ---
+
+  Future<int> createGoal(Map<String, dynamic> goal) async {
+    final db = await instance.database;
+    return await db.insert('goals', goal);
+  }
+
+  Future<List<Map<String, dynamic>>> getAllGoals() async {
+    final db = await instance.database;
+    // Calculate savedAmount dynamically from transactions
+    final goals = await db.query('goals');
+    final List<Map<String, dynamic>> enrichedGoals = [];
+
+    for (var goal in goals) {
+      final id = goal['id'] as int;
+      final result = await db.rawQuery(
+        'SELECT SUM(amount) as total FROM transactions WHERE goalId = ?',
+        [id],
+      );
+      final double totalSaved =
+          (result.first['total'] as num?)?.toDouble() ?? 0.0;
+
+      final Map<String, dynamic> newGoal = Map.from(goal);
+      newGoal['savedAmount'] = totalSaved;
+      enrichedGoals.add(newGoal);
+    }
+    return enrichedGoals;
+  }
+
+  Future<int> updateGoal(Map<String, dynamic> goal) async {
+    final db = await instance.database;
+    final id = goal['id'];
+    return await db.update('goals', goal, where: 'id = ?', whereArgs: [id]);
+  }
+
+  Future<int> deleteGoal(int id) async {
+    final db = await instance.database;
+    // 1. Unlink transactions
+    await db.update(
+      'transactions',
+      {'goalId': null},
+      where: 'goalId = ?',
+      whereArgs: [id],
+    );
+    // 2. Delete goal
+    return await db.delete('goals', where: 'id = ?', whereArgs: [id]);
+  }
+
+  Future<void> archiveGoal(int id, bool isArchived) async {
+    final db = await instance.database;
+    await db.update(
+      'goals',
+      {'isArchived': isArchived ? 1 : 0},
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+  }
+
+  // --- Subscriptions CRUD ---
+  Future<int> createSubscription(Map<String, dynamic> row) async {
+    final db = await instance.database;
+    return await db.insert('subscriptions', row);
+  }
+
+  Future<List<Map<String, dynamic>>> getAllSubscriptions() async {
+    final db = await instance.database;
+    return await db.query('subscriptions', orderBy: 'nextBillDate ASC');
+  }
+
+  Future<int> updateSubscription(Map<String, dynamic> row) async {
+    final db = await instance.database;
+    final id = row['id'];
+    return await db.update(
+      'subscriptions',
+      row,
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+  }
+
+  Future<int> deleteSubscription(int id) async {
+    final db = await instance.database;
+    return await db.delete('subscriptions', where: 'id = ?', whereArgs: [id]);
   }
 }

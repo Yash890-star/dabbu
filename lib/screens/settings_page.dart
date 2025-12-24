@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:another_telephony/telephony.dart';
 import 'sms_parsing_screen.dart';
 import 'sms_setup_screen.dart'; // To add new regex
+import 'subscriptions_screen.dart';
 
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
@@ -482,6 +483,20 @@ class _SettingsPageState extends State<SettingsPage>
                 ),
                 trailing: const Icon(Icons.edit),
                 onTap: _editBudget,
+              ),
+              ListTile(
+                leading: const Icon(Icons.receipt_long, color: Colors.purple),
+                title: const Text("Subscriptions & Recurring Bills"),
+                subtitle: const Text("Manage recurring payments"),
+                trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const SubscriptionsScreen(),
+                    ),
+                  );
+                },
               ),
 
               const Divider(height: 32),

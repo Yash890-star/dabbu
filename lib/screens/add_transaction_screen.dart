@@ -3,7 +3,8 @@ import 'package:intl/intl.dart';
 import '../services/database_helper.dart';
 
 class AddTransactionScreen extends StatefulWidget {
-  const AddTransactionScreen({super.key});
+  final int? initialGoalId;
+  const AddTransactionScreen({super.key, this.initialGoalId});
 
   @override
   State<AddTransactionScreen> createState() => _AddTransactionScreenState();
@@ -23,6 +24,9 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
   @override
   void initState() {
     super.initState();
+    if (widget.initialGoalId != null) {
+      _type = 'credit';
+    }
     _loadCategories();
   }
 
@@ -90,6 +94,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
         'type': _type,
         'categoryId': _selectedCategoryId,
         'patternId': null, // Explicitly null for manual
+        'goalId': widget.initialGoalId,
       });
 
       if (!mounted) return;

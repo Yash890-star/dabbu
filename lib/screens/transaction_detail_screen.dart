@@ -17,6 +17,11 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen> {
   late String _categoryName;
   List<Map<String, dynamic>> _allCategories = [];
 
+  // NEW: Goal State
+  int? _selectedGoalId;
+  String? _goalName;
+  List<Map<String, dynamic>> _allGoals = [];
+
   // Edit Mode State
   bool _isManual = false;
   bool _isEditing = false;
@@ -24,30 +29,39 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen> {
   late TextEditingController _noteController;
   late DateTime _selectedDate;
 
+  // Local Mutable Copy
+  late Map<String, dynamic> _localTransaction;
+
   @override
   void initState() {
     super.initState();
-    _selectedCategoryId = widget.transaction['categoryId'] ?? 1;
-    _categoryName = widget.transaction['categoryName'] ?? "Uncategorized";
+    // Create a mutable copy of the transaction data
+    _localTransaction = Map<String, dynamic>.from(widget.transaction);
+
+    _selectedCategoryId = _localTransaction['categoryId'] ?? 1;
+    _categoryName = _localTransaction['categoryName'] ?? "Uncategorized";
+
+    // Initialize Goal from transaction
+    _selectedGoalId = _localTransaction['goalId'];
 
     // Check if Manual Transaction (patternId is NULL)
-    _isManual = widget.transaction['patternId'] == null;
+    _isManual = _localTransaction['patternId'] == null;
 
     // Initialize Controllers with current values
     _amountController = TextEditingController(
-      text: widget.transaction['amount'].toString(),
+      text: _localTransaction['amount'].toString(),
     );
     _noteController = TextEditingController(
       text:
-          widget.transaction['sender'] == "Manual Entry"
-              ? (widget.transaction['body'] ?? "")
-              : widget.transaction['sender'],
+          _localTransaction['sender'] == "Manual Entry"
+              ? (_localTransaction['body'] ?? "")
+              : _localTransaction['sender'],
     );
     _selectedDate = DateTime.fromMillisecondsSinceEpoch(
-      widget.transaction['date'],
+      _localTransaction['date'],
     );
 
-    _loadCategories();
+    _loadData();
   }
 
   @override
@@ -57,9 +71,22 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen> {
     super.dispose();
   }
 
-  Future<void> _loadCategories() async {
+  Future<void> _loadData() async {
     final cats = await DatabaseHelper.instance.getCategories();
-    setState(() => _allCategories = cats);
+    final goals =
+        await DatabaseHelper.instance.getAllGoals(); // <--- Fetch Goals
+
+    String? currentGoalName;
+    if (_selectedGoalId != null) {
+      final found = goals.where((g) => g['id'] == _selectedGoalId).firstOrNull;
+      currentGoalName = found?['name'];
+    }
+
+    setState(() {
+      _allCategories = cats;
+      _allGoals = goals;
+      _goalName = currentGoalName;
+    });
   }
 
   Future<void> _updateCategory(int newCatId, String newCatName) async {
@@ -68,12 +95,14 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen> {
       'transactions',
       {'categoryId': newCatId},
       where: 'id = ?',
-      whereArgs: [widget.transaction['id']],
+      whereArgs: [_localTransaction['id']],
     );
 
     setState(() {
       _selectedCategoryId = newCatId;
       _categoryName = newCatName;
+      _localTransaction['categoryId'] = newCatId;
+      _localTransaction['categoryName'] = newCatName;
     });
 
     if (mounted) {
@@ -95,7 +124,7 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen> {
     final newNote = _noteController.text.trim();
 
     final updatedRow = {
-      'id': widget.transaction['id'],
+      'id': _localTransaction['id'],
       'amount': newAmount,
       'date': _selectedDate.millisecondsSinceEpoch,
       'sender':
@@ -110,10 +139,10 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen> {
     setState(() {
       _isEditing = false;
       // Update local widget data for display
-      widget.transaction['amount'] = newAmount;
-      widget.transaction['date'] = _selectedDate.millisecondsSinceEpoch;
-      widget.transaction['sender'] = updatedRow['sender'];
-      widget.transaction['body'] = updatedRow['body'];
+      _localTransaction['amount'] = newAmount;
+      _localTransaction['date'] = _selectedDate.millisecondsSinceEpoch;
+      _localTransaction['sender'] = updatedRow['sender'];
+      _localTransaction['body'] = updatedRow['body'];
     });
 
     if (mounted) {
@@ -147,7 +176,7 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen> {
     );
 
     if (confirmed == true) {
-      await DatabaseHelper.instance.deleteTransaction(widget.transaction['id']);
+      await DatabaseHelper.instance.deleteTransaction(_localTransaction['id']);
       if (mounted) {
         Navigator.pop(context, true); // Return true to refresh details
       }
@@ -202,6 +231,79 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen> {
                               : null,
                       onTap: () {
                         _updateCategory(cat['id'], cat['name']);
+                        Navigator.pop(ctx);
+                      },
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+    );
+  }
+
+  Future<void> _updateGoal(int? newGoalId, String? newGoalName) async {
+    try {
+      print("Debug: Assigning Goal ID: $newGoalId, Name: $newGoalName");
+
+      final db = await DatabaseHelper.instance.database;
+      await db.update(
+        'transactions',
+        {'goalId': newGoalId},
+        where: 'id = ?',
+        whereArgs: [widget.transaction['id']],
+      );
+
+      if (mounted) {
+        setState(() {
+          _selectedGoalId = newGoalId;
+          _goalName = newGoalName;
+          _localTransaction['goalId'] = newGoalId;
+        });
+
+        // Refresh data to ensure consistency (and if goal name was null for some reason, fetch it)
+        await _loadData();
+      }
+    } catch (e) {
+      print("Error updating goal: $e");
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text("Error: $e")));
+      }
+    }
+  }
+
+  void _showGoalPicker() {
+    showModalBottomSheet(
+      context: context,
+      builder:
+          (ctx) => Column(
+            children: [
+              const Padding(
+                padding: EdgeInsets.all(16.0),
+                child: Text(
+                  "Select Savings Goal",
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                ),
+              ),
+              Expanded(
+                child: ListView.builder(
+                  itemCount: _allGoals.length,
+                  itemBuilder: (ctx, i) {
+                    final goal = _allGoals[i];
+                    return ListTile(
+                      leading: Icon(
+                        Icons.savings,
+                        color: Color(goal['color'] ?? Colors.blue.value),
+                      ),
+                      title: Text(goal['name']),
+                      trailing:
+                          _selectedGoalId == goal['id']
+                              ? const Icon(Icons.check, color: Colors.green)
+                              : null,
+                      onTap: () {
+                        _updateGoal(goal['id'], goal['name']);
                         Navigator.pop(ctx);
                       },
                     );
@@ -333,7 +435,7 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen> {
                           controller.text,
                           color: selectedColor.value,
                         );
-                        await _loadCategories(); // Refresh local list
+                        await _loadData(); // Refresh local list
                         await _updateCategory(
                           newId,
                           controller.text,
@@ -472,7 +574,7 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen> {
                   ),
                 )
               else
-                _detailRow("Sender", widget.transaction['sender']),
+                _detailRow("Sender", _localTransaction['sender']),
 
               const SizedBox(height: 20),
 
@@ -502,6 +604,52 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen> {
 
               const SizedBox(height: 20),
 
+              // NEW: Link to Goal Row
+              if (_allGoals.isNotEmpty) ...[
+                InkWell(
+                  onTap: _showGoalPicker,
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        "Link to Goal",
+                        style: TextStyle(fontSize: 16, color: Colors.grey),
+                      ),
+                      Row(
+                        children: [
+                          if (_goalName != null)
+                            Chip(
+                              avatar: const Icon(Icons.savings, size: 16),
+                              label: Text(_goalName!),
+                              backgroundColor: Colors.amber.shade50,
+                              deleteIcon: const Icon(Icons.close, size: 16),
+                              onDeleted: () => _updateGoal(null, null),
+                            )
+                          else
+                            const Text(
+                              "Select Goal",
+                              style: TextStyle(
+                                color: Colors.blue,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+
+                          if (_goalName == null) ...[
+                            const SizedBox(width: 8),
+                            const Icon(
+                              Icons.edit,
+                              size: 16,
+                              color: Colors.grey,
+                            ),
+                          ],
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 20),
+              ],
+
               if (!_isEditing) ...[
                 const Text(
                   "Original Message / Note",
@@ -515,7 +663,7 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen> {
                     color: Colors.grey.shade100,
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: Text(widget.transaction['body'] ?? ""),
+                  child: Text(_localTransaction['body'] ?? ""),
                 ),
               ],
             ],
