@@ -5,6 +5,7 @@ import '../services/database_helper.dart';
 import '../services/message_helper.dart';
 import 'transaction_detail_screen.dart';
 import 'add_transaction_screen.dart';
+import 'settings_page.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -289,7 +290,42 @@ class HomePageState extends State<HomePage> {
   }
 
   Widget _buildBudgetCard() {
-    if (_monthlyBudget <= 0) return const SizedBox.shrink();
+    if (_monthlyBudget <= 0) {
+      return Card(
+        margin: const EdgeInsets.all(16),
+        color: Colors.blue.shade50,
+        child: InkWell(
+          onTap: () {
+            // Navigate to Settings -> General Tab (index 0)
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => const SettingsPage(),
+              ), // Settings handles its own defaults
+            ).then((_) => refreshData());
+          },
+          borderRadius: BorderRadius.circular(12),
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.add_circle_outline, color: Colors.blue.shade700),
+                const SizedBox(width: 12),
+                Text(
+                  "Set a Monthly Budget",
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.blue.shade900,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
 
     // 1. Calculate this month's spending
     final now = DateTime.now();

@@ -248,9 +248,43 @@ class _SettingsPageState extends State<SettingsPage>
                         });
                       }
 
+                      // --- New Logic: Auto-update Monthly Budget ---
+                      if (budget > 0) {
+                        double totalCategoryBudget = 0.0;
+                        final allCats =
+                            await DatabaseHelper.instance.getCategories();
+                        for (var c in allCats) {
+                          totalCategoryBudget +=
+                              (c['budgetLimit'] as num? ?? 0.0).toDouble();
+                        }
+
+                        // If the sum exceeds global budget (or global is 0), update it
+                        if (totalCategoryBudget > _monthlyBudget) {
+                          final prefs = await SharedPreferences.getInstance();
+                          await prefs.setDouble(
+                            'monthly_budget',
+                            totalCategoryBudget,
+                          );
+
+                          // Show info dialog
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                  "Monthly Budget updated to ₹${totalCategoryBudget.toStringAsFixed(0)} to match category limits.",
+                                ),
+                                backgroundColor: Colors.blue,
+                                duration: const Duration(seconds: 4),
+                              ),
+                            );
+                          }
+                        }
+                      }
+                      // ---------------------------------------------
+
                       if (mounted) {
                         Navigator.pop(ctx);
-                        _loadData();
+                        _loadData(); // Re-load to show updated global budget
                       }
                     },
                     child: const Text("Save"),
@@ -501,6 +535,26 @@ class _SettingsPageState extends State<SettingsPage>
                   trailing: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
+                      // Reset Limit Button (Only if limit > 0)
+                      if (cat['budgetLimit'] != null &&
+                          (cat['budgetLimit'] as num) > 0)
+                        IconButton(
+                          tooltip: "Reset Limit",
+                          icon: const Icon(
+                            Icons.restart_alt,
+                            size: 20,
+                            color: Colors.orange,
+                          ),
+                          onPressed: () async {
+                            // Update limit to 0
+                            await DatabaseHelper.instance.updateCategory({
+                              ...cat, // Keep other fields
+                              'budgetLimit': 0.0,
+                            });
+                            _loadData();
+                          },
+                        ),
+
                       IconButton(
                         icon: const Icon(
                           Icons.edit,
