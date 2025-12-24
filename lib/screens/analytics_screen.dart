@@ -23,6 +23,9 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
   List<Map<String, dynamic>> _allCategories = [];
   List<Map<String, dynamic>> _allPatterns = [];
 
+  // New: Chart Filter State
+  String _transactionType = 'debit'; // 'debit' or 'credit'
+
   // New: Pre-calculated summary for the chart & legend
   List<_CategorySummary> _categorySummaries = [];
 
@@ -98,13 +101,13 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
     // --- NEW: Calculate Summaries Here ---
     Map<String, double> totals = {};
     Map<String, Color> colors = {};
-    double totalExpense = 0;
+    double totalFilterAmount = 0;
 
     for (var tx in data) {
-      if (tx['type'] == 'debit') {
+      if (tx['type'] == _transactionType) {
         final catName = tx['categoryName'] ?? 'Uncategorized';
         final amount = (tx['amount'] as num).toDouble();
-        totalExpense += amount;
+        totalFilterAmount += amount;
 
         totals[catName] = (totals[catName] ?? 0) + amount;
 
@@ -122,7 +125,10 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
             name: e.key,
             amount: e.value,
             color: colors[e.key] ?? Colors.grey,
-            percentage: totalExpense == 0 ? 0 : (e.value / totalExpense) * 100,
+            percentage:
+                totalFilterAmount == 0
+                    ? 0
+                    : (e.value / totalFilterAmount) * 100,
           );
         }).toList();
 
@@ -169,9 +175,10 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    double totalSpend = _transactions
-        .where((t) => t['type'] == 'debit')
-        .fold(0.0, (sum, t) => sum + (t['amount'] as num));
+    double displayedTotal = _categorySummaries.fold(
+      0.0,
+      (sum, i) => sum + i.amount,
+    );
 
     return Scaffold(
       backgroundColor: Colors.grey[50], // Light background for contrast
@@ -200,6 +207,53 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
 
             const SizedBox(height: 16),
 
+            // 1.5 TYPE TOGGLE (Expenses vs Income)
+            Center(
+              child: SegmentedButton<String>(
+                segments: const [
+                  ButtonSegment<String>(
+                    value: 'debit',
+                    label: Text('Expenses'),
+                    icon: Icon(Icons.arrow_upward),
+                  ),
+                  ButtonSegment<String>(
+                    value: 'credit',
+                    label: Text('Income'),
+                    icon: Icon(Icons.arrow_downward),
+                  ),
+                ],
+                selected: {_transactionType},
+                onSelectionChanged: (Set<String> newSelection) {
+                  setState(() {
+                    _transactionType = newSelection.first;
+                    _fetchData(); // Refresh chart with new type
+                  });
+                },
+                style: ButtonStyle(
+                  backgroundColor: MaterialStateProperty.resolveWith<Color?>((
+                    Set<MaterialState> states,
+                  ) {
+                    if (states.contains(MaterialState.selected)) {
+                      return _transactionType == 'debit'
+                          ? Colors.red.shade100
+                          : Colors.green.shade100;
+                    }
+                    return null;
+                  }),
+                  foregroundColor: MaterialStateProperty.resolveWith<Color?>((
+                    Set<MaterialState> states,
+                  ) {
+                    if (states.contains(MaterialState.selected)) {
+                      return Colors.black;
+                    }
+                    return null;
+                  }),
+                ),
+              ),
+            ),
+
+            const SizedBox(height: 16),
+
             // 2. FILTERS
             _buildFilters(),
 
@@ -220,128 +274,172 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                     ),
                   ],
                 ),
-                child: Column(
-                  children: [
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // LEFT SIDE: Chart
-                        Expanded(
-                          flex: 4,
-                          child: SizedBox(
-                            height: 160,
-                            // CHANGE 1: Explicitly center align elements in the Stack
-                            child: Stack(
-                              alignment: Alignment.center,
+                child:
+                    displayedTotal == 0
+                        ? SizedBox(
+                          height: 200,
+                          child: Center(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                PieChart(
-                                  PieChartData(
-                                    sections:
-                                        _categorySummaries.map((item) {
-                                          return PieChartSectionData(
-                                            color: item.color,
-                                            value: item.amount,
-                                            title:
-                                                '', // Keep title empty to hide labels on the ring
-                                            radius: 25,
-                                            showTitle:
-                                                false, // Ensure no text renders on the chart itself
-                                          );
-                                        }).toList(),
-                                    centerSpaceRadius: 40,
-                                    sectionsSpace:
-                                        0, // Set to 0 for a solid ring, or keeping 2-4 is fine
+                                Icon(
+                                  _transactionType == 'debit'
+                                      ? Icons.savings
+                                      : Icons.work_off,
+                                  size: 48,
+                                  color: Colors.grey.shade300,
+                                ),
+                                const SizedBox(height: 12),
+                                Text(
+                                  _transactionType == 'debit'
+                                      ? "No expenses yet! 🎉"
+                                      : "No income found for this period. 💸",
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    color: Colors.grey.shade600,
+                                    fontWeight: FontWeight.bold,
                                   ),
                                 ),
-                                // CHANGE 2: The Text in the middle
-                                Column(
-                                  mainAxisSize: MainAxisSize.min,
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    const Text(
-                                      "Total",
-                                      style: TextStyle(
-                                        fontSize: 10,
-                                        color: Colors.grey,
-                                        height: 1.0,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 2), // Small gap
-                                    Text(
-                                      NumberFormat.compact().format(totalSpend),
-                                      style: const TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 16,
-                                        height: 1.0,
-                                      ),
-                                    ),
-                                  ],
+                                const SizedBox(height: 4),
+                                Text(
+                                  "Try a different date range",
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.grey.shade400,
+                                  ),
                                 ),
                               ],
                             ),
                           ),
-                        ),
-                        const SizedBox(width: 16),
-
-                        // RIGHT SIDE: Legend / Details
-                        Expanded(
-                          flex: 6,
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children:
-                                _categorySummaries.take(5).map((item) {
-                                  return Padding(
-                                    padding: const EdgeInsets.only(
-                                      bottom: 12.0,
-                                    ),
-                                    child: Row(
+                        )
+                        : Column(
+                          children: [
+                            Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                // LEFT SIDE: Chart
+                                Expanded(
+                                  flex: 4,
+                                  child: SizedBox(
+                                    height: 160,
+                                    child: Stack(
+                                      alignment: Alignment.center,
                                       children: [
-                                        Container(
-                                          width: 10,
-                                          height: 10,
-                                          decoration: BoxDecoration(
-                                            color: item.color,
-                                            shape: BoxShape.circle,
+                                        PieChart(
+                                          PieChartData(
+                                            sections:
+                                                _categorySummaries.map((item) {
+                                                  return PieChartSectionData(
+                                                    color: item.color,
+                                                    value: item.amount,
+                                                    title:
+                                                        '', // Keep title empty to hide labels on the ring
+                                                    radius: 25,
+                                                    showTitle:
+                                                        false, // Ensure no text renders on the chart itself
+                                                  );
+                                                }).toList(),
+                                            centerSpaceRadius: 40,
+                                            sectionsSpace:
+                                                0, // Set to 0 for a solid ring, or keeping 2-4 is fine
                                           ),
                                         ),
-                                        const SizedBox(width: 8),
-                                        Expanded(
-                                          child: Text(
-                                            item.name,
-                                            style: const TextStyle(
-                                              fontSize: 12,
-                                              fontWeight: FontWeight.w500,
+                                        Column(
+                                          mainAxisSize: MainAxisSize.min,
+                                          mainAxisAlignment:
+                                              MainAxisAlignment.center,
+                                          children: [
+                                            const Text(
+                                              "Total",
+                                              style: TextStyle(
+                                                fontSize: 10,
+                                                color: Colors.grey,
+                                                height: 1.0,
+                                              ),
                                             ),
-                                            overflow: TextOverflow.ellipsis,
-                                          ),
-                                        ),
-                                        Text(
-                                          "${item.percentage.toStringAsFixed(0)}%",
-                                          style: TextStyle(
-                                            fontSize: 12,
-                                            color: Colors.grey[600],
-                                          ),
-                                        ),
-                                        const SizedBox(width: 8),
-                                        Text(
-                                          NumberFormat.compact().format(
-                                            item.amount,
-                                          ),
-                                          style: const TextStyle(
-                                            fontSize: 12,
-                                            fontWeight: FontWeight.bold,
-                                          ),
+                                            const SizedBox(
+                                              height: 2,
+                                            ), // Small gap
+                                            Text(
+                                              NumberFormat.compact().format(
+                                                displayedTotal,
+                                              ),
+                                              style: const TextStyle(
+                                                fontWeight: FontWeight.bold,
+                                                fontSize: 16,
+                                                height: 1.0,
+                                              ),
+                                            ),
+                                          ],
                                         ),
                                       ],
                                     ),
-                                  );
-                                }).toList(),
-                          ),
+                                  ),
+                                ),
+                                const SizedBox(width: 16),
+
+                                // RIGHT SIDE: Legend / Details
+                                Expanded(
+                                  flex: 6,
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children:
+                                        _categorySummaries.take(5).map((item) {
+                                          return Padding(
+                                            padding: const EdgeInsets.only(
+                                              bottom: 12.0,
+                                            ),
+                                            child: Row(
+                                              children: [
+                                                Container(
+                                                  width: 10,
+                                                  height: 10,
+                                                  decoration: BoxDecoration(
+                                                    color: item.color,
+                                                    shape: BoxShape.circle,
+                                                  ),
+                                                ),
+                                                const SizedBox(width: 8),
+                                                Expanded(
+                                                  child: Text(
+                                                    item.name,
+                                                    style: const TextStyle(
+                                                      fontSize: 12,
+                                                      fontWeight:
+                                                          FontWeight.w500,
+                                                    ),
+                                                    overflow:
+                                                        TextOverflow.ellipsis,
+                                                  ),
+                                                ),
+                                                Text(
+                                                  "${item.percentage.toStringAsFixed(0)}%",
+                                                  style: TextStyle(
+                                                    fontSize: 12,
+                                                    color: Colors.grey[600],
+                                                  ),
+                                                ),
+                                                const SizedBox(width: 8),
+                                                Text(
+                                                  NumberFormat.compact().format(
+                                                    item.amount,
+                                                  ),
+                                                  style: const TextStyle(
+                                                    fontSize: 12,
+                                                    fontWeight: FontWeight.bold,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          );
+                                        }).toList(),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
                         ),
-                      ],
-                    ),
-                  ],
-                ),
               ),
 
             const SizedBox(height: 24),
@@ -559,6 +657,8 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
       }
     }
 
+    final isSelected = selectedIds.isNotEmpty;
+
     return GestureDetector(
       onTap: () async {
         final freshItems = await fetchItems();
@@ -626,32 +726,38 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
         );
       },
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        height: 40, // Match SegmentedButton height roughly
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        alignment: Alignment.center,
         decoration: BoxDecoration(
-          color: selectedIds.isNotEmpty ? Colors.blue.shade50 : Colors.white,
-          borderRadius: BorderRadius.circular(20),
+          color: isSelected ? Colors.deepPurple.shade100 : Colors.transparent,
+          borderRadius: BorderRadius.circular(20), // Pill shape
           border: Border.all(
-            color: selectedIds.isNotEmpty ? Colors.blue : Colors.grey.shade300,
+            color: isSelected ? Colors.transparent : Colors.grey.shade500,
           ),
         ),
         child: Row(
+          mainAxisSize: MainAxisSize.min,
           children: [
+            if (isSelected) ...[
+              const Icon(Icons.check, size: 18, color: Colors.black87),
+              const SizedBox(width: 8),
+            ],
             Text(
               labelText,
-              style: TextStyle(
-                color:
-                    selectedIds.isNotEmpty
-                        ? Colors.blue.shade700
-                        : Colors.black87,
+              style: const TextStyle(
+                color: Colors.black87,
                 fontWeight: FontWeight.w500,
               ),
             ),
-            const SizedBox(width: 4),
-            Icon(
-              Icons.keyboard_arrow_down,
-              size: 16,
-              color: selectedIds.isNotEmpty ? Colors.blue : Colors.grey,
-            ),
+            if (!isSelected) ...[
+              const SizedBox(width: 8),
+              const Icon(
+                Icons.arrow_drop_down,
+                size: 18,
+                color: Colors.black87,
+              ),
+            ],
           ],
         ),
       ),
