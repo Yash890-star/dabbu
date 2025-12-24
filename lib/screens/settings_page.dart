@@ -45,7 +45,7 @@ class _SettingsPageState extends State<SettingsPage>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
+    _tabController = TabController(length: 2, vsync: this); // Changed to 2
     _loadData();
   }
 
@@ -262,6 +262,47 @@ class _SettingsPageState extends State<SettingsPage>
     );
   }
 
+  Future<void> _deleteCategory(int id) async {
+    // 1. Prevent deleting Default Category
+    if (id == 1) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("Cannot delete the default 'Uncategorized' category."),
+        ),
+      );
+      return;
+    }
+
+    // 2. Confirm Deletion
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder:
+          (ctx) => AlertDialog(
+            title: const Text("Delete Category?"),
+            content: const Text(
+              "Are you sure you want to delete this category?\n\n"
+              "All its transactions will be moved to 'Uncategorized'.",
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: const Text("Cancel"),
+              ),
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, true),
+                style: TextButton.styleFrom(foregroundColor: Colors.red),
+                child: const Text("Delete"),
+              ),
+            ],
+          ),
+    );
+
+    if (confirm == true) {
+      await DatabaseHelper.instance.deleteCategory(id);
+      _loadData(); // Refresh UI
+    }
+  }
+
   // --- Pattern Logic ---
   Future<void> _editPattern(Map<String, dynamic> pattern) async {
     // 1. Fetch latest SMS for this sender
@@ -374,19 +415,26 @@ class _SettingsPageState extends State<SettingsPage>
         title: const Text("Settings"),
         bottom: TabBar(
           controller: _tabController,
-          tabs: const [
-            Tab(text: "General"),
-            Tab(text: "Patterns"),
-            Tab(text: "Categories"),
-          ],
+          tabs: const [Tab(text: "General"), Tab(text: "Patterns")],
         ),
       ),
       body: TabBarView(
         controller: _tabController,
         children: [
-          // 0. General Tab
+          // 0. General Tab (Now includes Categories)
           ListView(
             children: [
+              // Section 1: Budget
+              Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Text(
+                  "General Settings",
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    color: Colors.blue,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
               ListTile(
                 leading: const Icon(
                   Icons.account_balance_wallet,
@@ -401,6 +449,81 @@ class _SettingsPageState extends State<SettingsPage>
                 trailing: const Icon(Icons.edit),
                 onTap: _editBudget,
               ),
+
+              const Divider(height: 32),
+
+              // Section 2: Categories
+              Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16.0,
+                  vertical: 8.0,
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      "Categories",
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        color: Colors.blue,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    TextButton.icon(
+                      onPressed: () => _addOrEditCategory(),
+                      icon: const Icon(Icons.add_circle, size: 20),
+                      label: const Text("Add New"),
+                    ),
+                  ],
+                ),
+              ),
+
+              if (_categories.isEmpty)
+                const Padding(
+                  padding: EdgeInsets.all(16.0),
+                  child: Text("No categories found."),
+                ),
+
+              ..._categories.map((cat) {
+                final budget =
+                    cat['budgetLimit'] != null && cat['budgetLimit'] > 0
+                        ? "Budget: ₹${cat['budgetLimit']}"
+                        : "No Limit";
+                final color =
+                    cat['color'] != null ? Color(cat['color']) : Colors.grey;
+
+                return ListTile(
+                  leading: CircleAvatar(
+                    backgroundColor: color.withOpacity(0.2),
+                    child: Icon(Icons.category, color: color),
+                  ),
+                  title: Text(cat['name']),
+                  subtitle: Text(budget),
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      IconButton(
+                        icon: const Icon(
+                          Icons.edit,
+                          size: 20,
+                          color: Colors.blue,
+                        ),
+                        onPressed: () => _addOrEditCategory(cat),
+                      ),
+                      IconButton(
+                        icon: const Icon(
+                          Icons.delete,
+                          size: 20,
+                          color: Colors.red,
+                        ),
+                        onPressed: () => _deleteCategory(cat['id']),
+                      ),
+                    ],
+                  ),
+                  onTap: () => _addOrEditCategory(cat),
+                );
+              }),
+
+              const SizedBox(height: 80), // Bottom padding
             ],
           ),
 
@@ -457,42 +580,6 @@ class _SettingsPageState extends State<SettingsPage>
                 ),
               ),
             ],
-          ),
-
-          // 2. Categories Tab
-          Scaffold(
-            // Nested scaffold for FAB
-            floatingActionButton: FloatingActionButton(
-              onPressed: () => _addOrEditCategory(),
-              child: const Icon(Icons.add),
-            ),
-            body: ListView.builder(
-              itemCount: _categories.length,
-              itemBuilder: (ctx, i) {
-                final cat = _categories[i];
-                final budget =
-                    cat['budgetLimit'] != null && cat['budgetLimit'] > 0
-                        ? "Budget: ₹${cat['budgetLimit']}"
-                        : "No Limit";
-                final color =
-                    cat['color'] != null ? Color(cat['color']) : Colors.grey;
-
-                return ListTile(
-                  leading: CircleAvatar(
-                    backgroundColor: color.withOpacity(0.2),
-                    child: Icon(Icons.category, color: color),
-                  ),
-                  title: Text(cat['name']),
-                  subtitle: Text(budget),
-                  trailing: const Icon(
-                    Icons.edit,
-                    size: 20,
-                    color: Colors.grey,
-                  ),
-                  onTap: () => _addOrEditCategory(cat),
-                );
-              },
-            ),
           ),
         ],
       ),

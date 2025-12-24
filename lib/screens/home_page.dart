@@ -16,6 +16,7 @@ class HomePage extends StatefulWidget {
 class HomePageState extends State<HomePage> {
   String _userName = "";
   List<Map<String, dynamic>> _transactions = [];
+  List<Map<String, dynamic>> _categories = []; // <--- Store categories
   Map<DateTime, double> _dailyTotals = {}; // <--- New Map to store daily sums
   double _monthlyBudget = 0.0;
   bool _isSyncing = false;
@@ -23,12 +24,20 @@ class HomePageState extends State<HomePage> {
   @override
   void initState() {
     super.initState();
+    _initDefaults();
     refreshData();
+  }
+
+  Future<void> _initDefaults() async {
+    await DatabaseHelper.instance.seedDefaultCategories();
+    if (mounted) refreshData(); // Refresh to show new categories
   }
 
   Future<void> refreshData() async {
     final prefs = await SharedPreferences.getInstance();
     final data = await DatabaseHelper.instance.getTransactionsWithDetails();
+    final cats =
+        await DatabaseHelper.instance.getCategories(); // <--- Fetch cats
 
     final budget = prefs.getDouble('monthly_budget') ?? 0.0;
 
@@ -39,6 +48,7 @@ class HomePageState extends State<HomePage> {
       setState(() {
         _userName = prefs.getString('userName') ?? "User";
         _transactions = data;
+        _categories = cats;
         _dailyTotals = totals;
         _monthlyBudget = budget;
       });
@@ -310,6 +320,7 @@ class HomePageState extends State<HomePage> {
         padding: const EdgeInsets.all(16),
         child: Column(
           children: [
+            // --- Global Budget Progress ---
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -355,6 +366,110 @@ class HomePageState extends State<HomePage> {
                 ),
               ],
             ),
+
+            // --- Category Breakdown ---
+            if (_categories.any((c) => (c['budgetLimit'] ?? 0) > 0)) ...[
+              const Divider(height: 30),
+              const Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  "Category Budgets",
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.grey,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 10),
+              ..._categories.where((c) => (c['budgetLimit'] ?? 0) > 0).map((
+                cat,
+              ) {
+                double catSpent = 0.0;
+                for (var tx in _transactions) {
+                  final date = DateTime.fromMillisecondsSinceEpoch(tx['date']);
+                  if (date.year == now.year && date.month == now.month) {
+                    if (tx['categoryId'] == cat['id'] &&
+                        (tx['type'] == 'debit' || tx['type'] == 'expense')) {
+                      catSpent += (tx['amount'] as num).toDouble();
+                    }
+                  }
+                }
+
+                final catLimit = (cat['budgetLimit'] as num).toDouble();
+                final catProgress = catSpent / catLimit;
+                final catColor =
+                    catProgress > 1.0
+                        ? Colors.red
+                        : catProgress > 0.8
+                        ? Colors.orange
+                        : Colors.blue;
+
+                return Container(
+                  margin: const EdgeInsets.only(bottom: 12.0),
+                  padding: const EdgeInsets.all(12.0),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.withOpacity(0.05), // Neutral background
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Row(
+                            children: [
+                              CircleAvatar(
+                                radius: 10,
+                                backgroundColor:
+                                    cat['color'] != null
+                                        ? Color(cat['color']).withOpacity(0.2)
+                                        : Colors.grey.shade200,
+                                child: Icon(
+                                  Icons.category,
+                                  size: 12,
+                                  color:
+                                      cat['color'] != null
+                                          ? Color(cat['color'])
+                                          : Colors.grey,
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                cat['name'],
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 13,
+                                ),
+                              ),
+                            ],
+                          ),
+                          Text(
+                            "₹${catSpent.toStringAsFixed(0)} / ₹${catLimit.toStringAsFixed(0)}",
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.grey[800],
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      LinearProgressIndicator(
+                        value: catProgress > 1 ? 1 : catProgress,
+                        color: catColor,
+                        backgroundColor:
+                            Colors
+                                .white, // Better contrast against the colored bg
+                        minHeight: 8,
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                    ],
+                  ),
+                );
+              }),
+            ],
           ],
         ),
       ),

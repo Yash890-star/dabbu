@@ -32,13 +32,6 @@ class DatabaseHelper {
       )
     ''');
 
-    // Insert the ONE mandatory default category
-    await db.insert('categories', {
-      'name': 'Uncategorized',
-      'icon': 'help_outline',
-      'color': 0xFF9E9E9E, // Grey
-    });
-
     // 2. Patterns Table (For Regex)
     await db.execute('''
       CREATE TABLE patterns (
@@ -66,6 +59,95 @@ class DatabaseHelper {
         FOREIGN KEY (patternId) REFERENCES patterns (id)
       )
     ''');
+
+    // Insert default categories
+    await _insertDefaultCategories(db);
+  }
+
+  Future<void> _insertDefaultCategories(Database db) async {
+    final batch = db.batch();
+
+    // 1. Uncategorized (Mandatory)
+    batch.insert('categories', {
+      'name': 'Uncategorized',
+      'icon': 'help_outline',
+      'color': 0xFF9E9E9E, // Grey
+    });
+
+    // 2. Common Defaults
+    final defaults = [
+      {
+        'name': 'Food & Dining',
+        'icon': 'fastfood',
+        'color': 0xFFEF6C00,
+      }, // Orange
+      {
+        'name': 'Transportation',
+        'icon': 'directions_car',
+        'color': 0xFF1565C0,
+      }, // Blue
+      {
+        'name': 'Shopping',
+        'icon': 'shopping_bag',
+        'color': 0xFF7B1FA2,
+      }, // Purple
+      {
+        'name': 'Bills & Utilities',
+        'icon': 'receipt',
+        'color': 0xFFC62828,
+      }, // Red
+      {'name': 'Entertainment', 'icon': 'movie', 'color': 0xFF00695C}, // Teal
+      {
+        'name': 'Health & Fitness',
+        'icon': 'medical_services',
+        'color': 0xFF2E7D32,
+      }, // Green
+      {'name': 'Travel', 'icon': 'flight', 'color': 0xFF0277BD}, // Light Blue
+      {'name': 'Education', 'icon': 'school', 'color': 0xFFF9A825}, // Yellow
+    ];
+
+    for (var cat in defaults) {
+      batch.insert('categories', cat);
+    }
+
+    await batch.commit();
+  }
+
+  // Callable helper to seed defaults if missing (for existing users)
+  Future<void> seedDefaultCategories() async {
+    final db = await instance.database;
+    final count = Sqflite.firstIntValue(
+      await db.rawQuery('SELECT COUNT(*) FROM categories'),
+    );
+
+    if (count != null && count <= 1) {
+      // Only Uncategorized exists
+      // We manually insert the others (excluding Uncategorized which ID 1 usually is)
+      final defaults = [
+        {'name': 'Food & Dining', 'icon': 'fastfood', 'color': 0xFFEF6C00},
+        {
+          'name': 'Transportation',
+          'icon': 'directions_car',
+          'color': 0xFF1565C0,
+        },
+        {'name': 'Shopping', 'icon': 'shopping_bag', 'color': 0xFF7B1FA2},
+        {'name': 'Bills & Utilities', 'icon': 'receipt', 'color': 0xFFC62828},
+        {'name': 'Entertainment', 'icon': 'movie', 'color': 0xFF00695C},
+        {
+          'name': 'Health & Fitness',
+          'icon': 'medical_services',
+          'color': 0xFF2E7D32,
+        },
+        {'name': 'Travel', 'icon': 'flight', 'color': 0xFF0277BD},
+        {'name': 'Education', 'icon': 'school', 'color': 0xFFF9A825},
+      ];
+
+      final batch = db.batch();
+      for (var cat in defaults) {
+        batch.insert('categories', cat);
+      }
+      await batch.commit();
+    }
   }
 
   // --- Category Methods ---
@@ -98,6 +180,22 @@ class DatabaseHelper {
   Future<List<Map<String, dynamic>>> getCategories() async {
     final db = await instance.database;
     return await db.query('categories');
+  }
+
+  Future<void> deleteCategory(int id) async {
+    final db = await instance.database;
+    await db.transaction((txn) async {
+      // 1. Move transactions to 'Uncategorized' (ID 1)
+      await txn.update(
+        'transactions',
+        {'categoryId': 1},
+        where: 'categoryId = ?',
+        whereArgs: [id],
+      );
+
+      // 2. Delete the category
+      await txn.delete('categories', where: 'id = ?', whereArgs: [id]);
+    });
   }
 
   // --- Pattern & Transaction Methods ---
