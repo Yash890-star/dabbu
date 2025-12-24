@@ -12,14 +12,18 @@ class MainScreen extends StatefulWidget {
 
 class _MainScreenState extends State<MainScreen> {
   int _selectedIndex = 0;
+  final GlobalKey<HomePageState> _homeKey = GlobalKey();
 
-  final List<Widget> _pages = [
-    const HomePage(),
+  late final List<Widget> _pages = [
+    HomePage(key: _homeKey),
     const AnalyticsScreen(),
     const SettingsPage(),
   ];
 
   void _onItemTapped(int index) {
+    if (index == 0) {
+      _homeKey.currentState?.refreshData();
+    }
     setState(() {
       _selectedIndex = index;
     });

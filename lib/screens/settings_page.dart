@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../services/database_helper.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:another_telephony/telephony.dart';
 import 'sms_parsing_screen.dart';
@@ -44,106 +45,180 @@ class _SettingsPageState extends State<SettingsPage>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
+    _tabController = TabController(length: 3, vsync: this);
     _loadData();
   }
+
+  double _monthlyBudget = 0.0;
 
   Future<void> _loadData() async {
     final db = DatabaseHelper.instance;
     final pats = await db.database.then((d) => d.query('patterns'));
     final cats = await db.getCategories();
+    final prefs = await SharedPreferences.getInstance();
+    final budget = prefs.getDouble('monthly_budget') ?? 0.0;
 
     if (mounted) {
       setState(() {
         _patterns = pats;
         _categories = cats;
+        _monthlyBudget = budget;
       });
     }
   }
 
+  Future<void> _editBudget() async {
+    final controller = TextEditingController(
+      text: _monthlyBudget > 0 ? _monthlyBudget.toStringAsFixed(0) : "",
+    );
+
+    await showDialog(
+      context: context,
+      builder:
+          (ctx) => AlertDialog(
+            title: const Text("Set Monthly Budget"),
+            content: TextField(
+              controller: controller,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(
+                labelText: "Amount (₹)",
+                border: OutlineInputBorder(),
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text("Cancel"),
+              ),
+              ElevatedButton(
+                onPressed: () async {
+                  final val = double.tryParse(controller.text) ?? 0.0;
+                  final prefs = await SharedPreferences.getInstance();
+                  await prefs.setDouble('monthly_budget', val);
+                  if (mounted) {
+                    Navigator.pop(ctx);
+                    _loadData();
+                  }
+                },
+                child: const Text("Save"),
+              ),
+            ],
+          ),
+    );
+  }
+
   // --- Category Logic ---
-  Future<void> _addOrEditCategory() async {
-    final controller = TextEditingController();
-    Color selectedColor = _categoryColors[0]; // Default to Red
+  Future<void> _addOrEditCategory([
+    Map<String, dynamic>? existingCategory,
+  ]) async {
+    final nameController = TextEditingController(
+      text: existingCategory?['name'] ?? '',
+    );
+    final budgetController = TextEditingController(
+      text:
+          existingCategory != null &&
+                  existingCategory['budgetLimit'] != null &&
+                  existingCategory['budgetLimit'] > 0
+              ? existingCategory['budgetLimit'].toString()
+              : '',
+    );
+    Color selectedColor =
+        existingCategory != null && existingCategory['color'] != null
+            ? Color(existingCategory['color'])
+            : _categoryColors[0]; // Default to Red
 
     await showDialog(
       context: context,
       builder:
           (ctx) => StatefulBuilder(
-            // StatefulBuilder allows updating the dialog UI (the color selection)
             builder: (context, setDialogState) {
               return AlertDialog(
-                title: const Text("New Category"),
-                content: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    TextField(
-                      controller: controller,
-                      decoration: const InputDecoration(
-                        labelText: "Category Name",
-                        border: OutlineInputBorder(),
-                        hintText: "e.g. Travel",
+                title: Text(
+                  existingCategory == null ? "New Category" : "Edit Category",
+                ),
+                content: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      TextField(
+                        controller: nameController,
+                        decoration: const InputDecoration(
+                          labelText: "Category Name",
+                          border: OutlineInputBorder(),
+                          hintText: "e.g. Travel",
+                        ),
+                        textCapitalization: TextCapitalization.sentences,
                       ),
-                      textCapitalization: TextCapitalization.sentences,
-                    ),
-                    const SizedBox(height: 16),
-                    const Align(
-                      alignment: Alignment.centerLeft,
-                      child: Text(
-                        "Pick a Color:",
-                        style: TextStyle(fontWeight: FontWeight.bold),
+                      const SizedBox(height: 16),
+                      TextField(
+                        controller: budgetController,
+                        decoration: const InputDecoration(
+                          labelText: "Monthly Limit (Optional)",
+                          border: OutlineInputBorder(),
+                          hintText: "e.g. 5000",
+                          prefixText: "₹ ",
+                        ),
+                        keyboardType: TextInputType.number,
                       ),
-                    ),
-                    const SizedBox(height: 8),
-                    // Color Picker Grid
-                    Wrap(
-                      spacing: 10,
-                      runSpacing: 10,
-                      children:
-                          _categoryColors.map((color) {
-                            final isSelected =
-                                selectedColor.value == color.value;
-                            return GestureDetector(
-                              onTap: () {
-                                setDialogState(() {
-                                  selectedColor = color;
-                                });
-                              },
-                              child: Container(
-                                width: 36,
-                                height: 36,
-                                decoration: BoxDecoration(
-                                  color: color,
-                                  shape: BoxShape.circle,
-                                  border:
+                      const SizedBox(height: 16),
+                      const Align(
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          "Pick a Color:",
+                          style: TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      // Color Picker Grid
+                      Wrap(
+                        spacing: 10,
+                        runSpacing: 10,
+                        children:
+                            _categoryColors.map((color) {
+                              final isSelected =
+                                  selectedColor.value == color.value;
+                              return GestureDetector(
+                                onTap: () {
+                                  setDialogState(() {
+                                    selectedColor = color;
+                                  });
+                                },
+                                child: Container(
+                                  width: 36,
+                                  height: 36,
+                                  decoration: BoxDecoration(
+                                    color: color,
+                                    shape: BoxShape.circle,
+                                    border:
+                                        isSelected
+                                            ? Border.all(
+                                              color: Colors.black,
+                                              width: 3,
+                                            )
+                                            : null,
+                                    boxShadow: [
+                                      if (isSelected)
+                                        const BoxShadow(
+                                          color: Colors.black26,
+                                          blurRadius: 4,
+                                          offset: Offset(0, 2),
+                                        ),
+                                    ],
+                                  ),
+                                  child:
                                       isSelected
-                                          ? Border.all(
-                                            color: Colors.black,
-                                            width: 3,
+                                          ? const Icon(
+                                            Icons.check,
+                                            color: Colors.white,
+                                            size: 20,
                                           )
                                           : null,
-                                  boxShadow: [
-                                    if (isSelected)
-                                      const BoxShadow(
-                                        color: Colors.black26,
-                                        blurRadius: 4,
-                                        offset: Offset(0, 2),
-                                      ),
-                                  ],
                                 ),
-                                child:
-                                    isSelected
-                                        ? const Icon(
-                                          Icons.check,
-                                          color: Colors.white,
-                                          size: 20,
-                                        )
-                                        : null,
-                              ),
-                            );
-                          }).toList(),
-                    ),
-                  ],
+                              );
+                            }).toList(),
+                      ),
+                    ],
+                  ),
                 ),
                 actions: [
                   TextButton(
@@ -152,12 +227,26 @@ class _SettingsPageState extends State<SettingsPage>
                   ),
                   ElevatedButton(
                     onPressed: () async {
-                      if (controller.text.trim().isEmpty) return;
+                      if (nameController.text.trim().isEmpty) return;
 
-                      await DatabaseHelper.instance.addCategory(
-                        controller.text.trim(),
-                        color: selectedColor.value, // Save the color integer
-                      );
+                      final budget =
+                          double.tryParse(budgetController.text) ?? 0.0;
+
+                      if (existingCategory == null) {
+                        await DatabaseHelper.instance.addCategory(
+                          nameController.text.trim(),
+                          color: selectedColor.value,
+                          budget: budget,
+                        );
+                      } else {
+                        await DatabaseHelper.instance.updateCategory({
+                          'id': existingCategory['id'],
+                          'name': nameController.text.trim(),
+                          'color': selectedColor.value,
+                          'budgetLimit': budget,
+                          'icon': existingCategory['icon'], // Preserve icon
+                        });
+                      }
 
                       if (mounted) {
                         Navigator.pop(ctx);
@@ -285,12 +374,36 @@ class _SettingsPageState extends State<SettingsPage>
         title: const Text("Settings"),
         bottom: TabBar(
           controller: _tabController,
-          tabs: const [Tab(text: "Patterns"), Tab(text: "Categories")],
+          tabs: const [
+            Tab(text: "General"),
+            Tab(text: "Patterns"),
+            Tab(text: "Categories"),
+          ],
         ),
       ),
       body: TabBarView(
         controller: _tabController,
         children: [
+          // 0. General Tab
+          ListView(
+            children: [
+              ListTile(
+                leading: const Icon(
+                  Icons.account_balance_wallet,
+                  color: Colors.deepPurple,
+                ),
+                title: const Text("Monthly Budget"),
+                subtitle: Text(
+                  _monthlyBudget > 0
+                      ? "₹ ${_monthlyBudget.toStringAsFixed(0)}"
+                      : "Not Set",
+                ),
+                trailing: const Icon(Icons.edit),
+                onTap: _editBudget,
+              ),
+            ],
+          ),
+
           // 1. Patterns Tab
           ListView(
             children: [
@@ -357,12 +470,26 @@ class _SettingsPageState extends State<SettingsPage>
               itemCount: _categories.length,
               itemBuilder: (ctx, i) {
                 final cat = _categories[i];
+                final budget =
+                    cat['budgetLimit'] != null && cat['budgetLimit'] > 0
+                        ? "Budget: ₹${cat['budgetLimit']}"
+                        : "No Limit";
+                final color =
+                    cat['color'] != null ? Color(cat['color']) : Colors.grey;
+
                 return ListTile(
                   leading: CircleAvatar(
-                    backgroundColor: Colors.grey.shade200,
-                    child: Text(cat['name'][0].toUpperCase()),
+                    backgroundColor: color.withOpacity(0.2),
+                    child: Icon(Icons.category, color: color),
                   ),
                   title: Text(cat['name']),
+                  subtitle: Text(budget),
+                  trailing: const Icon(
+                    Icons.edit,
+                    size: 20,
+                    color: Colors.grey,
+                  ),
+                  onTap: () => _addOrEditCategory(cat),
                 );
               },
             ),

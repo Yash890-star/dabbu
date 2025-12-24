@@ -27,7 +27,8 @@ class DatabaseHelper {
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         name TEXT NOT NULL,
         icon TEXT,  
-        color INTEGER
+        color INTEGER,
+        budgetLimit REAL DEFAULT 0.0
       )
     ''');
 
@@ -69,13 +70,29 @@ class DatabaseHelper {
 
   // --- Category Methods ---
 
-  Future<int> addCategory(String name, {String? icon, int? color}) async {
+  Future<int> addCategory(
+    String name, {
+    String? icon,
+    int? color,
+    double? budget,
+  }) async {
     final db = await instance.database;
     return await db.insert('categories', {
       'name': name,
       'icon': icon,
       'color': color,
+      'budgetLimit': budget ?? 0.0,
     });
+  }
+
+  Future<int> updateCategory(Map<String, dynamic> row) async {
+    final db = await instance.database;
+    return await db.update(
+      'categories',
+      row,
+      where: 'id = ?',
+      whereArgs: [row['id']],
+    );
   }
 
   Future<List<Map<String, dynamic>>> getCategories() async {

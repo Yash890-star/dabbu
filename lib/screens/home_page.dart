@@ -10,24 +10,27 @@ class HomePage extends StatefulWidget {
   const HomePage({super.key});
 
   @override
-  State<HomePage> createState() => _HomePageState();
+  State<HomePage> createState() => HomePageState();
 }
 
-class _HomePageState extends State<HomePage> {
+class HomePageState extends State<HomePage> {
   String _userName = "";
   List<Map<String, dynamic>> _transactions = [];
   Map<DateTime, double> _dailyTotals = {}; // <--- New Map to store daily sums
+  double _monthlyBudget = 0.0;
   bool _isSyncing = false;
 
   @override
   void initState() {
     super.initState();
-    _loadData();
+    refreshData();
   }
 
-  Future<void> _loadData() async {
+  Future<void> refreshData() async {
     final prefs = await SharedPreferences.getInstance();
     final data = await DatabaseHelper.instance.getTransactionsWithDetails();
+
+    final budget = prefs.getDouble('monthly_budget') ?? 0.0;
 
     // Calculate totals whenever data loads
     final totals = _calculateDailyTotals(data);
@@ -36,7 +39,8 @@ class _HomePageState extends State<HomePage> {
       setState(() {
         _userName = prefs.getString('userName') ?? "User";
         _transactions = data;
-        _dailyTotals = totals; // <--- Store calculated totals
+        _dailyTotals = totals;
+        _monthlyBudget = budget;
       });
     }
   }
@@ -66,7 +70,7 @@ class _HomePageState extends State<HomePage> {
     setState(() => _isSyncing = true);
     final helper = MessageHelper();
     int newCount = await helper.processNewMessages(lookBackDays: 60);
-    await _loadData();
+    await refreshData();
     setState(() => _isSyncing = false);
 
     if (mounted) {
@@ -127,7 +131,7 @@ class _HomePageState extends State<HomePage> {
               builder: (context) => const AddTransactionScreen(),
             ),
           );
-          _loadData(); // Refresh list on return
+          refreshData(); // Refresh list on return
         },
         child: const Icon(Icons.add),
       ),
@@ -147,9 +151,17 @@ class _HomePageState extends State<HomePage> {
                   ],
                 )
                 : ListView.builder(
-                  itemCount: _transactions.length,
+                  // +1 for the Budget Card at the top
+                  itemCount: _transactions.length + 1,
                   itemBuilder: (context, index) {
-                    final tx = _transactions[index];
+                    // Index 0 is now the Budget Card
+                    if (index == 0) {
+                      return _buildBudgetCard();
+                    }
+
+                    // Adjust index for transactions
+                    final txIndex = index - 1;
+                    final tx = _transactions[txIndex];
                     final date = DateTime.fromMillisecondsSinceEpoch(
                       tx['date'],
                     );
@@ -160,10 +172,10 @@ class _HomePageState extends State<HomePage> {
                     );
 
                     bool showHeader = false;
-                    if (index == 0) {
+                    if (txIndex == 0) {
                       showHeader = true;
                     } else {
-                      final prevTx = _transactions[index - 1];
+                      final prevTx = _transactions[txIndex - 1];
                       final prevDate = DateTime.fromMillisecondsSinceEpoch(
                         prevTx['date'],
                       );
@@ -215,7 +227,7 @@ class _HomePageState extends State<HomePage> {
                                     TransactionDetailScreen(transaction: tx),
                           ),
                         );
-                        _loadData();
+                        refreshData();
                       },
                     );
 
@@ -262,6 +274,89 @@ class _HomePageState extends State<HomePage> {
                     }
                   },
                 ),
+      ),
+    );
+  }
+
+  Widget _buildBudgetCard() {
+    if (_monthlyBudget <= 0) return const SizedBox.shrink();
+
+    // 1. Calculate this month's spending
+    final now = DateTime.now();
+    double currentMonthSpent = 0.0;
+
+    for (var tx in _transactions) {
+      final date = DateTime.fromMillisecondsSinceEpoch(tx['date']);
+      if (date.year == now.year && date.month == now.month) {
+        if (tx['type'] == 'debit' || tx['type'] == 'expense') {
+          currentMonthSpent += (tx['amount'] as num).toDouble();
+        }
+      }
+    }
+
+    final progress = currentMonthSpent / _monthlyBudget;
+    final color =
+        progress > 1.0
+            ? Colors.red
+            : progress > 0.8
+            ? Colors.orange
+            : Colors.green;
+
+    return Card(
+      margin: const EdgeInsets.all(16),
+      elevation: 4,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  "Monthly Budget (${DateFormat.MMMM().format(now)})",
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
+                Text(
+                  "${(progress * 100).toStringAsFixed(0)}%",
+                  style: TextStyle(color: color, fontWeight: FontWeight.bold),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            LinearProgressIndicator(
+              value: progress > 1 ? 1 : progress,
+              color: color,
+              backgroundColor: Colors.grey.shade200,
+              minHeight: 10,
+              borderRadius: BorderRadius.circular(5),
+            ),
+            const SizedBox(height: 10),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  "Spent: ₹${currentMonthSpent.toStringAsFixed(0)}",
+                  style: const TextStyle(color: Colors.grey),
+                ),
+                Text(
+                  "Remaining: ₹${(_monthlyBudget - currentMonthSpent).toStringAsFixed(0)}",
+                  style: TextStyle(
+                    color:
+                        (_monthlyBudget - currentMonthSpent) < 0
+                            ? Colors.red
+                            : Colors.green,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                Text(
+                  "Limit: ₹${_monthlyBudget.toStringAsFixed(0)}",
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
