@@ -8,7 +8,8 @@ import 'sms_setup_screen.dart'; // To add new regex
 import 'subscriptions_screen.dart';
 
 class SettingsPage extends StatefulWidget {
-  const SettingsPage({super.key});
+  final int initialIndex;
+  const SettingsPage({super.key, this.initialIndex = 0});
 
   @override
   State<SettingsPage> createState() => _SettingsPageState();
@@ -42,11 +43,16 @@ class _SettingsPageState extends State<SettingsPage>
   late TabController _tabController;
   List<Map<String, dynamic>> _patterns = [];
   List<Map<String, dynamic>> _categories = [];
+  List<Map<String, dynamic>> _goals = []; // Added goals
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this); // Changed to 2
+    _tabController = TabController(
+      length: 2,
+      vsync: this,
+      initialIndex: widget.initialIndex,
+    );
     _loadData();
   }
 
@@ -56,6 +62,7 @@ class _SettingsPageState extends State<SettingsPage>
     final db = DatabaseHelper.instance;
     final pats = await db.database.then((d) => d.query('patterns'));
     final cats = await db.getCategories();
+    final goalsList = await db.getAllGoals(); // Fetch goals
     final prefs = await SharedPreferences.getInstance();
     final budget = prefs.getDouble('monthly_budget') ?? 0.0;
 
@@ -63,6 +70,7 @@ class _SettingsPageState extends State<SettingsPage>
       setState(() {
         _patterns = pats;
         _categories = cats;
+        _goals = goalsList;
         _monthlyBudget = budget;
       });
     }
@@ -404,6 +412,69 @@ class _SettingsPageState extends State<SettingsPage>
     }
   }
 
+  void _showArchivedGoals() {
+    final archived = _goals.where((g) => (g['isArchived'] ?? 0) == 1).toList();
+
+    showDialog(
+      context: context,
+      builder:
+          (ctx) => AlertDialog(
+            title: const Text("Archived Goals"),
+            content:
+                archived.isEmpty
+                    ? const Padding(
+                      padding: EdgeInsets.all(16.0),
+                      child: Text("No archived goals."),
+                    )
+                    : SizedBox(
+                      width: double.maxFinite,
+                      child: ListView.separated(
+                        shrinkWrap: true,
+                        itemCount: archived.length,
+                        separatorBuilder: (c, i) => const Divider(),
+                        itemBuilder: (c, i) {
+                          final goal = archived[i];
+                          return ListTile(
+                            leading: Icon(
+                              Icons.archive,
+                              color: Color(goal['color'] ?? Colors.grey.value),
+                            ),
+                            title: Text(goal['name']),
+                            subtitle: Text("Target: ₹${goal['targetAmount']}"),
+                            trailing: TextButton(
+                              child: const Text("Restore"),
+                              onPressed: () async {
+                                await DatabaseHelper.instance.archiveGoal(
+                                  goal['id'],
+                                  false,
+                                );
+                                if (mounted) {
+                                  Navigator.pop(ctx);
+                                  _loadData();
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text(
+                                        "'${goal['name']}' restored to Home Screen",
+                                      ),
+                                    ),
+                                  );
+                                }
+                              },
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text("Close"),
+              ),
+            ],
+          ),
+    );
+  }
+
   Future<void> _deletePattern(int id) async {
     // Show confirmation dialog
     final shouldDeleteTransactions = await showDialog<bool>(
@@ -497,6 +568,13 @@ class _SettingsPageState extends State<SettingsPage>
                     ),
                   );
                 },
+              ),
+              ListTile(
+                leading: const Icon(Icons.archive, color: Colors.orange),
+                title: const Text("Archived Goals"),
+                subtitle: const Text("View and restore hidden goals"),
+                trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                onTap: _showArchivedGoals,
               ),
 
               const Divider(height: 32),

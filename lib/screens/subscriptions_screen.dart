@@ -259,7 +259,7 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> {
                         style: const TextStyle(fontWeight: FontWeight.bold),
                       ),
                       subtitle: Text(
-                        "Next: ${DateFormat.yMMMd().format(nextDate)} (${daysLeft} days)",
+                        "Next: ${DateFormat.yMMMd().format(nextDate)} ($daysLeft days)",
                       ),
                       trailing: Row(
                         mainAxisSize: MainAxisSize.min,

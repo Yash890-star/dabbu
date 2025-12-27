@@ -54,9 +54,13 @@ class MessageHelper {
       );
     }
 
-    // 3. Fetch Inbox (Filtered by Date in Dart for reliability)
+    // 3. Fetch Inbox (Filtered by Date for performance)
+    // ONLY fetch messages newer than our sync timestamp
     List<SmsMessage> messages = await _telephony.getInboxSms(
       columns: [SmsColumn.ADDRESS, SmsColumn.BODY, SmsColumn.DATE],
+      filter: SmsFilter.where(
+        SmsColumn.DATE,
+      ).greaterThanOrEqualTo(sinceTimestamp.toString()),
       sortOrder: [OrderBy(SmsColumn.DATE, sort: Sort.DESC)],
     );
 
@@ -165,5 +169,13 @@ class MessageHelper {
       whereArgs: [sender, amount, date],
     );
     return result.isNotEmpty;
+  }
+
+  Future<List<SmsMessage>> getInboxSms({int count = 20}) async {
+    List<SmsMessage> messages = await _telephony.getInboxSms(
+      columns: [SmsColumn.ADDRESS, SmsColumn.BODY, SmsColumn.DATE],
+      sortOrder: [OrderBy(SmsColumn.DATE, sort: Sort.DESC)],
+    );
+    return messages.take(count).toList();
   }
 }

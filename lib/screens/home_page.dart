@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:intl/intl.dart';
+
 import '../services/database_helper.dart';
 import '../services/message_helper.dart';
 import 'transaction_detail_screen.dart';
 import 'add_transaction_screen.dart';
 import 'settings_page.dart';
+import 'goal_history_screen.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -20,6 +22,8 @@ class HomePageState extends State<HomePage> {
   List<Map<String, dynamic>> _categories = [];
   List<Map<String, dynamic>> _goals = [];
   List<Map<String, dynamic>> _upcomingBills = []; // <--- New State
+  DateTime _summaryMonth = DateTime.now();
+  Map<String, double> _summaryData = {'expense': 0.0, 'income': 0.0};
   Map<DateTime, double> _dailyTotals = {};
   double _monthlyBudget = 0.0;
   bool _isSyncing = false;
@@ -38,11 +42,32 @@ class HomePageState extends State<HomePage> {
 
   Future<void> refreshData() async {
     final prefs = await SharedPreferences.getInstance();
-    final data = await DatabaseHelper.instance.getTransactionsWithDetails();
+    // Fetch transactions for the selected summary month
+    final start = DateTime(_summaryMonth.year, _summaryMonth.month, 1);
+    final end = DateTime(
+      _summaryMonth.year,
+      _summaryMonth.month + 1,
+      0,
+      23,
+      59,
+      59,
+      999,
+    );
+
+    final data = await DatabaseHelper.instance.getFilteredTransactions(
+      startEpoch: start.millisecondsSinceEpoch,
+      endEpoch: end.millisecondsSinceEpoch,
+    );
     final cats = await DatabaseHelper.instance.getCategories();
     final goals = await DatabaseHelper.instance.getAllGoals();
     final subs =
         await DatabaseHelper.instance.getAllSubscriptions(); // <--- Fetch Subs
+
+    // Fetch Monthly Summary
+    final summary = await DatabaseHelper.instance.getMonthlySummary(
+      _summaryMonth.month,
+      _summaryMonth.year,
+    );
 
     // Filter upcoming bills (Next 7 days)
     final now = DateTime.now();
@@ -53,30 +78,188 @@ class HomePageState extends State<HomePage> {
           final date = DateTime.fromMillisecondsSinceEpoch(s['nextBillDate']);
           // Show if overdue or within next week
           return date.isBefore(nextWeek);
-          // We might want to filter out ones paid? but we don't track paid status deeply yet.
-          // Just showing "Coming up" is enough.
         }).toList();
     // Sort by date
     upcoming.sort(
       (a, b) => (a['nextBillDate'] as int).compareTo(b['nextBillDate'] as int),
     );
 
-    final budget = prefs.getDouble('monthly_budget') ?? 0.0;
+    // Fetch Budget Overrides for the selected month
+    final budgetOverrides = await DatabaseHelper.instance.getMonthBudgets(
+      _summaryMonth.month,
+      _summaryMonth.year,
+    );
 
-    // Calculate totals whenever data loads
+    // 1. Determine Total Monthly Budget (Override > Default)
+    double finalBudget =
+        budgetOverrides['total'] ?? (prefs.getDouble('monthly_budget') ?? 0.0);
+
+    // 2. Apply Category Limit Overrides
+    final updatedCats =
+        cats.map((cat) {
+          final catId = cat['id'];
+          final override = budgetOverrides['cat_$catId'];
+          if (override != null) {
+            final newCat = Map<String, dynamic>.from(cat);
+            newCat['budgetLimit'] =
+                override; // Store for use in _buildBudgetCard
+            return newCat;
+          }
+          return cat;
+        }).toList();
+
+    // Calculate totals whenever data loads (for the graph/daily list)
     final totals = _calculateDailyTotals(data);
 
     if (mounted) {
       setState(() {
         _userName = prefs.getString('userName') ?? "User";
         _transactions = data;
-        _categories = cats;
+        _categories = updatedCats; // Use updated categories
         _goals = goals;
-        _upcomingBills = upcoming; // <--- Set Upcoming
+        _upcomingBills = upcoming;
         _dailyTotals = totals;
-        _monthlyBudget = budget;
+        _monthlyBudget = finalBudget; // Use final budget
+        _summaryData = summary; // Update summary
       });
     }
+  }
+
+  void _changeSummaryMonth(int months) {
+    final newDate = DateTime(
+      _summaryMonth.year,
+      _summaryMonth.month + months,
+      1,
+    );
+    // Prevent going to future months
+    if (newDate.isAfter(DateTime.now())) return;
+
+    setState(() {
+      _summaryMonth = newDate;
+    });
+    refreshData();
+  }
+
+  void _resetSummaryMonth() {
+    setState(() {
+      _summaryMonth = DateTime.now();
+    });
+    refreshData();
+  }
+
+  Widget _buildMonthlySummaryCard() {
+    final now = DateTime.now();
+    final isCurrentMonth =
+        _summaryMonth.year == now.year && _summaryMonth.month == now.month;
+
+    return Card(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      elevation: 2,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+        child: Column(
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.chevron_left),
+                  visualDensity: VisualDensity.compact,
+                  onPressed: () => _changeSummaryMonth(-1),
+                ),
+                Text(
+                  DateFormat.yMMMM().format(_summaryMonth),
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                  ),
+                ),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (!isCurrentMonth)
+                      IconButton(
+                        icon: const Icon(Icons.restore, color: Colors.blue),
+                        tooltip: "Reset to Current Month",
+                        visualDensity: VisualDensity.compact,
+                        onPressed: _resetSummaryMonth,
+                      ),
+                    IconButton(
+                      icon: Icon(
+                        Icons.chevron_right,
+                        color:
+                            isCurrentMonth
+                                ? Colors.grey.withOpacity(0.5)
+                                : null,
+                      ),
+                      visualDensity: VisualDensity.compact,
+                      onPressed:
+                          isCurrentMonth ? null : () => _changeSummaryMonth(1),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+            const Divider(height: 16),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: [
+                Column(
+                  children: [
+                    const Text(
+                      "SPENDS",
+                      style: TextStyle(
+                        color: Colors.red,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 12,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      NumberFormat.compactCurrency(
+                        symbol: "₹",
+                      ).format(_summaryData['expense']),
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 18,
+                      ),
+                    ),
+                  ],
+                ),
+                Container(
+                  width: 1,
+                  height: 40,
+                  color: Colors.grey.shade300,
+                ), // Vertical Divider
+                Column(
+                  children: [
+                    const Text(
+                      "CREDITS",
+                      style: TextStyle(
+                        color: Colors.green,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 12,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      NumberFormat.compactCurrency(
+                        symbol: "₹",
+                      ).format(_summaryData['income']),
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 18,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   Widget _buildUpcomingBills() {
@@ -204,6 +387,75 @@ class HomePageState extends State<HomePage> {
     return DateFormat.yMMMd().format(date);
   }
 
+  void _showAddMenu(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        return Container(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text(
+                "What would you like to add?",
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 20),
+              ListTile(
+                leading: Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: Colors.blue.shade50,
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.add_card, color: Colors.blue),
+                ),
+                title: const Text("New Transaction"),
+                subtitle: const Text("Manually add an expense or income"),
+                onTap: () async {
+                  Navigator.pop(context); // Close sheet
+                  await Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const AddTransactionScreen(),
+                    ),
+                  );
+                  refreshData();
+                },
+              ),
+              const SizedBox(height: 10),
+              ListTile(
+                leading: Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: Colors.purple.shade50,
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.auto_fix_high, color: Colors.purple),
+                ),
+                title: const Text("Manage SMS Patterns"),
+                subtitle: const Text("Go to Settings to train patterns"),
+                onTap: () {
+                  Navigator.pop(context); // Close sheet
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const SettingsPage(initialIndex: 1),
+                    ),
+                  ).then((_) => refreshData());
+                },
+              ),
+              const SizedBox(height: 10),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -224,160 +476,163 @@ class HomePageState extends State<HomePage> {
         ],
       ),
       floatingActionButton: FloatingActionButton(
-        onPressed: () async {
-          await Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => const AddTransactionScreen(),
-            ),
-          );
-          refreshData(); // Refresh list on return
-        },
+        onPressed: () => _showAddMenu(context),
         child: const Icon(Icons.add),
       ),
-      body: RefreshIndicator(
-        onRefresh: _syncMessages,
-        child:
-            _transactions.isEmpty
-                ? ListView(
-                  children: const [
-                    SizedBox(height: 200),
-                    Center(
-                      child: Text(
-                        "No transactions yet.\nPull down to scan.",
-                        textAlign: TextAlign.center,
+      body: GestureDetector(
+        onHorizontalDragEnd: (details) {
+          if (details.primaryVelocity! > 0) {
+            // Swiped Right -> Previous Month
+            _changeSummaryMonth(-1);
+          } else if (details.primaryVelocity! < 0) {
+            // Swiped Left -> Next Month
+            _changeSummaryMonth(1);
+          }
+        },
+        child: RefreshIndicator(
+          onRefresh: _syncMessages,
+          child:
+              _transactions.isEmpty
+                  ? ListView(
+                    children: const [
+                      SizedBox(height: 200),
+                      Center(
+                        child: Text(
+                          "No transactions yet.\nPull down to scan.",
+                          textAlign: TextAlign.center,
+                        ),
                       ),
-                    ),
-                  ],
-                )
-                : ListView.builder(
-                  // +1 for Budget, +1 for Bills, +1 for Goals, +Transactions
-                  itemCount: _transactions.length + 3,
-                  itemBuilder: (context, index) {
-                    // Index 0 is Budget Card
-                    if (index == 0) return _buildBudgetCard();
+                    ],
+                  )
+                  : ListView.builder(
+                    // +1 Summary, +1 Budget, +1 Bills, +1 Goals, +Transactions
+                    itemCount: _transactions.length + 4,
+                    itemBuilder: (context, index) {
+                      if (index == 0)
+                        return _buildMonthlySummaryCard(); // New Widget
 
-                    // Index 1 is Upcoming Bills
-                    if (index == 1) return _buildUpcomingBills();
+                      // Shift indices for others
+                      if (index == 1) return _buildBudgetCard();
+                      if (index == 2) return _buildUpcomingBills();
+                      if (index == 3) return _buildGoalsSection();
 
-                    // Index 2 is Goals Section
-                    if (index == 2) return _buildGoalsSection();
-
-                    // Adjust index for transactions (Budget + Bills + Goals = 3 items before list)
-                    final txIndex = index - 3;
-                    final tx = _transactions[txIndex];
-                    final date = DateTime.fromMillisecondsSinceEpoch(
-                      tx['date'],
-                    );
-                    final normalizedDate = DateTime(
-                      date.year,
-                      date.month,
-                      date.day,
-                    );
-
-                    bool showHeader = false;
-                    if (txIndex == 0) {
-                      showHeader = true;
-                    } else {
-                      final prevTx = _transactions[txIndex - 1];
-                      final prevDate = DateTime.fromMillisecondsSinceEpoch(
-                        prevTx['date'],
+                      // Adjust index for transactions (4 items before list)
+                      final txIndex = index - 4;
+                      final tx = _transactions[txIndex];
+                      final date = DateTime.fromMillisecondsSinceEpoch(
+                        tx['date'],
                       );
-                      if (!_isSameDay(date, prevDate)) {
+                      final normalizedDate = DateTime(
+                        date.year,
+                        date.month,
+                        date.day,
+                      );
+
+                      bool showHeader = false;
+                      if (txIndex == 0) {
                         showHeader = true;
-                      }
-                    }
-
-                    // Build the Transaction Tile
-                    final tile = ListTile(
-                      leading: CircleAvatar(
-                        backgroundColor:
-                            tx['type'] == 'credit'
-                                ? Colors.green.shade50
-                                : Colors.red.shade50,
-                        child: Icon(
-                          tx['type'] == 'credit'
-                              ? Icons.arrow_downward
-                              : Icons.arrow_upward,
-                          color:
-                              tx['type'] == 'credit'
-                                  ? Colors.green
-                                  : Colors.red,
-                          size: 20,
-                        ),
-                      ),
-                      title: Text(
-                        tx['patternName'] ?? tx['sender'] ?? "Unknown",
-                        style: const TextStyle(fontWeight: FontWeight.w500),
-                      ),
-                      subtitle: Text(tx['categoryName'] ?? "Uncategorized"),
-                      trailing: Text(
-                        "${tx['amount']}",
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 16,
-                          color:
-                              tx['type'] == 'credit'
-                                  ? Colors.green
-                                  : Colors.red,
-                        ),
-                      ),
-                      onTap: () async {
-                        await Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder:
-                                (context) =>
-                                    TransactionDetailScreen(transaction: tx),
-                          ),
+                      } else {
+                        final prevTx = _transactions[txIndex - 1];
+                        final prevDate = DateTime.fromMillisecondsSinceEpoch(
+                          prevTx['date'],
                         );
-                        refreshData();
-                      },
-                    );
+                        if (!_isSameDay(date, prevDate)) {
+                          showHeader = true;
+                        }
+                      }
 
-                    if (showHeader) {
-                      // Get the total for this day from our map
-                      final dailyTotal = _dailyTotals[normalizedDate] ?? 0.0;
-
-                      return Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Padding(
-                            padding: const EdgeInsets.fromLTRB(16, 24, 16, 8),
-                            // CHANGED: Row to show Date on Left, Total on Right
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Text(
-                                  _formatDateHeader(date),
-                                  style: TextStyle(
-                                    color: Colors.grey[800],
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 15,
-                                  ),
-                                ),
-                                Text(
-                                  NumberFormat.currency(
-                                    symbol: "INR ",
-                                    locale: "en_IN",
-                                  ).format(dailyTotal),
-                                  style: TextStyle(
-                                    color: Colors.grey[600],
-                                    fontWeight: FontWeight.w600,
-                                    fontSize: 13,
-                                  ),
-                                ),
-                              ],
-                            ),
+                      // Build the Transaction Tile
+                      final tile = ListTile(
+                        leading: CircleAvatar(
+                          backgroundColor:
+                              tx['type'] == 'credit'
+                                  ? Colors.green.shade50
+                                  : Colors.red.shade50,
+                          child: Icon(
+                            tx['type'] == 'credit'
+                                ? Icons.arrow_downward
+                                : Icons.arrow_upward,
+                            color:
+                                tx['type'] == 'credit'
+                                    ? Colors.green
+                                    : Colors.red,
+                            size: 20,
                           ),
-                          tile,
-                        ],
+                        ),
+                        title: Text(
+                          tx['patternName'] ?? tx['sender'] ?? "Unknown",
+                          style: const TextStyle(fontWeight: FontWeight.w500),
+                        ),
+                        subtitle: Text(tx['categoryName'] ?? "Uncategorized"),
+                        trailing: Text(
+                          "${tx['amount']}",
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                            color:
+                                tx['type'] == 'credit'
+                                    ? Colors.green
+                                    : Colors.red,
+                          ),
+                        ),
+                        onTap: () async {
+                          await Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder:
+                                  (context) =>
+                                      TransactionDetailScreen(transaction: tx),
+                            ),
+                          );
+                          refreshData();
+                        },
                       );
-                    } else {
-                      return tile;
-                    }
-                  },
-                ),
+
+                      if (showHeader) {
+                        // Get the total for this day from our map
+                        final dailyTotal = _dailyTotals[normalizedDate] ?? 0.0;
+
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Padding(
+                              padding: const EdgeInsets.fromLTRB(16, 24, 16, 8),
+                              // CHANGED: Row to show Date on Left, Total on Right
+                              child: Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(
+                                    _formatDateHeader(date),
+                                    style: TextStyle(
+                                      color: Colors.grey[800],
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 15,
+                                    ),
+                                  ),
+                                  Text(
+                                    NumberFormat.currency(
+                                      symbol: "INR ",
+                                      locale: "en_IN",
+                                    ).format(dailyTotal),
+                                    style: TextStyle(
+                                      color: Colors.grey[600],
+                                      fontWeight: FontWeight.w600,
+                                      fontSize: 13,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            tile,
+                          ],
+                        );
+                      } else {
+                        return tile;
+                      }
+                    },
+                  ),
+        ),
       ),
     );
   }
@@ -388,15 +643,7 @@ class HomePageState extends State<HomePage> {
         margin: const EdgeInsets.all(16),
         color: Colors.blue.shade50,
         child: InkWell(
-          onTap: () {
-            // Navigate to Settings -> General Tab (index 0)
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => const SettingsPage(),
-              ), // Settings handles its own defaults
-            ).then((_) => refreshData());
-          },
+          onTap: _showBudgetEditor,
           borderRadius: BorderRadius.circular(12),
           child: Padding(
             padding: const EdgeInsets.all(20),
@@ -421,15 +668,12 @@ class HomePageState extends State<HomePage> {
     }
 
     // 1. Calculate this month's spending
-    final now = DateTime.now();
+    // Since _transactions is now filtered to _summaryMonth, we can sum directly
     double currentMonthSpent = 0.0;
 
     for (var tx in _transactions) {
-      final date = DateTime.fromMillisecondsSinceEpoch(tx['date']);
-      if (date.year == now.year && date.month == now.month) {
-        if (tx['type'] == 'debit' || tx['type'] == 'expense') {
-          currentMonthSpent += (tx['amount'] as num).toDouble();
-        }
+      if (tx['type'] == 'debit' || tx['type'] == 'expense') {
+        currentMonthSpent += (tx['amount'] as num).toDouble();
       }
     }
 
@@ -453,9 +697,22 @@ class HomePageState extends State<HomePage> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(
-                  "Monthly Budget (${DateFormat.MMMM().format(now)})",
-                  style: const TextStyle(fontWeight: FontWeight.bold),
+                Row(
+                  children: [
+                    Text(
+                      "Monthly Budget (${DateFormat.MMMM().format(_summaryMonth)})",
+                      style: const TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    IconButton(
+                      icon: const Icon(
+                        Icons.edit,
+                        size: 16,
+                        color: Colors.grey,
+                      ),
+                      splashRadius: 20,
+                      onPressed: _showBudgetEditor,
+                    ),
+                  ],
                 ),
                 Text(
                   "${(progress * 100).toStringAsFixed(0)}%",
@@ -516,12 +773,9 @@ class HomePageState extends State<HomePage> {
               ) {
                 double catSpent = 0.0;
                 for (var tx in _transactions) {
-                  final date = DateTime.fromMillisecondsSinceEpoch(tx['date']);
-                  if (date.year == now.year && date.month == now.month) {
-                    if (tx['categoryId'] == cat['id'] &&
-                        (tx['type'] == 'debit' || tx['type'] == 'expense')) {
-                      catSpent += (tx['amount'] as num).toDouble();
-                    }
+                  if (tx['categoryId'] == cat['id'] &&
+                      (tx['type'] == 'debit' || tx['type'] == 'expense')) {
+                    catSpent += (tx['amount'] as num).toDouble();
                   }
                 }
 
@@ -614,19 +868,9 @@ class HomePageState extends State<HomePage> {
       children: [
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Text(
-                "Savings Goals",
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-              ),
-              // Option to view Archived? For now just an icon
-              IconButton(
-                icon: const Icon(Icons.archive_outlined, color: Colors.grey),
-                onPressed: _showArchivedGoals,
-              ),
-            ],
+          child: const Text(
+            "Savings Goals",
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
           ),
         ),
         SizedBox(
@@ -675,10 +919,6 @@ class HomePageState extends State<HomePage> {
               }
 
               final goal = activeGoals[index];
-              final current = (goal['savedAmount'] as num).toDouble();
-              final target =
-                  (goal['targetAmount'] as num)
-                      .toDouble(); // Corrected var name typo in my head
               final currentAmount = (goal['savedAmount'] as num).toDouble();
               final targetAmount = (goal['targetAmount'] as num).toDouble();
 
@@ -690,8 +930,15 @@ class HomePageState extends State<HomePage> {
               final color = colorInt != null ? Color(colorInt) : Colors.blue;
 
               return GestureDetector(
-                onTap: () => _showGoalManagementModal(goal),
-                onLongPress: () => _showGoalManagementModal(goal),
+                onTap: () async {
+                  await Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => GoalHistoryScreen(goal: goal),
+                    ),
+                  );
+                  refreshData();
+                },
                 child: Container(
                   width: 160,
                   margin: const EdgeInsets.only(right: 12),
@@ -869,145 +1116,18 @@ class HomePageState extends State<HomePage> {
     );
   }
 
-  void _showGoalManagementModal(Map<String, dynamic> goal) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder:
-          (ctx) => Padding(
-            padding: const EdgeInsets.all(24.0),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Row(
-                  children: [
-                    CircleAvatar(
-                      backgroundColor:
-                          goal['color'] != null
-                              ? Color(goal['color'])
-                              : Colors.blue,
-                      child: const Icon(Icons.savings, color: Colors.white),
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            goal['name'],
-                            style: const TextStyle(
-                              fontSize: 20,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          Text(
-                            "Target: ₹${goal['targetAmount']}",
-                            style: const TextStyle(color: Colors.grey),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-                const Divider(height: 32),
-                ListTile(
-                  leading: const Icon(Icons.add_circle, color: Colors.green),
-                  title: const Text("Add Savings / Withdraw"),
-                  subtitle: const Text(
-                    "Create a new transaction for this goal",
-                  ),
-                  onTap: () {
-                    Navigator.pop(ctx);
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder:
-                            (context) =>
-                                AddTransactionScreen(initialGoalId: goal['id']),
-                      ),
-                    ).then((_) => refreshData());
-                  },
-                ),
-                ListTile(
-                  leading: const Icon(Icons.link, color: Colors.blue),
-                  title: const Text("Link Existing Transaction"),
-                  subtitle: const Text("Attach unallocated transactions"),
-                  onTap: () {
-                    Navigator.pop(ctx);
-                    _showLinkTransactionDialog(goal['id']);
-                  },
-                ),
-                const Divider(height: 32),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                  children: [
-                    TextButton.icon(
-                      icon: const Icon(Icons.archive, color: Colors.grey),
-                      label: Text(
-                        (goal['isArchived'] ?? 0) == 1
-                            ? "Unarchive"
-                            : "Archive",
-                      ),
-                      onPressed: () async {
-                        await DatabaseHelper.instance.archiveGoal(
-                          goal['id'],
-                          (goal['isArchived'] ?? 0) != 1,
-                        );
-                        if (mounted) Navigator.pop(ctx);
-                        refreshData();
-                      },
-                    ),
-                    TextButton.icon(
-                      icon: const Icon(Icons.delete, color: Colors.red),
-                      label: const Text("Delete"),
-                      onPressed: () async {
-                        final delete = await showDialog<bool>(
-                          context: context,
-                          builder:
-                              (dCtx) => AlertDialog(
-                                title: const Text("Delete Goal?"),
-                                content: const Text(
-                                  "This will remove the goal but keep its transactions.",
-                                ),
-                                actions: [
-                                  TextButton(
-                                    onPressed: () => Navigator.pop(dCtx, false),
-                                    child: const Text("Cancel"),
-                                  ),
-                                  TextButton(
-                                    onPressed: () => Navigator.pop(dCtx, true),
-                                    style: TextButton.styleFrom(
-                                      foregroundColor: Colors.red,
-                                    ),
-                                    child: const Text("Delete"),
-                                  ),
-                                ],
-                              ),
-                        );
-                        if (delete == true) {
-                          await DatabaseHelper.instance.deleteGoal(goal['id']);
-                          if (mounted) Navigator.pop(ctx);
-                          refreshData();
-                        }
-                      },
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 16),
-              ],
-            ),
-          ),
+  void _showBudgetEditor() {
+    final totalController = TextEditingController(
+      text: _monthlyBudget > 0 ? _monthlyBudget.toStringAsFixed(0) : '',
     );
-  }
-
-  void _showLinkTransactionDialog(int goalId) {
-    // Filter transactions that have NO goal and are NOT 'transfer' (optional)
-    // Using _transactions list which is already loaded
-    final candidates =
-        _transactions.where((tx) => tx['goalId'] == null).toList();
+    // Create controllers for each category
+    final Map<int, TextEditingController> catControllers = {};
+    for (var cat in _categories) {
+      final limit = (cat['budgetLimit'] as num?)?.toDouble() ?? 0.0;
+      catControllers[cat['id']] = TextEditingController(
+        text: limit > 0 ? limit.toStringAsFixed(0) : '',
+      );
+    }
 
     showModalBottomSheet(
       context: context,
@@ -1015,131 +1135,139 @@ class HomePageState extends State<HomePage> {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      builder:
-          (ctx) => DraggableScrollableSheet(
-            expand: false,
-            initialChildSize: 0.6,
-            minChildSize: 0.4,
-            maxChildSize: 0.9,
-            builder:
-                (context, scrollController) => Column(
-                  children: [
-                    const Padding(
-                      padding: EdgeInsets.all(16.0),
-                      child: Text(
-                        "Link Transaction",
-                        style: TextStyle(
-                          fontSize: 18,
+      builder: (ctx) {
+        return DraggableScrollableSheet(
+          initialChildSize: 0.9,
+          minChildSize: 0.5,
+          maxChildSize: 0.95,
+          expand: false,
+          builder: (context, scrollController) {
+            return Column(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        "Budget for ${DateFormat.MMMM().format(_summaryMonth)}",
+                        style: const TextStyle(
+                          fontSize: 20,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
-                    ),
-                    if (candidates.isEmpty)
-                      const Expanded(
-                        child: Center(
-                          child: Text("No unallocated transactions found."),
+                      IconButton(
+                        icon: const Icon(Icons.check, color: Colors.green),
+                        onPressed: () async {
+                          // Save Total
+                          final total =
+                              double.tryParse(totalController.text) ?? 0.0;
+                          await DatabaseHelper.instance.setMonthBudget(
+                            month: _summaryMonth.month,
+                            year: _summaryMonth.year,
+                            amount: total,
+                            categoryId: 0,
+                          );
+
+                          // Save Categories
+                          for (var entry in catControllers.entries) {
+                            final catTotal =
+                                double.tryParse(entry.value.text) ?? 0.0;
+                            // Save if modified (or even if 0 to clear it?)
+                            // For overrides, seeing 0 might mean "No Limit" or "0 Limit".
+                            // Let's assume user input means setting it.
+                            await DatabaseHelper.instance.setMonthBudget(
+                              month: _summaryMonth.month,
+                              year: _summaryMonth.year,
+                              amount: catTotal,
+                              categoryId: entry.key,
+                            );
+                          }
+
+                          if (mounted) Navigator.pop(ctx);
+                          refreshData();
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+                Expanded(
+                  child: ListView(
+                    controller: scrollController,
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    children: [
+                      TextField(
+                        controller: totalController,
+                        decoration: const InputDecoration(
+                          labelText: "Total Monthly Goal",
+                          border: OutlineInputBorder(),
+                          prefixIcon: Icon(Icons.account_balance_wallet),
                         ),
-                      )
-                    else
-                      Expanded(
-                        child: ListView.builder(
-                          controller: scrollController,
-                          itemCount: candidates.length,
-                          itemBuilder: (ctx, i) {
-                            final tx = candidates[i];
-                            final isCredit = tx['type'] == 'credit';
-                            return ListTile(
-                              leading: Icon(
-                                isCredit
-                                    ? Icons.arrow_downward
-                                    : Icons.arrow_upward,
-                                color: isCredit ? Colors.green : Colors.red,
-                              ),
-                              title: Text(tx['sender'] ?? "Unknown"),
-                              subtitle: Text(
-                                DateFormat.yMMMd().format(
-                                  DateTime.fromMillisecondsSinceEpoch(
-                                    tx['date'],
+                        keyboardType: TextInputType.number,
+                      ),
+                      const SizedBox(height: 24),
+                      const Text(
+                        "Category Sub-limits (Optional)",
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.grey,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      ..._categories.map((cat) {
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 12.0),
+                          child: Row(
+                            children: [
+                              CircleAvatar(
+                                backgroundColor: Color(
+                                  cat['color'] ?? Colors.grey.value,
+                                ),
+                                radius: 16,
+                                child: Text(
+                                  cat['name'][0],
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 12,
                                   ),
                                 ),
                               ),
-                              trailing: Text(
-                                "₹${tx['amount']}",
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  color: isCredit ? Colors.green : Colors.red,
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Text(
+                                  cat['name'],
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w500,
+                                  ),
                                 ),
                               ),
-                              onTap: () async {
-                                // Update transaction with goalId
-                                await DatabaseHelper.instance.updateTransaction(
-                                  {...tx, 'goalId': goalId},
-                                );
-                                if (mounted) Navigator.pop(ctx);
-                                refreshData();
-                              },
-                            );
-                          },
-                        ),
-                      ),
-                  ],
+                              const SizedBox(width: 12),
+                              SizedBox(
+                                width: 100,
+                                child: TextField(
+                                  controller: catControllers[cat['id']],
+                                  decoration: const InputDecoration(
+                                    prefixText: "₹",
+                                    isDense: true,
+                                    border: OutlineInputBorder(),
+                                  ),
+                                  keyboardType: TextInputType.number,
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      }),
+                      const SizedBox(height: 50), // Spacing for keyboard
+                    ],
+                  ),
                 ),
-          ),
-    );
-  }
-
-  void _showArchivedGoals() {
-    final archived = _goals.where((g) => (g['isArchived'] ?? 0) == 1).toList();
-
-    showDialog(
-      context: context,
-      builder:
-          (ctx) => AlertDialog(
-            title: const Text("Archived Goals"),
-            content:
-                archived.isEmpty
-                    ? const Padding(
-                      padding: EdgeInsets.all(16.0),
-                      child: Text("No archived goals."),
-                    )
-                    : SizedBox(
-                      width: double.maxFinite,
-                      child: ListView.separated(
-                        shrinkWrap: true,
-                        itemCount: archived.length,
-                        separatorBuilder: (c, i) => const Divider(),
-                        itemBuilder: (c, i) {
-                          final goal = archived[i];
-                          return ListTile(
-                            leading: Icon(
-                              Icons.archive,
-                              color: Color(goal['color'] ?? Colors.grey.value),
-                            ),
-                            title: Text(goal['name']),
-                            subtitle: Text("Target: ₹${goal['targetAmount']}"),
-                            trailing: TextButton(
-                              child: const Text("Unarchive"),
-                              onPressed: () async {
-                                await DatabaseHelper.instance.archiveGoal(
-                                  goal['id'],
-                                  false,
-                                );
-                                Navigator.pop(ctx);
-                                // _showArchivedGoals(); // Removed to close modal
-                                refreshData();
-                              },
-                            ),
-                          );
-                        },
-                      ),
-                    ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(ctx),
-                child: const Text("Close"),
-              ),
-            ],
-          ),
+              ],
+            );
+          },
+        );
+      },
     );
   }
 }

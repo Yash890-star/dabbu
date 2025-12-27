@@ -19,7 +19,7 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 4,
+      version: 7,
       onCreate: _createDB,
       onUpgrade: _onUpgrade,
     );
@@ -78,6 +78,38 @@ class DatabaseHelper {
         )
       ''');
     }
+
+    if (oldVersion < 5) {
+      // 5. Add Index on Date for transactions table
+      await db.execute(
+        'CREATE INDEX idx_transactions_date ON transactions (date)',
+      );
+    }
+
+    if (oldVersion < 6) {
+      // 6. Add is_goal_addition to transactions
+      try {
+        await db.execute(
+          'ALTER TABLE transactions ADD COLUMN is_goal_addition INTEGER DEFAULT 1',
+        );
+      } catch (e) {
+        print("Column is_goal_addition might already exist: $e");
+      }
+    }
+
+    if (oldVersion < 7) {
+      // 7. Budget Overrides (Historic Budgets)
+      // categoryId = 0 implies Total Monthly Budget
+      await db.execute('''
+        CREATE TABLE budget_overrides (
+          month INTEGER,
+          year INTEGER,
+          categoryId INTEGER, 
+          amount REAL,
+          PRIMARY KEY (month, year, categoryId)
+        )
+      ''');
+    }
   }
 
   Future<void> _createDB(Database db, int version) async {
@@ -116,6 +148,7 @@ class DatabaseHelper {
         categoryId INTEGER DEFAULT 1, -- Defaults to 'Uncategorized' (ID 1)
         patternId INTEGER,
         goalId INTEGER,
+        is_goal_addition INTEGER DEFAULT 1, -- New column
         FOREIGN KEY (categoryId) REFERENCES categories (id),
         FOREIGN KEY (patternId) REFERENCES patterns (id),
         FOREIGN KEY (goalId) REFERENCES goals (id)
@@ -355,6 +388,7 @@ class DatabaseHelper {
       'categoryId',
       'patternId',
       'goalId',
+      'is_goal_addition',
     ];
     final Map<String, dynamic> sanitized = {};
     for (var key in validColumns) {
@@ -374,33 +408,42 @@ class DatabaseHelper {
     return await db.delete('transactions', where: 'id = ?', whereArgs: [id]);
   }
 
-  Future<List<Map<String, dynamic>>> getTransactionsWithDetails() async {
+  Future<List<Map<String, dynamic>>> getTransactionsWithDetails({
+    int limit = 0,
+  }) async {
     final db = await instance.database;
 
     // We perform a LEFT JOIN on both Categories and Patterns
     // This gives us the Category Name (e.g. "Food") and Pattern Name (e.g. "HDFC CC")
-    return await db.rawQuery('''
-    SELECT 
-      t.id, 
-      t.amount, 
-      t.sender, 
-      t.body, 
-      t.date, 
-      t.type, 
-      t.categoryId, 
-      t.patternId,
-      t.goalId,
-      c.name as categoryName, 
-      c.color as categoryColor, 
-      c.icon as categoryIcon,
-      p.name as patternName,
-      g.name as goalName
-    FROM transactions t
-    LEFT JOIN categories c ON t.categoryId = c.id
-    LEFT JOIN patterns p ON t.patternId = p.id
-    LEFT JOIN goals g ON t.goalId = g.id
-    ORDER BY t.date DESC
-  ''');
+    String query = '''
+      SELECT 
+        t.id, 
+        t.amount, 
+        t.sender, 
+        t.body, 
+        t.date, 
+        t.type, 
+        t.categoryId, 
+        t.patternId,
+        t.goalId,
+        t.is_goal_addition,
+        c.name as categoryName, 
+        c.color as categoryColor, 
+        c.icon as categoryIcon,
+        p.name as patternName,
+        g.name as goalName
+      FROM transactions t
+      LEFT JOIN categories c ON t.categoryId = c.id
+      LEFT JOIN patterns p ON t.patternId = p.id
+      LEFT JOIN goals g ON t.goalId = g.id
+      ORDER BY t.date DESC
+    ''';
+
+    if (limit > 0) {
+      query += ' LIMIT $limit';
+    }
+
+    return await db.rawQuery(query);
   }
   // Inside DatabaseHelper class
 
@@ -409,6 +452,8 @@ class DatabaseHelper {
     int? endEpoch, // End Date timestamp
     List<int>? categoryIds, // Multi-select Category Filter
     List<int>? patternIds, // Multi-select Payment Method Filter
+    String? type, // 'debit' or 'credit'
+    int? goalId, // Filter by Goal
   }) async {
     final db = await instance.database;
 
@@ -427,6 +472,16 @@ class DatabaseHelper {
     if (endEpoch != null) {
       conditions.add('t.date <= ?');
       args.add(endEpoch);
+    }
+
+    if (type != null) {
+      conditions.add('t.type = ?');
+      args.add(type);
+    }
+
+    if (goalId != null) {
+      conditions.add('t.goalId = ?');
+      args.add(goalId);
     }
 
     if (categoryIds != null && categoryIds.isNotEmpty) {
@@ -494,7 +549,13 @@ class DatabaseHelper {
     for (var goal in goals) {
       final id = goal['id'] as int;
       final result = await db.rawQuery(
-        'SELECT SUM(amount) as total FROM transactions WHERE goalId = ?',
+        '''SELECT SUM(
+             CASE 
+               WHEN is_goal_addition = 1 THEN amount 
+               ELSE -amount 
+             END
+           ) as total 
+           FROM transactions WHERE goalId = ?''',
         [id],
       );
       final double totalSaved =
@@ -561,5 +622,78 @@ class DatabaseHelper {
   Future<int> deleteSubscription(int id) async {
     final db = await instance.database;
     return await db.delete('subscriptions', where: 'id = ?', whereArgs: [id]);
+  }
+
+  Future<Map<String, double>> getMonthlySummary(int month, int year) async {
+    final db = await instance.database;
+    final start = DateTime(year, month, 1).millisecondsSinceEpoch;
+    // Calculate end date (first day of next month)
+    final end =
+        (month == 12)
+            ? DateTime(year + 1, 1, 1).millisecondsSinceEpoch
+            : DateTime(year, month + 1, 1).millisecondsSinceEpoch;
+
+    // Use raw query for efficiency
+    // We treat 'debit' and 'expense' as Spend, 'credit' and 'income' as Income
+    final result = await db.rawQuery(
+      '''
+      SELECT 
+        SUM(CASE WHEN type IN ('debit', 'expense') THEN amount ELSE 0 END) as expense,
+        SUM(CASE WHEN type IN ('credit', 'income') THEN amount ELSE 0 END) as income
+      FROM transactions 
+      WHERE date >= ? AND date < ?
+    ''',
+      [start, end],
+    );
+
+    if (result.isNotEmpty) {
+      final row = result.first;
+      return {
+        'expense': (row['expense'] as num?)?.toDouble() ?? 0.0,
+        'income': (row['income'] as num?)?.toDouble() ?? 0.0,
+      };
+    }
+    return {'expense': 0.0, 'income': 0.0};
+  }
+
+  // --- Monthly Budget Overrides ---
+
+  Future<void> setMonthBudget({
+    required int month,
+    required int year,
+    required double amount,
+    int categoryId = 0, // 0 = Total, >0 = Category
+  }) async {
+    final db = await instance.database;
+    await db.insert('budget_overrides', {
+      'month': month,
+      'year': year,
+      'categoryId': categoryId,
+      'amount': amount,
+    }, conflictAlgorithm: ConflictAlgorithm.replace);
+  }
+
+  /// Returns a map where key 'total' is the monthly budget,
+  /// and 'cat_ID' are category budgets.
+  /// If no entry exists for a month, it returns empty map.
+  Future<Map<String, double>> getMonthBudgets(int month, int year) async {
+    final db = await instance.database;
+    final res = await db.query(
+      'budget_overrides',
+      where: 'month = ? AND year = ?',
+      whereArgs: [month, year],
+    );
+
+    final Map<String, double> budgets = {};
+    for (var row in res) {
+      final catId = row['categoryId'] as int;
+      final amount = (row['amount'] as num).toDouble();
+      if (catId == 0) {
+        budgets['total'] = amount;
+      } else {
+        budgets['cat_$catId'] = amount;
+      }
+    }
+    return budgets;
   }
 }

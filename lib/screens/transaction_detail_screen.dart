@@ -242,14 +242,20 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen> {
     );
   }
 
-  Future<void> _updateGoal(int? newGoalId, String? newGoalName) async {
+  Future<void> _updateGoal(
+    int? newGoalId,
+    String? newGoalName, {
+    bool isGoalAddition = true,
+  }) async {
     try {
-      print("Debug: Assigning Goal ID: $newGoalId, Name: $newGoalName");
+      print(
+        "Debug: Assigning Goal ID: $newGoalId, Name: $newGoalName, Impact: $isGoalAddition",
+      );
 
       final db = await DatabaseHelper.instance.database;
       await db.update(
         'transactions',
-        {'goalId': newGoalId},
+        {'goalId': newGoalId, 'is_goal_addition': isGoalAddition ? 1 : 0},
         where: 'id = ?',
         whereArgs: [widget.transaction['id']],
       );
@@ -259,6 +265,7 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen> {
           _selectedGoalId = newGoalId;
           _goalName = newGoalName;
           _localTransaction['goalId'] = newGoalId;
+          _localTransaction['is_goal_addition'] = isGoalAddition ? 1 : 0;
         });
 
         // Refresh data to ensure consistency (and if goal name was null for some reason, fetch it)
@@ -302,9 +309,47 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen> {
                           _selectedGoalId == goal['id']
                               ? const Icon(Icons.check, color: Colors.green)
                               : null,
-                      onTap: () {
-                        _updateGoal(goal['id'], goal['name']);
-                        Navigator.pop(ctx);
+                      onTap: () async {
+                        Navigator.pop(ctx); // Close list
+
+                        // Ask for Impact
+                        await showDialog(
+                          context: context,
+                          builder:
+                              (context) => AlertDialog(
+                                title: Text("Impact on '${goal['name']}'?"),
+                                content: const Text(
+                                  "Is this money adding to the goal or being withdrawn from it?",
+                                ),
+                                actions: [
+                                  TextButton(
+                                    onPressed: () {
+                                      Navigator.pop(context);
+                                      _updateGoal(
+                                        goal['id'],
+                                        goal['name'],
+                                        isGoalAddition: false,
+                                      );
+                                    },
+                                    child: const Text(
+                                      "Subtract (Withdraw)",
+                                      style: TextStyle(color: Colors.orange),
+                                    ),
+                                  ),
+                                  ElevatedButton(
+                                    onPressed: () {
+                                      Navigator.pop(context);
+                                      _updateGoal(
+                                        goal['id'],
+                                        goal['name'],
+                                        isGoalAddition: true,
+                                      );
+                                    },
+                                    child: const Text("Add (Deposit)"),
+                                  ),
+                                ],
+                              ),
+                        );
                       },
                     );
                   },
@@ -620,7 +665,9 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen> {
                           if (_goalName != null)
                             Chip(
                               avatar: const Icon(Icons.savings, size: 16),
-                              label: Text(_goalName!),
+                              label: Text(
+                                "${_goalName!} (${(_localTransaction['is_goal_addition'] ?? 1) == 1 ? '+' : '-'})",
+                              ),
                               backgroundColor: Colors.amber.shade50,
                               deleteIcon: const Icon(Icons.close, size: 16),
                               onDeleted: () => _updateGoal(null, null),

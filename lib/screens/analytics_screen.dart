@@ -131,6 +131,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
       endEpoch: end,
       categoryIds: _selectedCategoryIds,
       patternIds: _selectedPatternIds,
+      type: _transactionType,
     );
 
     // 2. Previous Period Data (For Insights)
@@ -139,6 +140,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
       endEpoch: endPrev,
       categoryIds: _selectedCategoryIds,
       patternIds: _selectedPatternIds,
+      type: _transactionType,
     );
 
     // --- NEW: Calculate Summaries & Insights ---
@@ -148,27 +150,25 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
 
     // Process Current Data
     for (var tx in data) {
-      if (tx['type'] == _transactionType) {
-        final catName = tx['categoryName'] ?? 'Uncategorized';
-        final amount = (tx['amount'] as num).toDouble();
-        totalFilterAmount += amount;
-        totals[catName] = (totals[catName] ?? 0) + amount; // Current Total
+      // DB already filtered by type, so we can skip the check or keep it as sanity check.
+      // Removing to trust DB and simplify.
+      final catName = tx['categoryName'] ?? 'Uncategorized';
+      final amount = (tx['amount'] as num).toDouble();
+      totalFilterAmount += amount;
+      totals[catName] = (totals[catName] ?? 0) + amount; // Current Total
 
-        if (!colors.containsKey(catName)) {
-          int? colorInt = tx['categoryColor'];
-          colors[catName] = colorInt != null ? Color(colorInt) : Colors.grey;
-        }
+      if (!colors.containsKey(catName)) {
+        int? colorInt = tx['categoryColor'];
+        colors[catName] = colorInt != null ? Color(colorInt) : Colors.grey;
       }
     }
 
     // Process Previous Data
     Map<String, double> prevTotals = {};
     for (var tx in prevData) {
-      if (tx['type'] == _transactionType) {
-        final catName = tx['categoryName'] ?? 'Uncategorized';
-        final amount = (tx['amount'] as num).toDouble();
-        prevTotals[catName] = (prevTotals[catName] ?? 0) + amount;
-      }
+      final catName = tx['categoryName'] ?? 'Uncategorized';
+      final amount = (tx['amount'] as num).toDouble();
+      prevTotals[catName] = (prevTotals[catName] ?? 0) + amount;
     }
 
     // Generate Insights
@@ -244,9 +244,12 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
 
     summaries.sort((a, b) => b.amount.compareTo(a.amount));
 
+    // Data is already filtered by DB now
+    final filteredList = data;
+
     if (mounted) {
       setState(() {
-        _transactions = data;
+        _transactions = filteredList;
         _categorySummaries = summaries;
         _insights = calculatedInsights;
         _isLoading = false;
@@ -341,20 +344,20 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                   });
                 },
                 style: ButtonStyle(
-                  backgroundColor: MaterialStateProperty.resolveWith<Color?>((
-                    Set<MaterialState> states,
+                  backgroundColor: WidgetStateProperty.resolveWith<Color?>((
+                    Set<WidgetState> states,
                   ) {
-                    if (states.contains(MaterialState.selected)) {
+                    if (states.contains(WidgetState.selected)) {
                       return _transactionType == 'debit'
                           ? Colors.red.shade100
                           : Colors.green.shade100;
                     }
                     return null;
                   }),
-                  foregroundColor: MaterialStateProperty.resolveWith<Color?>((
-                    Set<MaterialState> states,
+                  foregroundColor: WidgetStateProperty.resolveWith<Color?>((
+                    Set<WidgetState> states,
                   ) {
-                    if (states.contains(MaterialState.selected)) {
+                    if (states.contains(WidgetState.selected)) {
                       return Colors.black;
                     }
                     return null;
@@ -395,8 +398,6 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                     }
 
                     final color = isGood ? Colors.green : Colors.red;
-                    final icon =
-                        isGood ? Icons.trending_up : Icons.trending_down;
                     // Actually trending_up is always "up", so we use boolean to decide icon rotation or just specific icons.
                     // Let's use specific icons.
                     // arrow_drop_up is increase, arrow_drop_down is decrease.

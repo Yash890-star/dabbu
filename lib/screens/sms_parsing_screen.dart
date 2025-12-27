@@ -29,9 +29,15 @@ class _SmsParsingScreenState extends State<SmsParsingScreen> {
   List<String> _senderTokens = [];
 
   // --- Selection State ---
+  // --- Selection State ---
   int? _selectedAmountIndex;
-  int? _selectedPrefixIndex; // The anchor BEFORE the amount
-  int? _selectedSuffixIndex; // The anchor AFTER the amount
+  // Prefix Range (Before Amount)
+  int? _prefixStart;
+  int? _prefixEnd;
+  // Suffix Range (After Amount)
+  int? _suffixStart;
+  int? _suffixEnd;
+
   String? _selectedSenderToken;
 
   // --- Metadata State ---
@@ -85,32 +91,60 @@ class _SmsParsingScreenState extends State<SmsParsingScreen> {
   // --- THE NEW SELECTION LOGIC ---
   void _handleTokenTap(int index) {
     setState(() {
-      // Case 1: Select Amount (First tap or resetting)
+      // Case 1: Select Amount
       if (_selectedAmountIndex == null) {
         _selectedAmountIndex = index;
-        _selectedPrefixIndex = null; // Reset anchors when amount changes
-        _selectedSuffixIndex = null;
-      }
-      // Case 2: Deselect Amount (Tapping it again)
-      else if (_selectedAmountIndex == index) {
+        _prefixStart = null;
+        _prefixEnd = null;
+        _suffixStart = null;
+        _suffixEnd = null;
+      } else if (_selectedAmountIndex == index) {
+        // Deselect Amount
         _selectedAmountIndex = null;
-        _selectedPrefixIndex = null;
-        _selectedSuffixIndex = null;
+        _prefixStart = null;
+        _prefixEnd = null;
+        _suffixStart = null;
+        _suffixEnd = null;
         _generatedRegex = "";
         return;
       }
-      // Case 3: Select Anchor
-      else {
-        if (index < _selectedAmountIndex!) {
-          // If tapping before amount -> Toggle Prefix
-          _selectedPrefixIndex = (_selectedPrefixIndex == index) ? null : index;
+      // Case 2: Prefix Selection (Before Amount)
+      else if (index < _selectedAmountIndex!) {
+        if (_prefixStart == null) {
+          _prefixStart = index;
+          _prefixEnd = index;
         } else {
-          // If tapping after amount -> Toggle Suffix
-          _selectedSuffixIndex = (_selectedSuffixIndex == index) ? null : index;
+          // If we already have a range, or tap is before start, reset
+          if (_prefixEnd != _prefixStart || index < _prefixStart!) {
+            _prefixStart = index;
+            _prefixEnd = index;
+          } else {
+            // Extend to the right
+            _prefixEnd = index;
+          }
+        }
+      }
+      // Case 3: Suffix Selection (After Amount)
+      else {
+        if (_suffixStart == null) {
+          _suffixStart = index;
+          _suffixEnd = index;
+        } else {
+          // Logic: Extend towards the right, or reset if clicking back?
+          // For suffix, usually we read left-to-right (Amount ... Merchant).
+          // If tap is before previous start (closer to amount), maybe reset?
+          // Let's use simple logic: If tap > current end, extend. Else reset.
+          if (index > _suffixEnd!) {
+            _suffixEnd = index;
+          } else {
+            // Reset/Start New
+            _suffixStart = index;
+            _suffixEnd = index;
+          }
         }
       }
 
-      _generateRegex(); // Re-calculate regex immediately
+      _generateRegex();
     });
   }
 
@@ -123,23 +157,52 @@ class _SmsParsingScreenState extends State<SmsParsingScreen> {
     String regex = "";
 
     // 1. PREFIX PART
-    if (_selectedPrefixIndex != null) {
-      List<String> prefixParts = [];
-      for (int i = _selectedPrefixIndex!; i < _selectedAmountIndex!; i++) {
-        prefixParts.add(RegExp.escape(_bodyTokens[i]));
+    if (_prefixStart != null && _prefixEnd != null) {
+      // A. The User-Selected Fixed Block
+      List<String> fixedParts = [];
+      for (int i = _prefixStart!; i <= _prefixEnd!; i++) {
+        fixedParts.add(RegExp.escape(_bodyTokens[i]));
       }
-      regex += "${prefixParts.join(r'\s+')}\\s+";
+      regex += fixedParts.join(r'\s+');
+
+      // B. The Gap (if any)
+      // Check distance to Amount
+      // Last selected index is _prefixEnd.
+      // Amount is _selectedAmountIndex.
+      // E.g. Sel=1. Amt=3. Gap is index 2.
+      if (_prefixEnd! < _selectedAmountIndex! - 1) {
+        // There is a gap
+        regex += r'\s+(?:.*?)\s+';
+
+        // C. The Bridge (Last token before amount)
+        // We ALWAYS include the token immediately preceding the amount as a strict anchor
+        // UNLESS the user selected it as part of their fixed block.
+        // Here, a gap exists, so user didn't select it.
+        regex += RegExp.escape(_bodyTokens[_selectedAmountIndex! - 1]);
+        regex += r'\s+';
+      } else {
+        // No gap (User selected up to the amount)
+        regex += r'\s+';
+      }
     }
 
-    // 2. AMOUNT PART (UPDATED FIX)
-    // We add (?:[^0-9\n]*) to ignore "Rs.", "INR", ":", etc. inside the token
+    // 2. AMOUNT PART
     regex += r"(?:[^0-9\n]*)([0-9.,]+)";
 
     // 3. SUFFIX PART
-    if (_selectedSuffixIndex != null) {
+    if (_suffixStart != null && _suffixEnd != null) {
       regex += r"\s+";
+
+      // Gap handling for Suffix?
+      // Amount is at AmtIndex.
+      // Suffix starts at _suffixStart.
+      // If _suffixStart > AmtIndex + 1, implicit gap?
+      if (_suffixStart! > _selectedAmountIndex! + 1) {
+        regex += r'(?:.*?)\s+';
+      }
+
       List<String> suffixParts = [];
-      for (int i = _selectedAmountIndex! + 1; i <= _selectedSuffixIndex!; i++) {
+      for (int i = _suffixStart!; i <= _suffixEnd!; i++) {
         suffixParts.add(RegExp.escape(_bodyTokens[i]));
       }
       regex += suffixParts.join(r'\s+');
@@ -348,16 +411,37 @@ class _SmsParsingScreenState extends State<SmsParsingScreen> {
                       bgColor = Colors.green; // Amount is Green
                       textColor = Colors.white;
                       fontWeight = FontWeight.bold;
-                    } else if (index == _selectedPrefixIndex ||
-                        index == _selectedSuffixIndex) {
-                      bgColor = Colors.blue; // Anchors are Blue
+                    }
+                    // Prefix Range Checking
+                    else if (_prefixStart != null &&
+                        _prefixEnd != null &&
+                        index >= _prefixStart! &&
+                        index <= _prefixEnd!) {
+                      bgColor = Colors.blue;
                       textColor = Colors.white;
                       fontWeight = FontWeight.bold;
-                    } else if (_selectedPrefixIndex != null &&
+                    }
+                    // Suffix Range Checking
+                    else if (_suffixStart != null &&
+                        _suffixEnd != null &&
+                        index >= _suffixStart! &&
+                        index <= _suffixEnd!) {
+                      bgColor = Colors.blue;
+                      textColor = Colors.white;
+                      fontWeight = FontWeight.bold;
+                    }
+                    // Gap Highlighting (Prefix)
+                    else if (_prefixEnd != null &&
                         _selectedAmountIndex != null &&
-                        index > _selectedPrefixIndex! &&
+                        index > _prefixEnd! &&
                         index < _selectedAmountIndex!) {
-                      // Highlight words BETWEEN anchor and amount lightly
+                      bgColor = Colors.blue.shade50;
+                    }
+                    // Gap Highlighting (Suffix)
+                    else if (_suffixStart != null &&
+                        _selectedAmountIndex != null &&
+                        index > _selectedAmountIndex! &&
+                        index < _suffixStart!) {
                       bgColor = Colors.blue.shade50;
                     }
 
