@@ -54,8 +54,12 @@ class HomePageState extends State<HomePage> {
                   '$newCount',
                 )
                 : CMS.home['no_new_transaction']!,
+            style: TextStyle(color: Theme.of(context).colorScheme.onPrimary),
           ),
-          backgroundColor: newCount > 0 ? Colors.green : Colors.grey,
+          backgroundColor:
+              newCount > 0
+                  ? Theme.of(context).colorScheme.primary
+                  : Theme.of(context).colorScheme.surface,
           duration: const Duration(seconds: 2),
         ),
       );
@@ -96,7 +100,10 @@ class HomePageState extends State<HomePage> {
                   children: [
                     if (!isCurrentMonth)
                       IconButton(
-                        icon: const Icon(Icons.restore, color: Colors.blue),
+                        icon: Icon(
+                          Icons.restore,
+                          color: Theme.of(context).colorScheme.primary,
+                        ),
                         tooltip: "Reset to Current Month",
                         visualDensity: VisualDensity.compact,
                         onPressed: _resetSummaryMonth,
@@ -106,7 +113,9 @@ class HomePageState extends State<HomePage> {
                         Icons.chevron_right,
                         color:
                             isCurrentMonth
-                                ? Colors.grey.withOpacity(0.5)
+                                ? Theme.of(
+                                  context,
+                                ).colorScheme.onSurface.withValues(alpha: 0.3)
                                 : null,
                       ),
                       visualDensity: VisualDensity.compact,
@@ -136,9 +145,10 @@ class HomePageState extends State<HomePage> {
                       NumberFormat.compactCurrency(
                         symbol: CMS.common['currency_symbol']!,
                       ).format(_viewModel.summaryData['expense']),
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontWeight: FontWeight.bold,
                         fontSize: 18,
+                        color: Theme.of(context).colorScheme.onSurface,
                       ),
                     ),
                   ],
@@ -163,9 +173,10 @@ class HomePageState extends State<HomePage> {
                       NumberFormat.compactCurrency(
                         symbol: CMS.common['currency_symbol']!,
                       ).format(_viewModel.summaryData['income']),
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontWeight: FontWeight.bold,
                         fontSize: 18,
+                        color: Theme.of(context).colorScheme.onSurface,
                       ),
                     ),
                   ],
@@ -185,28 +196,38 @@ class HomePageState extends State<HomePage> {
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Colors.orange.shade50,
+        color: Theme.of(
+          context,
+        ).colorScheme.tertiaryContainer.withValues(alpha: 0.2),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.orange.shade200),
+        border: Border.all(
+          color: Theme.of(context).colorScheme.tertiary.withValues(alpha: 0.3),
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              const Icon(Icons.warning_amber_rounded, color: Colors.orange),
+              Icon(
+                Icons.warning_amber_rounded,
+                color: Theme.of(context).colorScheme.tertiary,
+              ),
               const SizedBox(width: 8),
               Text(
                 CMS.home['upcoming_bills']!,
-                style: const TextStyle(
+                style: TextStyle(
                   fontWeight: FontWeight.bold,
-                  color: Colors.deepOrange,
+                  color: Theme.of(context).colorScheme.tertiary,
                 ),
               ),
               const Spacer(),
               Text(
                 "${_viewModel.upcomingBills.length} ${CMS.home['upcoming_due']!}",
-                style: TextStyle(color: Colors.orange.shade800, fontSize: 12),
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.tertiary,
+                  fontSize: 12,
+                ),
               ),
             ],
           ),
@@ -231,7 +252,10 @@ class HomePageState extends State<HomePage> {
                   Text(
                     "₹${bill['amount']} • $dueText",
                     style: TextStyle(
-                      color: days < 0 ? Colors.red : Colors.grey[800],
+                      color:
+                          days < 0
+                              ? Theme.of(context).colorScheme.error
+                              : Theme.of(context).colorScheme.onSurfaceVariant,
                       fontSize: 13,
                     ),
                   ),
@@ -284,10 +308,13 @@ class HomePageState extends State<HomePage> {
                 leading: Container(
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
-                    color: Colors.blue.shade50,
+                    color: Theme.of(context).colorScheme.primaryContainer,
                     shape: BoxShape.circle,
                   ),
-                  child: const Icon(Icons.add_card, color: Colors.blue),
+                  child: Icon(
+                    Icons.add_card,
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
                 ),
                 title: Text(CMS.home['add_menu_transaction']!),
                 subtitle: Text(CMS.home['add_menu_transaction_sub']!),
@@ -307,10 +334,13 @@ class HomePageState extends State<HomePage> {
                 leading: Container(
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
-                    color: Colors.purple.shade50,
+                    color: Theme.of(context).colorScheme.secondaryContainer,
                     shape: BoxShape.circle,
                   ),
-                  child: const Icon(Icons.auto_fix_high, color: Colors.purple),
+                  child: Icon(
+                    Icons.auto_fix_high,
+                    color: Theme.of(context).colorScheme.secondary,
+                  ),
                 ),
                 title: Text(CMS.home['add_menu_pattern']!),
                 subtitle: Text(CMS.home['add_menu_pattern_sub']!),
@@ -426,8 +456,8 @@ class HomePageState extends State<HomePage> {
                             leading: CircleAvatar(
                               backgroundColor:
                                   tx['type'] == 'credit'
-                                      ? Colors.green.shade50
-                                      : Colors.red.shade50,
+                                      ? Colors.green.withValues(alpha: 0.1)
+                                      : Colors.red.withValues(alpha: 0.1),
                               child: Icon(
                                 tx['type'] == 'credit'
                                     ? Icons.arrow_downward
@@ -495,7 +525,10 @@ class HomePageState extends State<HomePage> {
                                       Text(
                                         _formatDateHeader(date),
                                         style: TextStyle(
-                                          color: Colors.grey[800],
+                                          color:
+                                              Theme.of(
+                                                context,
+                                              ).colorScheme.onSurfaceVariant,
                                           fontWeight: FontWeight.bold,
                                           fontSize: 15,
                                         ),
@@ -506,7 +539,10 @@ class HomePageState extends State<HomePage> {
                                           locale: "en_IN",
                                         ).format(dailyTotal),
                                         style: TextStyle(
-                                          color: Colors.grey[600],
+                                          color:
+                                              Theme.of(
+                                                context,
+                                              ).colorScheme.onSurfaceVariant,
                                           fontWeight: FontWeight.w600,
                                           fontSize: 13,
                                         ),
@@ -542,14 +578,17 @@ class HomePageState extends State<HomePage> {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(Icons.add_circle_outline, color: Colors.blue.shade700),
+                Icon(
+                  Icons.add_circle_outline,
+                  color: Theme.of(context).colorScheme.primary,
+                ),
                 const SizedBox(width: 12),
                 Text(
                   CMS.home['monthly_budget_set']!,
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
-                    color: Colors.blue.shade900,
+                    color: Theme.of(context).colorScheme.primary,
                   ),
                 ),
               ],
@@ -615,7 +654,8 @@ class HomePageState extends State<HomePage> {
             LinearProgressIndicator(
               value: progress > 1 ? 1 : progress,
               color: color,
-              backgroundColor: Colors.grey.shade200,
+              backgroundColor:
+                  Theme.of(context).colorScheme.surfaceContainerHighest,
               minHeight: 10,
               borderRadius: BorderRadius.circular(5),
             ),
@@ -685,7 +725,8 @@ class HomePageState extends State<HomePage> {
                   margin: const EdgeInsets.only(bottom: 12.0),
                   padding: const EdgeInsets.all(12.0),
                   decoration: BoxDecoration(
-                    color: Colors.grey.withOpacity(0.05), // Neutral background
+                    color: Theme.of(context).colorScheme.surfaceContainerHighest
+                        .withValues(alpha: 0.3), // Neutral background
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Column(
@@ -701,14 +742,18 @@ class HomePageState extends State<HomePage> {
                                 backgroundColor:
                                     cat['color'] != null
                                         ? Color(cat['color']).withAlpha(51)
-                                        : Colors.grey.shade200,
+                                        : Theme.of(
+                                          context,
+                                        ).colorScheme.surfaceContainerHighest,
                                 child: Icon(
                                   Icons.category,
                                   size: 12,
                                   color:
                                       cat['color'] != null
                                           ? Color(cat['color'])
-                                          : Colors.grey,
+                                          : Theme.of(
+                                            context,
+                                          ).colorScheme.onSurfaceVariant,
                                 ),
                               ),
                               const SizedBox(width: 8),
@@ -781,10 +826,12 @@ class HomePageState extends State<HomePage> {
                     width: 140,
                     margin: const EdgeInsets.only(right: 12),
                     decoration: BoxDecoration(
-                      color: Colors.blue.shade50,
+                      color: Theme.of(context).colorScheme.primaryContainer,
                       borderRadius: BorderRadius.circular(16),
                       border: Border.all(
-                        color: Colors.blue.shade200,
+                        color: Theme.of(
+                          context,
+                        ).colorScheme.primary.withValues(alpha: 0.3),
                         style: BorderStyle.solid,
                         width: 2,
                       ),
@@ -801,7 +848,9 @@ class HomePageState extends State<HomePage> {
                         Text(
                           "New Goal",
                           style: TextStyle(
-                            color: Colors.blue.shade700,
+                            backgroundColor: Theme.of(
+                              context,
+                            ).colorScheme.primary.withValues(alpha: 0.2),
                             fontWeight: FontWeight.bold,
                           ),
                         ),
@@ -837,12 +886,20 @@ class HomePageState extends State<HomePage> {
                   margin: const EdgeInsets.only(right: 12),
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: Colors.grey.shade200),
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.secondary.withValues(alpha: 0.2),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: Theme.of(
+                        context,
+                      ).colorScheme.secondary.withValues(alpha: 0.1),
+                    ),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.grey.shade100,
+                        color: Colors.black.withValues(
+                          alpha: 0.2,
+                        ), // Darker shadow for dark mode
                         blurRadius: 4,
                         offset: const Offset(0, 2),
                       ),
@@ -888,7 +945,7 @@ class HomePageState extends State<HomePage> {
                       LinearProgressIndicator(
                         value: progress,
                         color: color,
-                        backgroundColor: color.withOpacity(0.1),
+                        backgroundColor: color.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(4),
                       ),
                     ],
@@ -961,7 +1018,10 @@ class HomePageState extends State<HomePage> {
                                       border:
                                           selectedColor == c
                                               ? Border.all(
-                                                color: Colors.black,
+                                                color: Theme.of(context)
+                                                    .colorScheme
+                                                    .onSurface
+                                                    .withValues(alpha: 0.1),
                                                 width: 2,
                                               )
                                               : null,
@@ -992,9 +1052,10 @@ class HomePageState extends State<HomePage> {
                         await _viewModel.createGoal(
                           nameController.text,
                           target,
-                          selectedColor.value,
+                          selectedColor.toARGB32(),
                         );
-                        if (mounted) Navigator.pop(context);
+                        if (!context.mounted) return;
+                        Navigator.pop(context);
                       }
                     },
                     child: Text(CMS.home['create_goal_btn']!),
@@ -1070,7 +1131,7 @@ class HomePageState extends State<HomePage> {
                             catBudgets,
                           );
 
-                          if (mounted) Navigator.pop(ctx);
+                          if (ctx.mounted) Navigator.pop(ctx);
                         },
                       ),
                     ],
@@ -1107,7 +1168,7 @@ class HomePageState extends State<HomePage> {
                             children: [
                               CircleAvatar(
                                 backgroundColor: Color(
-                                  cat['color'] ?? Colors.grey.value,
+                                  cat['color'] ?? Colors.grey.toARGB32(),
                                 ),
                                 radius: 16,
                                 child: Text(

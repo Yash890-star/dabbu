@@ -35,27 +35,29 @@ class _CalendarScreenState extends State<CalendarScreen> {
       final net = _viewModel.dailyNet[day]!;
       double intensity = (net.abs() / _viewModel.maxNet).clamp(0.2, 1.0);
       if (net >= 0) {
-        baseColor = Colors.red.withOpacity(intensity);
+        baseColor = Colors.red.withValues(alpha: intensity);
       } else {
-        baseColor = Colors.green.withOpacity(intensity);
+        baseColor = Colors.green.withValues(alpha: intensity);
       }
     }
 
     if (inRange) {
-      return Color.alphaBlend(Colors.blue.withAlpha(51), baseColor);
+      return Color.alphaBlend(Colors.blue.withValues(alpha: 0.2), baseColor);
     }
     return baseColor;
   }
 
   Color _getTextColor(int day, bool isSelected, bool inRange) {
-    if (inRange) return Colors.black87;
+    if (inRange) return Theme.of(context).colorScheme.onSecondary;
 
     if (_viewModel.dailyNet.containsKey(day)) {
       final net = _viewModel.dailyNet[day]!;
       double intensity = (net.abs() / _viewModel.maxNet).clamp(0.2, 1.0);
-      return intensity > 0.5 ? Colors.white : Colors.black87;
+      return intensity > 0.5
+          ? Colors.white
+          : Theme.of(context).colorScheme.onSurface;
     }
-    return Colors.black87;
+    return Theme.of(context).colorScheme.onSurface;
   }
 
   String _getRangeHeaderText() {
@@ -315,13 +317,13 @@ class _CalendarScreenState extends State<CalendarScreen> {
             _viewModel.selectedSenders.length;
 
         return Scaffold(
-          backgroundColor: Colors.grey[50],
+          // backgroundColor: Colors.grey[50], // Removed
           appBar: AppBar(
             title: Text(
               CMS.calendar['title']!,
               style: const TextStyle(fontWeight: FontWeight.w600),
             ),
-            backgroundColor: Colors.white,
+            // backgroundColor: Colors.white, // Removed
             elevation: 0,
             centerTitle: true,
             actions: [
@@ -340,7 +342,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                 // 1. Month Navigator
                 SliverToBoxAdapter(
                   child: Container(
-                    color: Colors.white,
+                    color: Theme.of(context).cardTheme.color,
                     padding: const EdgeInsets.symmetric(vertical: 8),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -368,7 +370,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                 // 2. Weekday Headers
                 SliverToBoxAdapter(
                   child: Container(
-                    color: Colors.white,
+                    color: Theme.of(context).cardTheme.color,
                     padding: const EdgeInsets.only(bottom: 8),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceAround,
@@ -406,8 +408,9 @@ class _CalendarScreenState extends State<CalendarScreen> {
                             mainAxisSpacing: 0,
                           ),
                       delegate: SliverChildBuilderDelegate((context, index) {
-                        if (index < weekdayOffset)
+                        if (index < weekdayOffset) {
                           return const SizedBox.shrink();
+                        }
 
                         final day = index - weekdayOffset + 1;
                         if (day > daysInMonth) return const SizedBox.shrink();
@@ -482,32 +485,40 @@ class _CalendarScreenState extends State<CalendarScreen> {
                         BoxBorder? border;
                         if (isSelected) {
                           border = Border(
-                            top: const BorderSide(
-                              color: Colors.black,
+                            top: BorderSide(
+                              color: Theme.of(context).colorScheme.onSurface,
                               width: 2,
                             ),
-                            bottom: const BorderSide(
-                              color: Colors.black,
+                            bottom: BorderSide(
+                              color: Theme.of(context).colorScheme.onSurface,
                               width: 2,
                             ),
                             left:
                                 (isRangeStart || isRowStart)
-                                    ? const BorderSide(
-                                      color: Colors.black,
+                                    ? BorderSide(
+                                      color:
+                                          Theme.of(
+                                            context,
+                                          ).colorScheme.onSurface,
                                       width: 2,
                                     )
                                     : BorderSide.none,
                             right:
                                 (isRangeEnd || isRowEnd)
-                                    ? const BorderSide(
-                                      color: Colors.black,
+                                    ? BorderSide(
+                                      color:
+                                          Theme.of(
+                                            context,
+                                          ).colorScheme.onSurface,
                                       width: 2,
                                     )
                                     : BorderSide.none,
                           );
                         } else {
                           border = Border.all(
-                            color: Colors.grey.shade200,
+                            color: Theme.of(
+                              context,
+                            ).dividerColor.withValues(alpha: 0.2),
                             width: 0.5,
                           );
                         }
@@ -546,7 +557,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                   // 4. Header with Reset Logic
                   SliverToBoxAdapter(
                     child: Container(
-                      color: Colors.white,
+                      color: Theme.of(context).cardTheme.color,
                       padding: const EdgeInsets.all(16),
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -574,7 +585,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                   // 5. Controls Row (Sort/Filter)
                   SliverToBoxAdapter(
                     child: Container(
-                      color: Colors.white,
+                      color: Theme.of(context).cardTheme.color,
                       padding: const EdgeInsets.symmetric(horizontal: 16),
                       child: Row(
                         children: [
@@ -645,7 +656,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                   if (activeFiltersCount > 0)
                     SliverToBoxAdapter(
                       child: Container(
-                        color: Colors.white,
+                        color: Theme.of(context).cardTheme.color,
                         padding: const EdgeInsets.symmetric(
                           horizontal: 16,
                           vertical: 8,
@@ -735,8 +746,8 @@ class _CalendarScreenState extends State<CalendarScreen> {
               leading: CircleAvatar(
                 backgroundColor:
                     isCredit
-                        ? Colors.green.withOpacity(0.1)
-                        : Colors.red.withOpacity(0.1),
+                        ? Colors.green.withValues(alpha: 0.1)
+                        : Colors.red.withValues(alpha: 0.1),
                 child: Icon(
                   isCredit ? Icons.arrow_downward : Icons.arrow_upward,
                   size: 16,

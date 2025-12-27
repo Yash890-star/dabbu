@@ -299,7 +299,7 @@ class _GoalHistoryScreenState extends State<GoalHistoryScreen> {
         final totalSaved = _viewModel.totalSaved;
         final goalTarget = (_viewModel.goal['targetAmount'] as num).toDouble();
         final progress = _viewModel.progress;
-        final color = Color(_viewModel.goal['color'] ?? Colors.blue.value);
+        final color = Color(_viewModel.goal['color'] ?? Colors.blue.toARGB32());
         final remaining = (goalTarget - totalSaved).clamp(0, double.infinity);
 
         String motivation = "";
@@ -373,7 +373,7 @@ class _GoalHistoryScreenState extends State<GoalHistoryScreen> {
               // Header Card
               Container(
                 padding: const EdgeInsets.all(20),
-                color: color.withOpacity(0.1),
+                color: color.withValues(alpha: 0.1),
                 child: Column(
                   children: [
                     Row(
@@ -412,10 +412,10 @@ class _GoalHistoryScreenState extends State<GoalHistoryScreen> {
                           horizontal: 14,
                         ),
                         decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.5),
+                          color: Colors.white.withValues(alpha: 0.5),
                           borderRadius: BorderRadius.circular(12),
                           border: Border.all(
-                            color: color.withOpacity(0.3),
+                            color: color.withValues(alpha: 0.3),
                             width: 1,
                           ),
                         ),
@@ -447,10 +447,10 @@ class _GoalHistoryScreenState extends State<GoalHistoryScreen> {
                         width: double.infinity,
                         padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
-                          color: Colors.green.withAlpha(51),
+                          color: Colors.green.withValues(alpha: 0.2),
                           borderRadius: BorderRadius.circular(12),
                           border: Border.all(
-                            color: Colors.green.withOpacity(0.5),
+                            color: Colors.green.withValues(alpha: 0.5),
                           ),
                         ),
                         child: Text(

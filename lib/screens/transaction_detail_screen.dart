@@ -139,7 +139,10 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen> {
           (ctx) => Column(
             children: [
               ListTile(
-                leading: const Icon(Icons.add_circle, color: Colors.blue),
+                leading: Icon(
+                  Icons.add_circle,
+                  color: Theme.of(context).colorScheme.primary,
+                ),
                 title: Text(CMS.transaction['create_category']!),
                 onTap: () {
                   Navigator.pop(ctx);
@@ -215,7 +218,7 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen> {
                     return ListTile(
                       leading: Icon(
                         Icons.savings,
-                        color: Color(goal['color'] ?? Colors.blue.value),
+                        color: Color(goal['color'] ?? Colors.blue.toARGB32()),
                       ),
                       title: Text(goal['name']),
                       trailing:
@@ -319,7 +322,7 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen> {
                         children:
                             _viewModel.categoryColors.map((color) {
                               final isSelected =
-                                  selectedColor.value == color.value;
+                                  selectedColor.toARGB32() == color.toARGB32();
                               return GestureDetector(
                                 onTap: () {
                                   setDialogState(() {
@@ -373,13 +376,13 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen> {
                       if (controller.text.isNotEmpty) {
                         int newId = await _viewModel.addNewCategory(
                           controller.text,
-                          selectedColor.value,
+                          selectedColor.toARGB32(),
                         );
                         await _updateCategory(
                           newId,
                           controller.text,
                         ); // Assign immediately
-                        if (mounted) Navigator.pop(ctx);
+                        if (ctx.mounted) Navigator.pop(ctx);
                       }
                     },
                     child: const Text("Create & Assign"),
@@ -436,8 +439,8 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen> {
                           radius: 30,
                           backgroundColor:
                               isCredit
-                                  ? Colors.green.shade100
-                                  : Colors.red.shade100,
+                                  ? Colors.green.withValues(alpha: 0.1)
+                                  : Colors.red.withValues(alpha: 0.1),
                           child: Icon(
                             isCredit
                                 ? Icons.arrow_downward
@@ -493,12 +496,13 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen> {
                                 style: const TextStyle(color: Colors.grey),
                               ),
                               if (_isEditing)
-                                const Padding(
-                                  padding: EdgeInsets.only(left: 8.0),
+                                Padding(
+                                  padding: const EdgeInsets.only(left: 8.0),
                                   child: Icon(
                                     Icons.calendar_today,
                                     size: 16,
-                                    color: Colors.blue,
+                                    color:
+                                        Theme.of(context).colorScheme.primary,
                                   ),
                                 ),
                             ],
@@ -543,13 +547,25 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen> {
                           children: [
                             Chip(
                               label: Text(_viewModel.categoryName),
-                              backgroundColor: Colors.blue.shade50,
+                              backgroundColor:
+                                  Theme.of(
+                                    context,
+                                  ).colorScheme.primaryContainer,
+                              labelStyle: TextStyle(
+                                color:
+                                    Theme.of(
+                                      context,
+                                    ).colorScheme.onPrimaryContainer,
+                              ),
                             ),
                             const SizedBox(width: 8),
-                            const Icon(
+                            Icon(
                               Icons.edit,
                               size: 16,
-                              color: Colors.grey,
+                              color:
+                                  Theme.of(
+                                    context,
+                                  ).colorScheme.onSurfaceVariant,
                             ),
                           ],
                         ),
@@ -581,25 +597,38 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen> {
                                   label: Text(
                                     "${_viewModel.goalName!} (${(_viewModel.transaction['is_goal_addition'] ?? 1) == 1 ? '+' : '-'})",
                                   ),
-                                  backgroundColor: Colors.amber.shade50,
+                                  backgroundColor:
+                                      Theme.of(
+                                        context,
+                                      ).colorScheme.tertiaryContainer,
+                                  labelStyle: TextStyle(
+                                    color:
+                                        Theme.of(
+                                          context,
+                                        ).colorScheme.onTertiaryContainer,
+                                  ),
                                   deleteIcon: const Icon(Icons.close, size: 16),
                                   onDeleted: () => _updateGoal(null, null),
                                 )
                               else
                                 Text(
                                   CMS.transaction['select_goal_label']!,
-                                  style: const TextStyle(
-                                    color: Colors.blue,
+                                  style: TextStyle(
+                                    color:
+                                        Theme.of(context).colorScheme.primary,
                                     fontWeight: FontWeight.bold,
                                   ),
                                 ),
 
                               if (_viewModel.goalName == null) ...[
                                 const SizedBox(width: 8),
-                                const Icon(
+                                Icon(
                                   Icons.edit,
                                   size: 16,
-                                  color: Colors.grey,
+                                  color:
+                                      Theme.of(
+                                        context,
+                                      ).colorScheme.onSurfaceVariant,
                                 ),
                               ],
                             ],
@@ -620,7 +649,10 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen> {
                       padding: const EdgeInsets.all(12),
                       width: double.infinity,
                       decoration: BoxDecoration(
-                        color: Colors.grey.shade100,
+                        color:
+                            Theme.of(
+                              context,
+                            ).colorScheme.surfaceContainerHighest,
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Text(_viewModel.transaction['body'] ?? ""),
@@ -639,7 +671,13 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen> {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(label, style: const TextStyle(fontSize: 16, color: Colors.grey)),
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 16,
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+          ),
+        ),
         Text(
           value,
           style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),

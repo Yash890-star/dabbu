@@ -67,7 +67,7 @@ class _SettingsPageState extends State<SettingsPage>
                 onPressed: () async {
                   final val = double.tryParse(controller.text) ?? 0.0;
                   await _viewModel.setMonthlyBudget(val);
-                  if (mounted) Navigator.pop(ctx);
+                  if (ctx.mounted) Navigator.pop(ctx);
                 },
                 child: Text(CMS.common['save']!),
               ),
@@ -145,7 +145,7 @@ class _SettingsPageState extends State<SettingsPage>
                         children:
                             _viewModel.categoryColors.map((color) {
                               final isSelected =
-                                  selectedColor.value == color.value;
+                                  selectedColor.toARGB32() == color.toARGB32();
                               return GestureDetector(
                                 onTap: () {
                                   setDialogState(() {
@@ -205,25 +205,25 @@ class _SettingsPageState extends State<SettingsPage>
                           .addOrUpdateCategory(
                             id: existingCategory?['id'],
                             name: nameController.text.trim(),
-                            colorValue: selectedColor.value,
+                            colorValue: selectedColor.toARGB32(),
                             budgetLimit: budget,
                             icon: existingCategory?['icon'],
                           );
 
-                      if (mounted) {
+                      if (ctx.mounted) {
                         Navigator.pop(ctx);
-
-                        if (wasBudgetUpdated) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text(
-                                "Monthly Budget updated automatically to match category limits.",
-                              ),
-                              backgroundColor: Colors.blue,
-                              duration: const Duration(seconds: 4),
+                      }
+                      // Use ctx (from showDialog context) or Ensure context is valid if using ScaffoldMessenger
+                      if (ctx.mounted && wasBudgetUpdated) {
+                        ScaffoldMessenger.of(ctx).showSnackBar(
+                          SnackBar(
+                            content: Text(
+                              "Monthly Budget updated automatically to match category limits.",
                             ),
-                          );
-                        }
+                            backgroundColor: Colors.blue,
+                            duration: const Duration(seconds: 4),
+                          ),
+                        );
                       }
                     },
                     child: Text(CMS.common['save']!),
@@ -298,7 +298,9 @@ class _SettingsPageState extends State<SettingsPage>
                           return ListTile(
                             leading: Icon(
                               Icons.archive,
-                              color: Color(goal['color'] ?? Colors.grey.value),
+                              color: Color(
+                                goal['color'] ?? Colors.grey.toARGB32(),
+                              ),
                             ),
                             title: Text(goal['name']),
                             subtitle: Text("Target: ₹${goal['targetAmount']}"),
@@ -306,8 +308,10 @@ class _SettingsPageState extends State<SettingsPage>
                               child: const Text("Restore"),
                               onPressed: () async {
                                 await _viewModel.restoreGoal(goal['id']);
-                                if (mounted) {
+                                if (ctx.mounted) {
                                   Navigator.pop(ctx);
+                                }
+                                if (mounted) {
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     SnackBar(
                                       content: Text(
@@ -538,7 +542,7 @@ class _SettingsPageState extends State<SettingsPage>
 
                     return ListTile(
                       leading: CircleAvatar(
-                        backgroundColor: color.withAlpha(51),
+                        backgroundColor: color.withValues(alpha: 0.2),
                         child: Icon(Icons.category, color: color),
                       ),
                       title: Text(cat['name']),

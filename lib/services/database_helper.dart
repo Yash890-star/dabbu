@@ -47,7 +47,7 @@ class DatabaseHelper {
         );
       } catch (e) {
         // Column might already exist if we are in a weird state, ignore
-        print("Column goalId might already exist: $e");
+        // print("Column goalId might already exist: $e");
       }
     }
 
@@ -58,7 +58,7 @@ class DatabaseHelper {
           'ALTER TABLE goals ADD COLUMN isArchived INTEGER DEFAULT 0',
         );
       } catch (e) {
-        print("Column isArchived might already exist: $e");
+        // print("Column isArchived might already exist: $e");
       }
     }
 
@@ -93,7 +93,7 @@ class DatabaseHelper {
           'ALTER TABLE transactions ADD COLUMN is_goal_addition INTEGER DEFAULT 1',
         );
       } catch (e) {
-        print("Column is_goal_addition might already exist: $e");
+        // print("Column is_goal_addition might already exist: $e");
       }
     }
 

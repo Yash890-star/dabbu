@@ -44,7 +44,7 @@ class _InitialSetupScreenState extends State<InitialSetupScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      // backgroundColor: Colors.white, // Removed to use Theme background
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(24.0),
@@ -63,7 +63,10 @@ class _InitialSetupScreenState extends State<InitialSetupScreen> {
               const SizedBox(height: 8),
               Text(
                 CMS.setup['ask_name']!,
-                style: const TextStyle(fontSize: 16, color: Colors.grey),
+                style: TextStyle(
+                  fontSize: 16,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 40),

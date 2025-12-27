@@ -38,13 +38,13 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
         );
 
         return Scaffold(
-          backgroundColor: Colors.grey[50], // Light background for contrast
+          // backgroundColor: Colors.grey[50], // Removed to use theme default
           appBar: AppBar(
             title: Text(
               CMS.analytics['title']!,
               style: const TextStyle(fontWeight: FontWeight.w600),
             ),
-            backgroundColor: Colors.white,
+            // backgroundColor: Colors.white, // Removed
             elevation: 0,
             actions: [
               IconButton(
@@ -89,8 +89,8 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                       ) {
                         if (states.contains(WidgetState.selected)) {
                           return _viewModel.transactionType == 'debit'
-                              ? Colors.red.shade100
-                              : Colors.green.shade100;
+                              ? Colors.red.withValues(alpha: 0.2)
+                              : Colors.green.withValues(alpha: 0.2);
                         }
                         return null;
                       }),
@@ -98,7 +98,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                         Set<WidgetState> states,
                       ) {
                         if (states.contains(WidgetState.selected)) {
-                          return Colors.black;
+                          return Theme.of(context).colorScheme.onSurface;
                         }
                         return null;
                       }),
@@ -152,12 +152,14 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                           margin: const EdgeInsets.only(right: 12),
                           padding: const EdgeInsets.all(12),
                           decoration: BoxDecoration(
-                            color: Colors.white,
+                            color: Theme.of(context).cardTheme.color,
                             borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: color.withOpacity(0.3)),
+                            border: Border.all(
+                              color: color.withValues(alpha: 0.3),
+                            ),
                             boxShadow: [
                               BoxShadow(
-                                color: Colors.grey.withOpacity(0.05),
+                                color: Colors.black.withValues(alpha: 0.05),
                                 blurRadius: 4,
                                 offset: const Offset(0, 2),
                               ),
@@ -172,7 +174,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                                   Container(
                                     padding: const EdgeInsets.all(4),
                                     decoration: BoxDecoration(
-                                      color: color.withOpacity(0.1),
+                                      color: color.withValues(alpha: 0.1),
                                       shape: BoxShape.circle,
                                     ),
                                     child: Icon(
@@ -230,11 +232,11 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                   Container(
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
-                      color: Colors.white,
+                      color: Theme.of(context).cardTheme.color,
                       borderRadius: BorderRadius.circular(16),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.grey.withOpacity(0.1),
+                          color: Colors.black.withValues(alpha: 0.05),
                           blurRadius: 10,
                           offset: const Offset(0, 5),
                         ),
@@ -445,24 +447,28 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                     return Card(
                       margin: const EdgeInsets.only(bottom: 8),
                       elevation: 0,
-                      color: Colors.white,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        side: BorderSide(color: Colors.grey.shade200),
-                      ),
                       child: ListTile(
                         dense: true,
                         contentPadding: const EdgeInsets.symmetric(
                           horizontal: 16,
                           vertical: 4,
                         ),
+                        // color: Colors.white, // Inherited from CardTheme
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          side: BorderSide(
+                            color: Theme.of(
+                              context,
+                            ).dividerColor.withValues(alpha: 0.1),
+                          ),
+                        ),
                         leading: Container(
                           padding: const EdgeInsets.all(8),
                           decoration: BoxDecoration(
                             color:
                                 isCredit
-                                    ? Colors.green.withOpacity(0.1)
-                                    : Colors.red.withOpacity(0.1),
+                                    ? Colors.green.withValues(alpha: 0.1)
+                                    : Colors.red.withValues(alpha: 0.1),
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: Icon(
@@ -530,9 +536,11 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Theme.of(context).cardTheme.color,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey.shade200),
+        border: Border.all(
+          color: Theme.of(context).dividerColor.withValues(alpha: 0.2),
+        ),
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -548,9 +556,9 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                 isDense: true,
                 underline: Container(),
                 icon: const Icon(Icons.keyboard_arrow_down, size: 16),
-                style: const TextStyle(
+                style: TextStyle(
                   fontWeight: FontWeight.bold,
-                  color: Colors.black,
+                  color: Theme.of(context).colorScheme.onSurface,
                   fontSize: 16,
                 ),
                 items: [
@@ -633,7 +641,9 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
         try {
           final found = items.firstWhere((e) => e[idKey] == selectedIds.first);
           labelText = found[nameKey];
-        } catch (e) {}
+        } catch (e) {
+          // Ignore
+        }
       } else {
         labelText = "$label (${selectedIds.length})";
       }

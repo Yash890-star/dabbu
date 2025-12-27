@@ -72,7 +72,7 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> {
                           'nextBillDate': cand['nextBillDate'],
                           'isActive': 1,
                         });
-                        if (mounted) {
+                        if (ctx.mounted) {
                           Navigator.pop(ctx);
                         }
                       },
@@ -165,7 +165,7 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> {
                             'nextBillDate': selectedDate.millisecondsSinceEpoch,
                             'isActive': 1,
                           });
-                          if (mounted) {
+                          if (ctx.mounted) {
                             Navigator.pop(ctx);
                           }
                         }

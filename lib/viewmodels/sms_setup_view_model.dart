@@ -56,7 +56,7 @@ class SmsSetupViewModel extends ChangeNotifier {
       await prefs.setInt('smsStartDate', selectedDate.millisecondsSinceEpoch);
 
       // 3. Fetch
-      List<SmsMessage> Messages = await _telephony.getInboxSms(
+      List<SmsMessage> messages = await _telephony.getInboxSms(
         columns: [SmsColumn.ADDRESS, SmsColumn.BODY, SmsColumn.DATE],
         sortOrder: [OrderBy(SmsColumn.DATE, sort: Sort.DESC)],
       );
@@ -64,7 +64,7 @@ class SmsSetupViewModel extends ChangeNotifier {
       // 4. Filter
       final int filterTimestamp = selectedDate.millisecondsSinceEpoch;
       final recentMessages =
-          Messages.where((msg) {
+          messages.where((msg) {
             final msgDate = msg.date ?? 0;
             return msgDate >= filterTimestamp;
           }).toList();

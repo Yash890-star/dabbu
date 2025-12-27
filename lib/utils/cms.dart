@@ -172,7 +172,7 @@ class CMS {
     'vs_last': ' vs last ',
   };
 
-  static const Map<String, dynamic> sms_parsing = {
+  static const Map<String, dynamic> smsParsing = {
     'title': 'Train Parser',
     'step_1_title': '1. Select Bank Name:',
     'step_2_title': '2. Select AMOUNT (Green) and ANCHOR TEXT (Blue):',
@@ -226,7 +226,7 @@ class CMS {
     'nav_settings': 'Settings',
   };
 
-  static const Map<String, dynamic> sms_setup = {
+  static const Map<String, dynamic> smsSetup = {
     'title': 'Setup Tracking',
     'scan_title': 'Scan for Transactions',
     'scan_subtitle':

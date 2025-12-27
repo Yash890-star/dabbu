@@ -54,11 +54,11 @@ class _SmsParsingScreenState extends State<SmsParsingScreen> {
       context: context,
       builder:
           (context) => AlertDialog(
-            title: Text(CMS.sms_parsing['new_category_title']!),
+            title: Text(CMS.smsParsing['new_category_title']!),
             content: TextField(
               controller: catController,
               decoration: InputDecoration(
-                hintText: CMS.sms_parsing['category_hint']!,
+                hintText: CMS.smsParsing['category_hint']!,
               ),
             ),
             actions: [
@@ -88,7 +88,7 @@ class _SmsParsingScreenState extends State<SmsParsingScreen> {
         if (!mounted) return;
         if (widget.existingPatternId != null) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(CMS.sms_parsing['success_message']!)),
+            SnackBar(content: Text(CMS.smsParsing['success_message']!)),
           );
           Navigator.pop(context);
         } else {
@@ -112,7 +112,7 @@ class _SmsParsingScreenState extends State<SmsParsingScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text(CMS.sms_parsing['title']!)),
+      appBar: AppBar(title: Text(CMS.smsParsing['title']!)),
       body: SafeArea(
         child: AnimatedBuilder(
           animation: _viewModel,
@@ -124,7 +124,7 @@ class _SmsParsingScreenState extends State<SmsParsingScreen> {
                 children: [
                   // 1. Sender ID
                   Text(
-                    CMS.sms_parsing['step_1_title']!,
+                    CMS.smsParsing['step_1_title']!,
                     style: const TextStyle(fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 8),
@@ -149,11 +149,11 @@ class _SmsParsingScreenState extends State<SmsParsingScreen> {
 
                   // 2. Body Tokens (Visual Selection)
                   Text(
-                    CMS.sms_parsing['step_2_title']!,
+                    CMS.smsParsing['step_2_title']!,
                     style: const TextStyle(fontWeight: FontWeight.bold),
                   ),
                   Text(
-                    CMS.sms_parsing['step_2_subtitle']!,
+                    CMS.smsParsing['step_2_subtitle']!,
                     style: const TextStyle(color: Colors.grey, fontSize: 12),
                   ),
                   const SizedBox(height: 8),
@@ -239,7 +239,7 @@ class _SmsParsingScreenState extends State<SmsParsingScreen> {
                       padding: const EdgeInsets.all(8),
                       color: Colors.grey.shade200,
                       child: Text(
-                        "${CMS.sms_parsing['regex_preview']!}${_viewModel.generatedRegex}",
+                        "${CMS.smsParsing['regex_preview']!}${_viewModel.generatedRegex}",
                         style: const TextStyle(
                           fontFamily: 'monospace',
                           fontSize: 10,
@@ -251,7 +251,7 @@ class _SmsParsingScreenState extends State<SmsParsingScreen> {
 
                   if (_viewModel.selectedAmountIndex != null) ...[
                     Text(
-                      CMS.sms_parsing['step_3_title']!,
+                      CMS.smsParsing['step_3_title']!,
                       style: const TextStyle(fontWeight: FontWeight.bold),
                     ),
                     const SizedBox(height: 10),
@@ -259,7 +259,7 @@ class _SmsParsingScreenState extends State<SmsParsingScreen> {
                     Row(
                       children: [
                         ChoiceChip(
-                          label: Text(CMS.sms_parsing['debit_label']!),
+                          label: Text(CMS.smsParsing['debit_label']!),
                           selected: _viewModel.transactionType == 'debit',
                           selectedColor: Colors.red.shade100,
                           labelStyle: TextStyle(
@@ -276,7 +276,7 @@ class _SmsParsingScreenState extends State<SmsParsingScreen> {
                         ),
                         const SizedBox(width: 12),
                         ChoiceChip(
-                          label: Text(CMS.sms_parsing['credit_label']!),
+                          label: Text(CMS.smsParsing['credit_label']!),
                           selected: _viewModel.transactionType == 'credit',
                           selectedColor: Colors.green.shade100,
                           labelStyle: TextStyle(
@@ -298,8 +298,8 @@ class _SmsParsingScreenState extends State<SmsParsingScreen> {
                     TextField(
                       controller: _patternNameController,
                       decoration: InputDecoration(
-                        labelText: CMS.sms_parsing['pattern_name_label']!,
-                        helperText: CMS.sms_parsing['pattern_name_helper']!,
+                        labelText: CMS.smsParsing['pattern_name_label']!,
+                        helperText: CMS.smsParsing['pattern_name_helper']!,
                         border: const OutlineInputBorder(),
                       ),
                     ),
@@ -311,7 +311,7 @@ class _SmsParsingScreenState extends State<SmsParsingScreen> {
                           child: InputDecorator(
                             decoration: InputDecoration(
                               labelText:
-                                  CMS.sms_parsing['default_category_label']!,
+                                  CMS.smsParsing['default_category_label']!,
                               border: const OutlineInputBorder(),
                             ),
                             child: DropdownButtonHideUnderline(
@@ -360,7 +360,7 @@ class _SmsParsingScreenState extends State<SmsParsingScreen> {
                                 color: Colors.white,
                               )
                               : Text(
-                                CMS.sms_parsing['save_pattern_btn']!,
+                                CMS.smsParsing['save_pattern_btn']!,
                                 style: const TextStyle(
                                   fontSize: 18,
                                   color: Colors.white,

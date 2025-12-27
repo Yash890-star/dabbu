@@ -31,7 +31,7 @@ class _SmsSetupScreenState extends State<SmsSetupScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              '${CMS.sms_setup['no_messages']!}${DateFormat.yMMMd().format(_viewModel.selectedDate)}',
+              '${CMS.smsSetup['no_messages']!}${DateFormat.yMMMd().format(_viewModel.selectedDate)}',
             ),
           ),
         );
@@ -51,13 +51,13 @@ class _SmsSetupScreenState extends State<SmsSetupScreen> {
       } else if (_viewModel.errorMessage != null) {
         if (_viewModel.errorMessage == "Permission required") {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(CMS.sms_setup['permission_required']!)),
+            SnackBar(content: Text(CMS.smsSetup['permission_required']!)),
           );
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(
-                '${CMS.sms_setup['error_prefix']!}${_viewModel.errorMessage}',
+                '${CMS.smsSetup['error_prefix']!}${_viewModel.errorMessage}',
               ),
             ),
           );
@@ -71,8 +71,8 @@ class _SmsSetupScreenState extends State<SmsSetupScreen> {
       context: context,
       builder:
           (ctx) => AlertDialog(
-            title: Text(CMS.sms_setup['perm_denied_title']!),
-            content: Text(CMS.sms_setup['perm_denied_content']!),
+            title: Text(CMS.smsSetup['perm_denied_title']!),
+            content: Text(CMS.smsSetup['perm_denied_content']!),
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(ctx),
@@ -83,7 +83,7 @@ class _SmsSetupScreenState extends State<SmsSetupScreen> {
                   Navigator.pop(ctx);
                   openAppSettings();
                 },
-                child: Text(CMS.sms_setup['open_settings']!),
+                child: Text(CMS.smsSetup['open_settings']!),
               ),
             ],
           ),
@@ -105,7 +105,7 @@ class _SmsSetupScreenState extends State<SmsSetupScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text(CMS.sms_setup['title']!)),
+      appBar: AppBar(title: Text(CMS.smsSetup['title']!)),
       body: AnimatedBuilder(
         animation: _viewModel,
         builder: (context, child) {
@@ -122,7 +122,7 @@ class _SmsSetupScreenState extends State<SmsSetupScreen> {
                 ),
                 const SizedBox(height: 24),
                 Text(
-                  CMS.sms_setup['scan_title']!,
+                  CMS.smsSetup['scan_title']!,
                   textAlign: TextAlign.center,
                   style: const TextStyle(
                     fontSize: 22,
@@ -131,7 +131,7 @@ class _SmsSetupScreenState extends State<SmsSetupScreen> {
                 ),
                 const SizedBox(height: 12),
                 Text(
-                  CMS.sms_setup['scan_subtitle']!,
+                  CMS.smsSetup['scan_subtitle']!,
                   textAlign: TextAlign.center,
                   style: const TextStyle(color: Colors.grey),
                 ),
@@ -141,7 +141,7 @@ class _SmsSetupScreenState extends State<SmsSetupScreen> {
                   onPressed: _pickDate,
                   icon: const Icon(Icons.calendar_today),
                   label: Text(
-                    "${CMS.sms_setup['start_from']!}${DateFormat.yMMMd().format(_viewModel.selectedDate)}",
+                    "${CMS.smsSetup['start_from']!}${DateFormat.yMMMd().format(_viewModel.selectedDate)}",
                   ),
                   style: OutlinedButton.styleFrom(
                     padding: const EdgeInsets.all(16),
@@ -165,7 +165,7 @@ class _SmsSetupScreenState extends State<SmsSetupScreen> {
                               color: Colors.white,
                             ),
                           )
-                          : Text(CMS.sms_setup['scan_btn']!),
+                          : Text(CMS.smsSetup['scan_btn']!),
                 ),
               ],
             ),
