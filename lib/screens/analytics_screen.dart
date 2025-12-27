@@ -1,10 +1,14 @@
 import 'package:flutter/material.dart';
-import 'package:fl_chart/fl_chart.dart';
 import 'package:intl/intl.dart';
 import '../utils/cms.dart';
 import '../utils/app_colors.dart';
 import '../viewmodels/analytics_view_model.dart';
 import 'transaction_detail_screen.dart';
+import '../widgets/bento_grid.dart';
+import '../widgets/analytics/period_selector.dart';
+import '../widgets/analytics/insight_block.dart';
+import '../widgets/analytics/chart_block.dart';
+import '../widgets/analytics/category_bento.dart';
 
 class AnalyticsScreen extends StatefulWidget {
   const AnalyticsScreen({super.key});
@@ -39,13 +43,11 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
         );
 
         return Scaffold(
-          // backgroundColor: Colors.grey[50], // Removed to use theme default
           appBar: AppBar(
             title: Text(
               CMS.analytics['title']!,
               style: const TextStyle(fontWeight: FontWeight.w600),
             ),
-            // backgroundColor: Colors.white, // Removed
             elevation: 0,
             actions: [
               IconButton(
@@ -56,478 +58,173 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
           ),
           body: RefreshIndicator(
             onRefresh: _viewModel.refreshAll,
-            child: ListView(
-              physics: const AlwaysScrollableScrollPhysics(),
+            child: SingleChildScrollView(
               padding: const EdgeInsets.all(16.0),
-              children: [
-                // 1. TIME CONTROLS
-                _buildTimeControls(),
-
-                const SizedBox(height: 16),
-
-                // 1.5 TYPE TOGGLE (Expenses vs Income)
-                Center(
-                  child: SegmentedButton<String>(
-                    segments: [
-                      ButtonSegment<String>(
-                        value: 'debit',
-                        label: Text(CMS.analytics['expenses_label']!),
-                        icon: const Icon(Icons.arrow_upward),
-                      ),
-                      ButtonSegment<String>(
-                        value: 'credit',
-                        label: Text(CMS.analytics['income_label']!),
-                        icon: const Icon(Icons.arrow_downward),
-                      ),
-                    ],
-                    selected: {_viewModel.transactionType},
-                    onSelectionChanged: (Set<String> newSelection) {
-                      _viewModel.setTransactionType(newSelection.first);
-                    },
-                    style: ButtonStyle(
-                      backgroundColor: WidgetStateProperty.resolveWith<Color?>((
-                        Set<WidgetState> states,
-                      ) {
-                        if (states.contains(WidgetState.selected)) {
-                          return _viewModel.transactionType == 'debit'
-                              ? AppColors.expenseBackground
-                              : AppColors.incomeBackground;
-                        }
-                        return null;
-                      }),
-                      foregroundColor: WidgetStateProperty.resolveWith<Color?>((
-                        Set<WidgetState> states,
-                      ) {
-                        if (states.contains(WidgetState.selected)) {
-                          return Theme.of(context).colorScheme.onSurface;
-                        }
-                        return null;
-                      }),
-                    ),
-                  ),
-                ),
-
-                // 1.8 INSIGHTS (MoM Comparison)
-                if (_viewModel.insights.isNotEmpty &&
-                    !_viewModel.isLoading) ...[
+              physics: const AlwaysScrollableScrollPhysics(),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  // 1. Controls Row (Period + Type)
+                  _buildControls(),
                   const SizedBox(height: 16),
-                  Text(
-                    CMS.analytics['insights_title']!,
-                    style: const TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                    ),
+
+                  // 2. Insight Block (2x1)
+                  if (!_viewModel.isLoading &&
+                      _viewModel.insights.isNotEmpty) ...[
+                    _buildInsightBlock(),
+                    const SizedBox(height: 16),
+                  ],
+
+                  // 3. Chart Block (2x2)
+                  ChartBlock(
+                    sections:
+                        _viewModel.categorySummaries
+                            .map(
+                              (s) => ChartSectionData(
+                                color: s.color,
+                                value: s.amount,
+                                percentage: s.percentage / 100,
+                                title: s.name,
+                              ),
+                            )
+                            .toList(),
+                    totalAmount: displayedTotal,
+                    isEmpty: !_viewModel.isLoading && displayedTotal == 0,
+                    centerLabel:
+                        "Total ${_viewModel.transactionType == 'debit' ? 'Spent' : 'Income'}",
                   ),
-                  const SizedBox(height: 8),
-                  SizedBox(
-                    height: 100,
-                    child: ListView.builder(
-                      scrollDirection: Axis.horizontal,
-                      itemCount: _viewModel.insights.length,
+                  const SizedBox(height: 16),
+
+                  // 4. Categories Grid (1x1 Bento)
+                  if (_viewModel.categorySummaries.isNotEmpty) ...[
+                    const Text(
+                      "Top Categories",
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    BentoGrid(
+                      children:
+                          _viewModel.categorySummaries.take(4).map((item) {
+                            return CategoryBento(
+                              categoryName: item.name,
+                              amount: NumberFormat.compactCurrency(
+                                symbol: '₹',
+                              ).format(item.amount),
+                              percentage: item.percentage / 100,
+                              color: item.color,
+                              icon:
+                                  Icons
+                                      .pie_chart, // Using generic as icons aren't in VM yet
+                            );
+                          }).toList(),
+                    ),
+                    const SizedBox(height: 24),
+                  ],
+
+                  // 5. Recent Transactions
+                  if (_viewModel.transactions.isNotEmpty) ...[
+                    Text(
+                      CMS.analytics['recent_transactions']!,
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    ListView.builder(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      itemCount: _viewModel.transactions.length,
                       itemBuilder: (context, index) {
-                        final insight = _viewModel.insights[index];
-                        final isPositive = insight.percentageChange > 0;
-                        final isExpense = _viewModel.transactionType == 'debit';
-
-                        // Logic:
-                        // Expense Increase (+) -> Bad (Red)
-                        // Expense Decrease (-) -> Good (Green)
-                        // Income Increase (+) -> Good (Green)
-                        // Income Decrease (-) -> Bad (Red)
-
-                        bool isGood;
-                        if (isExpense) {
-                          isGood = !isPositive; // Less expense is good
-                        } else {
-                          isGood = isPositive; // More income is good
-                        }
-
-                        final color =
-                            isGood ? AppColors.income : AppColors.expense;
-                        final arrowIcon =
-                            isPositive
-                                ? Icons.arrow_upward
-                                : Icons.arrow_downward;
-
-                        return Container(
-                          width: 200,
-                          margin: const EdgeInsets.only(right: 12),
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: Theme.of(context).cardTheme.color,
+                        // Reusing existing logic manually or we could reuse RecentTransactionsBlock logic
+                        // For now, implementing simple list item consistent with design
+                        final tx = _viewModel.transactions[index];
+                        final isCredit = tx['type'] == 'credit';
+                        return Card(
+                          margin: const EdgeInsets.only(bottom: 8),
+                          elevation: 0,
+                          shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(12),
-                            border: Border.all(
-                              color: color.withValues(alpha: 0.3),
+                            side: BorderSide(
+                              color: Theme.of(
+                                context,
+                              ).dividerColor.withValues(alpha: 0.1),
                             ),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withValues(alpha: 0.05),
-                                blurRadius: 4,
-                                offset: const Offset(0, 2),
-                              ),
-                            ],
                           ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Row(
-                                children: [
-                                  Container(
-                                    padding: const EdgeInsets.all(4),
-                                    decoration: BoxDecoration(
-                                      color: color.withValues(alpha: 0.1),
-                                      shape: BoxShape.circle,
-                                    ),
-                                    child: Icon(
-                                      arrowIcon,
-                                      size: 16,
-                                      color: color,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Expanded(
-                                    child: Text(
-                                      insight.categoryName,
-                                      style: const TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 13,
+                          child: ListTile(
+                            dense: true,
+                            leading: Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color:
+                                    isCredit
+                                        ? AppColors.incomeBackground
+                                        : AppColors.expenseBackground,
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Icon(
+                                isCredit
+                                    ? Icons.arrow_downward
+                                    : Icons.arrow_upward,
+                                size: 18,
+                                color:
+                                    isCredit
+                                        ? AppColors.income
+                                        : AppColors.expense,
+                              ),
+                            ),
+                            title: Text(
+                              tx['patternName'] ?? tx['sender'] ?? "Unknown",
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            subtitle: Text(
+                              "${DateFormat.MMMd().format(DateTime.fromMillisecondsSinceEpoch(tx['date']))} • ${tx['categoryName'] ?? 'Uncategorized'}",
+                              style: TextStyle(
+                                fontSize: 12,
+                                color:
+                                    Theme.of(
+                                      context,
+                                    ).colorScheme.onSurfaceVariant,
+                              ),
+                            ),
+                            trailing: Text(
+                              "${tx['amount']}",
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 15,
+                                color:
+                                    isCredit
+                                        ? AppColors.income
+                                        : AppColors.expense,
+                              ),
+                            ),
+                            onTap: () async {
+                              await Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder:
+                                      (context) => TransactionDetailScreen(
+                                        transaction: tx,
                                       ),
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const Spacer(),
-                              Text(
-                                "${isPositive ? '+' : ''}${insight.percentageChange.toStringAsFixed(0)}%${CMS.analytics['vs_last']!}${_viewModel.timeFrame.toLowerCase()}",
-                                style: TextStyle(
-                                  color: color,
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 14,
                                 ),
-                              ),
-                              Text(
-                                "${NumberFormat.compact().format(insight.diffAmount)} (${NumberFormat.compact().format(insight.currentAmount)})",
-                                style: TextStyle(
-                                  color: Colors.grey[600],
-                                  fontSize: 11,
-                                ),
-                              ),
-                            ],
+                              );
+                              if (context.mounted) {
+                                _viewModel.refreshAll();
+                              }
+                            },
                           ),
                         );
                       },
                     ),
-                  ),
+                  ],
+                  const SizedBox(height: 80),
                 ],
-
-                const SizedBox(height: 16),
-
-                // 2. FILTERS
-                _buildFilters(),
-
-                const SizedBox(height: 16),
-
-                // 3. MAIN DASHBOARD CARD (Split View)
-                if (!_viewModel.isLoading && _viewModel.transactions.isNotEmpty)
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: Theme.of(context).cardTheme.color,
-                      borderRadius: BorderRadius.circular(16),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.05),
-                          blurRadius: 10,
-                          offset: const Offset(0, 5),
-                        ),
-                      ],
-                    ),
-                    child:
-                        displayedTotal == 0
-                            ? SizedBox(
-                              height: 200,
-                              child: Center(
-                                child: Column(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    Icon(
-                                      _viewModel.transactionType == 'debit'
-                                          ? Icons.savings
-                                          : Icons.work_off,
-                                      size: 48,
-                                      color: Colors.grey.shade300,
-                                    ),
-                                    const SizedBox(height: 12),
-                                    Text(
-                                      _viewModel.transactionType == 'debit'
-                                          ? CMS.analytics['no_expenses_title']!
-                                          : CMS.analytics['no_income_title']!,
-                                      style: TextStyle(
-                                        fontSize: 16,
-                                        color: Colors.grey.shade600,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 4),
-                                    Text(
-                                      CMS.analytics['try_different_date']!,
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        color: Colors.grey.shade400,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            )
-                            : Column(
-                              children: [
-                                Row(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    // LEFT SIDE: Chart
-                                    Expanded(
-                                      flex: 4,
-                                      child: SizedBox(
-                                        height: 160,
-                                        child: Stack(
-                                          alignment: Alignment.center,
-                                          children: [
-                                            PieChart(
-                                              PieChartData(
-                                                sections:
-                                                    _viewModel.categorySummaries
-                                                        .map((item) {
-                                                          return PieChartSectionData(
-                                                            color: item.color,
-                                                            value: item.amount,
-                                                            title: '',
-                                                            radius: 25,
-                                                            showTitle: false,
-                                                          );
-                                                        })
-                                                        .toList(),
-                                                centerSpaceRadius: 40,
-                                                sectionsSpace: 0,
-                                              ),
-                                            ),
-                                            Column(
-                                              mainAxisSize: MainAxisSize.min,
-                                              mainAxisAlignment:
-                                                  MainAxisAlignment.center,
-                                              children: [
-                                                Text(
-                                                  CMS.analytics['total_label']!,
-                                                  style: const TextStyle(
-                                                    fontSize: 10,
-                                                    color: Colors.grey,
-                                                    height: 1.0,
-                                                  ),
-                                                ),
-                                                const SizedBox(height: 2),
-                                                Text(
-                                                  NumberFormat.compact().format(
-                                                    displayedTotal,
-                                                  ),
-                                                  style: const TextStyle(
-                                                    fontWeight: FontWeight.bold,
-                                                    fontSize: 16,
-                                                    height: 1.0,
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                    ),
-                                    const SizedBox(width: 16),
-
-                                    // RIGHT SIDE: Legend / Details
-                                    Expanded(
-                                      flex: 6,
-                                      child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children:
-                                            _viewModel.categorySummaries
-                                                .take(5)
-                                                .map((item) {
-                                                  return Padding(
-                                                    padding:
-                                                        const EdgeInsets.only(
-                                                          bottom: 12.0,
-                                                        ),
-                                                    child: Row(
-                                                      children: [
-                                                        Container(
-                                                          width: 10,
-                                                          height: 10,
-                                                          decoration:
-                                                              BoxDecoration(
-                                                                color:
-                                                                    item.color,
-                                                                shape:
-                                                                    BoxShape
-                                                                        .circle,
-                                                              ),
-                                                        ),
-                                                        const SizedBox(
-                                                          width: 8,
-                                                        ),
-                                                        Expanded(
-                                                          child: Text(
-                                                            item.name,
-                                                            style:
-                                                                const TextStyle(
-                                                                  fontSize: 12,
-                                                                  fontWeight:
-                                                                      FontWeight
-                                                                          .w500,
-                                                                ),
-                                                            overflow:
-                                                                TextOverflow
-                                                                    .ellipsis,
-                                                          ),
-                                                        ),
-                                                        Text(
-                                                          "${item.percentage.toStringAsFixed(0)}%",
-                                                          style: TextStyle(
-                                                            fontSize: 12,
-                                                            color:
-                                                                Colors
-                                                                    .grey[600],
-                                                          ),
-                                                        ),
-                                                        const SizedBox(
-                                                          width: 8,
-                                                        ),
-                                                        Text(
-                                                          NumberFormat.compact()
-                                                              .format(
-                                                                item.amount,
-                                                              ),
-                                                          style:
-                                                              const TextStyle(
-                                                                fontSize: 12,
-                                                                fontWeight:
-                                                                    FontWeight
-                                                                        .bold,
-                                                              ),
-                                                        ),
-                                                      ],
-                                                    ),
-                                                  );
-                                                })
-                                                .toList(),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ],
-                            ),
-                  ),
-
-                const SizedBox(height: 24),
-
-                // 4. RECENT TRANSACTIONS HEADER
-                if (_viewModel.transactions.isNotEmpty) ...[
-                  Text(
-                    CMS.analytics['recent_transactions']!,
-                    style: const TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-
-                  // TRANSACTION LIST
-                  ..._viewModel.transactions.map((tx) {
-                    final isCredit = tx['type'] == 'credit';
-                    return Card(
-                      margin: const EdgeInsets.only(bottom: 8),
-                      elevation: 0,
-                      child: ListTile(
-                        dense: true,
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 4,
-                        ),
-                        // color: Colors.white, // Inherited from CardTheme
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          side: BorderSide(
-                            color: Theme.of(
-                              context,
-                            ).dividerColor.withValues(alpha: 0.1),
-                          ),
-                        ),
-                        leading: Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color:
-                                isCredit
-                                    ? AppColors.incomeBackground
-                                    : AppColors.expenseBackground,
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Icon(
-                            isCredit
-                                ? Icons.arrow_downward
-                                : Icons.arrow_upward,
-                            size: 18,
-                            color:
-                                isCredit ? AppColors.income : AppColors.expense,
-                          ),
-                        ),
-                        title: Text(
-                          tx['patternName'] ?? tx['sender'] ?? "Unknown",
-                          style: const TextStyle(fontWeight: FontWeight.w600),
-                        ),
-                        subtitle: Text(
-                          "${DateFormat.MMMd().format(DateTime.fromMillisecondsSinceEpoch(tx['date']))} • ${tx['categoryName'] ?? 'Uncategorized'}",
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.grey[600],
-                          ),
-                        ),
-                        trailing: Text(
-                          "${tx['amount']}",
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 15,
-                            color:
-                                isCredit ? AppColors.income : AppColors.expense,
-                          ),
-                        ),
-                        onTap: () async {
-                          await Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder:
-                                  (context) =>
-                                      TransactionDetailScreen(transaction: tx),
-                            ),
-                          );
-                          _viewModel.refreshAll();
-                        },
-                      ),
-                    );
-                  }),
-                ],
-
-                if (!_viewModel.isLoading && _viewModel.transactions.isEmpty)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 50),
-                    child: Center(
-                      child: Text(CMS.analytics['no_transactions']!),
-                    ),
-                  ),
-
-                const SizedBox(height: 80),
-              ],
+              ),
             ),
           ),
         );
@@ -535,233 +232,109 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
     );
   }
 
-  // --- Widget Extract: Time Controls ---
-  Widget _buildTimeControls() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: BoxDecoration(
-        color: Theme.of(context).cardTheme.color,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: Theme.of(context).dividerColor.withValues(alpha: 0.2),
+  Widget _buildControls() {
+    return Column(
+      children: [
+        PeriodSelector(
+          selectedPeriod: _viewModel.timeFrame,
+          periods: const ['Day', 'Week', 'Month'],
+          onChanged: (val) => _viewModel.setTimeFrame(val),
         ),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          IconButton(
-            icon: const Icon(Icons.chevron_left),
-            onPressed: () => _viewModel.changeDate(-1),
+        const SizedBox(height: 16),
+        // Date Navigation
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          decoration: BoxDecoration(
+            color: Theme.of(
+              context,
+            ).colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+            borderRadius: BorderRadius.circular(50),
+            border: Border.all(
+              color: Theme.of(context).dividerColor.withValues(alpha: 0.1),
+            ),
           ),
-          Column(
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
             children: [
-              DropdownButton<String>(
-                value: _viewModel.timeFrame,
-                isDense: true,
-                underline: Container(),
-                icon: const Icon(Icons.keyboard_arrow_down, size: 16),
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  color: Theme.of(context).colorScheme.onSurface,
-                  fontSize: 16,
+              IconButton(
+                icon: const Icon(Icons.chevron_left),
+                onPressed: () => _viewModel.changeDate(-1),
+                tooltip: "Previous",
+              ),
+              Container(
+                constraints: const BoxConstraints(minWidth: 100),
+                alignment: Alignment.center,
+                child: Text(
+                  _viewModel.getDateLabel(),
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 14,
+                  ),
                 ),
-                items: [
-                  DropdownMenuItem(
-                    value: 'Day',
-                    child: Text(CMS.analytics['time_day']!),
-                  ),
-                  DropdownMenuItem(
-                    value: 'Week',
-                    child: Text(CMS.analytics['time_week']!),
-                  ),
-                  DropdownMenuItem(
-                    value: 'Month',
-                    child: Text(CMS.analytics['time_month']!),
-                  ),
-                ],
-                onChanged: (val) {
-                  _viewModel.setTimeFrame(val!);
-                },
               ),
-              Text(
-                _viewModel.getDateLabel(),
-                style: const TextStyle(fontSize: 12, color: Colors.grey),
+              IconButton(
+                icon: const Icon(Icons.chevron_right),
+                onPressed: () => _viewModel.changeDate(1),
+                tooltip: "Next",
               ),
             ],
-          ),
-          IconButton(
-            icon: const Icon(Icons.chevron_right),
-            onPressed: () => _viewModel.changeDate(1),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // --- Widget Extract: Filters ---
-  Widget _buildFilters() {
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: Row(
-        children: [
-          _buildFilterChip<int>(
-            label: "Category",
-            selectedIds: _viewModel.selectedCategoryIds,
-            items: _viewModel.allCategories,
-            idKey: 'id',
-            nameKey: 'name',
-            onChanged: (val) {
-              _viewModel.updateCategoryFilter(val);
-            },
-          ),
-          const SizedBox(width: 10),
-          _buildFilterChip<int>(
-            label: "Method",
-            selectedIds: _viewModel.selectedPatternIds,
-            items: _viewModel.allPatterns,
-            idKey: 'id',
-            nameKey: 'name',
-            onChanged: (val) {
-              _viewModel.updatePatternFilter(val);
-            },
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildFilterChip<T>({
-    required String label,
-    required List<int> selectedIds,
-    required List<Map<String, dynamic>> items,
-    required String idKey,
-    required String nameKey,
-    required Function(List<int>) onChanged,
-  }) {
-    String labelText = "All ${label}s";
-
-    if (selectedIds.isNotEmpty && items.isNotEmpty) {
-      if (selectedIds.length == 1) {
-        try {
-          final found = items.firstWhere((e) => e[idKey] == selectedIds.first);
-          labelText = found[nameKey];
-        } catch (e) {
-          // Ignore
-        }
-      } else {
-        labelText = "$label (${selectedIds.length})";
-      }
-    }
-
-    final isSelected = selectedIds.isNotEmpty;
-
-    return GestureDetector(
-      onTap: () async {
-        if (!mounted) return;
-
-        // Use items directly from VM (already loaded)
-        final freshItems = items;
-
-        // Create a mutable copy of selected IDs for the dialog state
-        List<int> tempSelected = List.from(selectedIds);
-
-        await showDialog(
-          context: context,
-          builder:
-              (ctx) => StatefulBuilder(
-                builder: (context, setDialogState) {
-                  return AlertDialog(
-                    title: Text("Select $label"),
-                    content: SizedBox(
-                      width: double.maxFinite,
-                      child: ListView(
-                        shrinkWrap: true,
-                        children:
-                            freshItems.map((item) {
-                              final id = item[idKey] as int;
-                              final isChecked = tempSelected.contains(id);
-                              return CheckboxListTile(
-                                value: isChecked,
-                                title: Text(item[nameKey]),
-                                onChanged: (bool? value) {
-                                  setDialogState(() {
-                                    if (value == true) {
-                                      tempSelected.add(id);
-                                    } else {
-                                      tempSelected.remove(id);
-                                    }
-                                  });
-                                },
-                              );
-                            }).toList(),
-                      ),
-                    ),
-                    actions: [
-                      TextButton(
-                        onPressed: () {
-                          // Clear selection means "All"
-                          setDialogState(() {
-                            tempSelected.clear();
-                          });
-                        },
-                        child: Text(CMS.common['clear_all']!),
-                      ),
-                      TextButton(
-                        onPressed: () => Navigator.pop(ctx),
-                        child: Text(CMS.common['cancel']!),
-                      ),
-                      ElevatedButton(
-                        onPressed: () {
-                          onChanged(tempSelected);
-                          Navigator.pop(ctx);
-                        },
-                        child: Text(CMS.common['apply']!),
-                      ),
-                    ],
-                  );
-                },
-              ),
-        );
-      },
-      child: Container(
-        height: 40,
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
-          color:
-              isSelected
-                  ? AppColors.selectionColors[7].withValues(alpha: 0.2)
-                  : Colors.transparent, // Using Indigo as highlight
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(
-            color: isSelected ? Colors.transparent : Colors.grey.shade500,
           ),
         ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (isSelected) ...[
-              const Icon(Icons.check, size: 18, color: Colors.black87),
-              const SizedBox(width: 8),
-            ],
-            Text(
-              labelText,
-              style: const TextStyle(
-                color: Colors.black87,
-                fontWeight: FontWeight.w500,
-              ),
+        const SizedBox(height: 16),
+        SegmentedButton<String>(
+          segments: [
+            ButtonSegment<String>(
+              value: 'debit',
+              label: Text(CMS.analytics['expenses_label']!),
+              icon: const Icon(Icons.arrow_upward),
             ),
-            if (!isSelected) ...[
-              const SizedBox(width: 8),
-              const Icon(
-                Icons.arrow_drop_down,
-                size: 18,
-                color: Colors.black87,
-              ),
-            ],
+            ButtonSegment<String>(
+              value: 'credit',
+              label: Text(CMS.analytics['income_label']!),
+              icon: const Icon(Icons.arrow_downward),
+            ),
           ],
+          selected: {_viewModel.transactionType},
+          onSelectionChanged: (Set<String> newSelection) {
+            _viewModel.setTransactionType(newSelection.first);
+          },
+          showSelectedIcon: false,
+          style: ButtonStyle(
+            visualDensity: VisualDensity.compact,
+            backgroundColor: WidgetStateProperty.resolveWith<Color?>((states) {
+              if (states.contains(WidgetState.selected)) {
+                return _viewModel.transactionType == 'debit'
+                    ? AppColors.expenseBackground
+                    : AppColors.incomeBackground;
+              }
+              return null;
+            }),
+            foregroundColor: WidgetStateProperty.resolveWith<Color?>((states) {
+              if (states.contains(WidgetState.selected)) {
+                return Theme.of(context).colorScheme.onSurface;
+              }
+              return Theme.of(context).colorScheme.onSurfaceVariant;
+            }),
+          ),
         ),
-      ),
+      ],
+    );
+  }
+
+  Widget _buildInsightBlock() {
+    final insight = _viewModel.insights.first; // Main insight
+    final isPositive = insight.percentageChange > 0;
+    final isExpense = _viewModel.transactionType == 'debit';
+    final isGood = isExpense ? !isPositive : isPositive;
+
+    return InsightBlock(
+      title: insight.categoryName,
+      amount:
+          "${isPositive ? '+' : ''}${insight.percentageChange.toStringAsFixed(0)}% vs last ${_viewModel.timeFrame.toLowerCase()}",
+      subtitle:
+          "${NumberFormat.compactCurrency(symbol: '₹').format(insight.diffAmount)} (${NumberFormat.compactCurrency(symbol: '₹').format(insight.currentAmount)})",
+      isPositive: isPositive,
+      isGood: isGood,
     );
   }
 }
