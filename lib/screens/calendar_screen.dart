@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../utils/cms.dart';
+import '../utils/app_colors.dart';
 import '../viewmodels/calendar_view_model.dart';
 import 'transaction_detail_screen.dart';
 
@@ -29,20 +30,23 @@ class _CalendarScreenState extends State<CalendarScreen> {
   // --- UI Helpers ---
 
   Color _getDayColor(int day, bool isSelected, bool inRange) {
-    Color baseColor = Colors.white;
+    Color baseColor = Colors.transparent;
 
     if (_viewModel.dailyNet.containsKey(day)) {
       final net = _viewModel.dailyNet[day]!;
       double intensity = (net.abs() / _viewModel.maxNet).clamp(0.2, 1.0);
       if (net >= 0) {
-        baseColor = Colors.red.withValues(alpha: intensity);
+        baseColor = AppColors.expense.withValues(alpha: intensity);
       } else {
-        baseColor = Colors.green.withValues(alpha: intensity);
+        baseColor = AppColors.income.withValues(alpha: intensity);
       }
     }
 
     if (inRange) {
-      return Color.alphaBlend(Colors.blue.withValues(alpha: 0.2), baseColor);
+      return Color.alphaBlend(
+        Theme.of(context).colorScheme.primary.withValues(alpha: 0.2),
+        baseColor,
+      );
     }
     return baseColor;
   }
@@ -54,7 +58,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
       final net = _viewModel.dailyNet[day]!;
       double intensity = (net.abs() / _viewModel.maxNet).clamp(0.2, 1.0);
       return intensity > 0.5
-          ? Colors.white
+          ? AppColors.onColoredBackground
           : Theme.of(context).colorScheme.onSurface;
     }
     return Theme.of(context).colorScheme.onSurface;
@@ -746,12 +750,12 @@ class _CalendarScreenState extends State<CalendarScreen> {
               leading: CircleAvatar(
                 backgroundColor:
                     isCredit
-                        ? Colors.green.withValues(alpha: 0.1)
-                        : Colors.red.withValues(alpha: 0.1),
+                        ? AppColors.incomeBackground
+                        : AppColors.expenseBackground,
                 child: Icon(
                   isCredit ? Icons.arrow_downward : Icons.arrow_upward,
                   size: 16,
-                  color: isCredit ? Colors.green : Colors.red,
+                  color: isCredit ? AppColors.income : AppColors.expense,
                 ),
               ),
               title: Text(tx['patternName'] ?? tx['sender'] ?? "Unknown"),
@@ -762,7 +766,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                 "${tx['amount']}",
                 style: TextStyle(
                   fontWeight: FontWeight.bold,
-                  color: isCredit ? Colors.green : Colors.red,
+                  color: isCredit ? AppColors.income : AppColors.expense,
                 ),
               ),
               onTap: () async {

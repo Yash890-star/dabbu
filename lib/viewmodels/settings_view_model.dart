@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../utils/app_colors.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:another_telephony/telephony.dart';
 import '../services/database_helper.dart';
@@ -10,28 +11,7 @@ class SettingsViewModel extends ChangeNotifier {
   double monthlyBudget = 0.0;
   bool isLoading = false;
 
-  final List<Color> categoryColors = [
-    Colors.red,
-    Colors.pink,
-    Colors.purple,
-    Colors.deepPurple,
-    Colors.indigo,
-    Colors.blue,
-    Colors.lightBlue,
-    Colors.cyan,
-    Colors.teal,
-    Colors.green,
-    Colors.lightGreen,
-    Colors.lime,
-    Colors.yellow,
-    Colors.amber,
-    Colors.orange,
-    Colors.deepOrange,
-    Colors.brown,
-    Colors.grey,
-    Colors.blueGrey,
-    Colors.black,
-  ];
+  final List<Color> categoryColors = AppColors.categoryColors;
 
   Future<void> loadData() async {
     isLoading = true;

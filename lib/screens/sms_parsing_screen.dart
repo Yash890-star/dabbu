@@ -64,7 +64,7 @@ class _SmsParsingScreenState extends State<SmsParsingScreen> {
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(context),
-                child: const Text("Cancel"),
+                child: Text(CMS.common['cancel']!),
               ),
               ElevatedButton(
                 onPressed: () async {
@@ -74,7 +74,7 @@ class _SmsParsingScreenState extends State<SmsParsingScreen> {
                     Navigator.pop(context);
                   }
                 },
-                child: const Text("Add"),
+                child: Text(CMS.common['add']!),
               ),
             ],
           ),

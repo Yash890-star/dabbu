@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../utils/cms.dart';
+import '../utils/app_colors.dart';
 import '../viewmodels/transaction_detail_view_model.dart';
 
 class TransactionDetailScreen extends StatefulWidget {
@@ -159,7 +160,7 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen> {
                       title: Text(cat['name']),
                       trailing:
                           _viewModel.selectedCategoryId == cat['id']
-                              ? const Icon(Icons.check, color: Colors.green)
+                              ? const Icon(Icons.check, color: AppColors.income)
                               : null,
                       onTap: () {
                         _updateCategory(cat['id'], cat['name']);
@@ -223,7 +224,7 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen> {
                       title: Text(goal['name']),
                       trailing:
                           _viewModel.selectedGoalId == goal['id']
-                              ? const Icon(Icons.check, color: Colors.green)
+                              ? const Icon(Icons.check, color: AppColors.income)
                               : null,
                       onTap: () async {
                         Navigator.pop(ctx); // Close list
@@ -292,7 +293,7 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen> {
           (ctx) => StatefulBuilder(
             builder: (context, setDialogState) {
               return AlertDialog(
-                title: const Text("New Category"),
+                title: Text(CMS.settings['new_category_title']!),
                 content: SingleChildScrollView(
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
@@ -385,7 +386,7 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen> {
                         if (ctx.mounted) Navigator.pop(ctx);
                       }
                     },
-                    child: const Text("Create & Assign"),
+                    child: Text(CMS.transaction['create_assign_btn']!),
                   ),
                 ],
               );
@@ -439,13 +440,14 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen> {
                           radius: 30,
                           backgroundColor:
                               isCredit
-                                  ? Colors.green.withValues(alpha: 0.1)
-                                  : Colors.red.withValues(alpha: 0.1),
+                                  ? AppColors.incomeBackground
+                                  : AppColors.expenseBackground,
                           child: Icon(
                             isCredit
                                 ? Icons.arrow_downward
                                 : Icons.arrow_upward,
-                            color: isCredit ? Colors.green : Colors.red,
+                            color:
+                                isCredit ? AppColors.income : AppColors.expense,
                             size: 30,
                           ),
                         ),
@@ -465,7 +467,10 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen> {
                                 style: TextStyle(
                                   fontSize: 32,
                                   fontWeight: FontWeight.bold,
-                                  color: isCredit ? Colors.green : Colors.red,
+                                  color:
+                                      isCredit
+                                          ? AppColors.income
+                                          : AppColors.expense,
                                 ),
                                 decoration: const InputDecoration(
                                   border: UnderlineInputBorder(),
@@ -477,7 +482,10 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen> {
                               style: TextStyle(
                                 fontSize: 32,
                                 fontWeight: FontWeight.bold,
-                                color: isCredit ? Colors.green : Colors.red,
+                                color:
+                                    isCredit
+                                        ? AppColors.income
+                                        : AppColors.expense,
                               ),
                             ),
 

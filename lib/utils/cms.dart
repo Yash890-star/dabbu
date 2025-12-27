@@ -4,10 +4,36 @@ class CMS {
     'delete': 'Delete',
     'save': 'Save',
     'edit': 'Edit',
+    'add': 'Add',
+    'close': 'Close',
+    'apply': 'Apply',
+    'clear_all': 'Clear All',
     'currency_symbol': '₹',
     'ok': 'OK',
     'yes': 'Yes',
     'no': 'No',
+    'restore': 'Restore',
+  };
+
+  static const List<String> months = [
+    'January',
+    'February',
+    'March',
+    'April',
+    'May',
+    'June',
+    'July',
+    'August',
+    'September',
+    'October',
+    'November',
+    'December',
+  ];
+
+  static const Map<String, String> errors = {
+    'invalid_month': 'Invalid Month',
+    'no_sms_found':
+        "Could not find any recent SMS from {senderId} to retrain the pattern.",
   };
 
   static const Map<String, dynamic> home = {
@@ -39,6 +65,7 @@ class CMS {
     'spent_label': 'Spent: ',
     'remaining_label': 'Remaining: ',
     'limit_label': 'Limit: ',
+    'reset_tooltip': 'Reset to Current Month',
   };
 
   static const Map<String, dynamic> settings = {
@@ -78,6 +105,16 @@ class CMS {
     'category_limit_label': 'Monthly Limit (Optional)',
     'category_limit_hint': 'e.g. 5000',
     'pick_color': 'Pick a Color:',
+    'new_category_title': 'New Category',
+    'edit_category_title': 'Edit Category',
+    'auto_budget_update':
+        'Monthly Budget updated automatically to match category limits.',
+
+    'delete_all_btn': 'Delete All',
+    'keep_transactions_btn': 'Keep Transactions',
+    'restored_msg': "'{goalName}' restored to Home Screen",
+    'no_archived_goals': 'No archived goals.',
+    'no_sms_title': 'No SMS Found',
   };
 
   static const Map<String, dynamic> goals = {
@@ -152,6 +189,7 @@ class CMS {
     'select_goal_label': 'Select Goal',
     'original_message_label': 'Original Message / Note',
     'sender_label': 'Sender',
+    'create_assign_btn': 'Create & Assign',
   };
 
   static const Map<String, dynamic> analytics = {
@@ -224,6 +262,11 @@ class CMS {
     'nav_analytics': 'Analytics',
     'nav_calendar': 'Calendar',
     'nav_settings': 'Settings',
+  };
+
+  static const Map<String, dynamic> smsList = {
+    'title': 'Select Transaction',
+    'search_hint': 'Search sender or message...',
   };
 
   static const Map<String, dynamic> smsSetup = {

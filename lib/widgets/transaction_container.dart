@@ -1,23 +1,17 @@
 import 'package:flutter/material.dart';
+import '../utils/app_colors.dart';
+import '../utils/cms.dart';
 
 class TransactionContainer extends StatelessWidget {
-
   final List<Map<String, dynamic>> transactions;
 
-  const TransactionContainer({
-    super.key,
-    required this.transactions
-  });
+  const TransactionContainer({super.key, required this.transactions});
 
   String getMonthName(int monthNumber) {
     if (monthNumber < 1 || monthNumber > 12) {
-      return 'Invalid Month';
+      return CMS.errors['invalid_month']!;
     }
-    const List<String> monthNames = [
-      'January', 'February', 'March', 'April', 'May', 'June',
-      'July', 'August', 'September', 'October', 'November', 'December'
-    ];
-    return monthNames[monthNumber - 1];
+    return CMS.months[monthNumber - 1];
   }
 
   String getFormatedDate(String date) {
@@ -31,24 +25,25 @@ class TransactionContainer extends StatelessWidget {
       itemCount: transactions.length,
       itemBuilder: (context, index) {
         final transaction = transactions[index];
+        final isDebit = transaction["type"] == "DEBITED";
         return Card(
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(25)
+            borderRadius: BorderRadius.circular(25),
           ),
-          margin: EdgeInsets.symmetric(vertical: 4.0,horizontal: 16.0),
+          margin: EdgeInsets.symmetric(vertical: 4.0, horizontal: 16.0),
           elevation: 0,
           child: ListTile(
             leading: Container(
               width: 50,
               height: 50,
               decoration: BoxDecoration(
-                color: Colors.grey,
-                borderRadius: BorderRadius.circular(20)
+                color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                borderRadius: BorderRadius.circular(20),
               ),
               child: Center(
                 child: Icon(
                   Icons.monetization_on,
-                  color: Colors.white,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
                   size: 24.0,
                 ),
               ),
@@ -56,11 +51,11 @@ class TransactionContainer extends StatelessWidget {
             title: Text("${transaction["entity"]}"),
             subtitle: Text(getFormatedDate(transaction["date"])),
             trailing: Text(
-                "₹${transaction["cost"]}",
+              "₹${transaction["cost"]}",
               style: TextStyle(
                 fontSize: 15,
                 fontWeight: FontWeight.bold,
-                color: transaction["type"] == "DEBITED" ? Colors.black : Colors.green
+                color: isDebit ? AppColors.expense : AppColors.income,
               ),
             ),
           ),

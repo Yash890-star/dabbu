@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:intl/intl.dart';
 import '../utils/cms.dart';
+import '../utils/app_colors.dart';
 import '../viewmodels/analytics_view_model.dart';
 import 'transaction_detail_screen.dart';
 
@@ -89,8 +90,8 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                       ) {
                         if (states.contains(WidgetState.selected)) {
                           return _viewModel.transactionType == 'debit'
-                              ? Colors.red.withValues(alpha: 0.2)
-                              : Colors.green.withValues(alpha: 0.2);
+                              ? AppColors.expenseBackground
+                              : AppColors.incomeBackground;
                         }
                         return null;
                       }),
@@ -141,7 +142,8 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                           isGood = isPositive; // More income is good
                         }
 
-                        final color = isGood ? Colors.green : Colors.red;
+                        final color =
+                            isGood ? AppColors.income : AppColors.expense;
                         final arrowIcon =
                             isPositive
                                 ? Icons.arrow_upward
@@ -467,8 +469,8 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                           decoration: BoxDecoration(
                             color:
                                 isCredit
-                                    ? Colors.green.withValues(alpha: 0.1)
-                                    : Colors.red.withValues(alpha: 0.1),
+                                    ? AppColors.incomeBackground
+                                    : AppColors.expenseBackground,
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: Icon(
@@ -476,7 +478,8 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                                 ? Icons.arrow_downward
                                 : Icons.arrow_upward,
                             size: 18,
-                            color: isCredit ? Colors.green : Colors.red,
+                            color:
+                                isCredit ? AppColors.income : AppColors.expense,
                           ),
                         ),
                         title: Text(
@@ -495,7 +498,8 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                           style: TextStyle(
                             fontWeight: FontWeight.bold,
                             fontSize: 15,
-                            color: isCredit ? Colors.green : Colors.red,
+                            color:
+                                isCredit ? AppColors.income : AppColors.expense,
                           ),
                         ),
                         onTap: () async {
@@ -700,18 +704,18 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                             tempSelected.clear();
                           });
                         },
-                        child: const Text("Clear All"),
+                        child: Text(CMS.common['clear_all']!),
                       ),
                       TextButton(
                         onPressed: () => Navigator.pop(ctx),
-                        child: const Text("Cancel"),
+                        child: Text(CMS.common['cancel']!),
                       ),
                       ElevatedButton(
                         onPressed: () {
                           onChanged(tempSelected);
                           Navigator.pop(ctx);
                         },
-                        child: const Text("Apply"),
+                        child: Text(CMS.common['apply']!),
                       ),
                     ],
                   );
@@ -724,7 +728,10 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
         padding: const EdgeInsets.symmetric(horizontal: 16),
         alignment: Alignment.center,
         decoration: BoxDecoration(
-          color: isSelected ? Colors.deepPurple.shade100 : Colors.transparent,
+          color:
+              isSelected
+                  ? AppColors.selectionColors[7].withValues(alpha: 0.2)
+                  : Colors.transparent, // Using Indigo as highlight
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
             color: isSelected ? Colors.transparent : Colors.grey.shade500,

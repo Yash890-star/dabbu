@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../utils/cms.dart';
+import '../utils/app_colors.dart';
 import '../viewmodels/goal_history_view_model.dart';
 import 'add_transaction_screen.dart';
 
@@ -60,7 +61,7 @@ class _GoalHistoryScreenState extends State<GoalHistoryScreen> {
                 onPressed: () => Navigator.pop(context, true),
                 child: Text(
                   CMS.common['delete']!,
-                  style: const TextStyle(color: Colors.red),
+                  style: const TextStyle(color: AppColors.expense),
                 ),
               ),
             ],
@@ -194,13 +195,16 @@ class _GoalHistoryScreenState extends State<GoalHistoryScreen> {
                                 leading: CircleAvatar(
                                   backgroundColor:
                                       isCredit
-                                          ? Colors.green.shade50
-                                          : Colors.red.shade50,
+                                          ? AppColors.incomeBackground
+                                          : AppColors.expenseBackground,
                                   child: Icon(
                                     isCredit
                                         ? Icons.arrow_downward
                                         : Icons.arrow_upward,
-                                    color: isCredit ? Colors.green : Colors.red,
+                                    color:
+                                        isCredit
+                                            ? AppColors.income
+                                            : AppColors.expense,
                                     size: 16,
                                   ),
                                 ),
@@ -252,8 +256,8 @@ class _GoalHistoryScreenState extends State<GoalHistoryScreen> {
               const SizedBox(height: 16),
               ListTile(
                 leading: CircleAvatar(
-                  backgroundColor: Colors.green.shade50,
-                  child: const Icon(Icons.add, color: Colors.green),
+                  backgroundColor: AppColors.incomeBackground,
+                  child: const Icon(Icons.add, color: AppColors.income),
                 ),
                 title: Text(CMS.goals['new_deposit_title']!),
                 subtitle: Text(CMS.goals['new_deposit_subtitle']!),
@@ -273,8 +277,12 @@ class _GoalHistoryScreenState extends State<GoalHistoryScreen> {
               ),
               ListTile(
                 leading: CircleAvatar(
-                  backgroundColor: Colors.blue.shade50,
-                  child: const Icon(Icons.link, color: Colors.blue),
+                  backgroundColor:
+                      Theme.of(context).colorScheme.primaryContainer,
+                  child: Icon(
+                    Icons.link,
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
                 ),
                 title: Text(CMS.goals['link_existing_title']!),
                 subtitle: Text(CMS.goals['link_existing_subtitle']!),
@@ -299,7 +307,9 @@ class _GoalHistoryScreenState extends State<GoalHistoryScreen> {
         final totalSaved = _viewModel.totalSaved;
         final goalTarget = (_viewModel.goal['targetAmount'] as num).toDouble();
         final progress = _viewModel.progress;
-        final color = Color(_viewModel.goal['color'] ?? Colors.blue.toARGB32());
+        final color = Color(
+          _viewModel.goal['color'] ?? AppColors.defaultGoalColor.toARGB32(),
+        );
         final remaining = (goalTarget - totalSaved).clamp(0, double.infinity);
 
         String motivation = "";
@@ -352,7 +362,7 @@ class _GoalHistoryScreenState extends State<GoalHistoryScreen> {
                           const SizedBox(width: 8),
                           Text(
                             CMS.common['delete']!,
-                            style: const TextStyle(color: Colors.red),
+                            style: const TextStyle(color: AppColors.expense),
                           ),
                         ],
                       ),
@@ -384,7 +394,12 @@ class _GoalHistoryScreenState extends State<GoalHistoryScreen> {
                           children: [
                             Text(
                               CMS.goals['current_balance']!,
-                              style: TextStyle(color: Colors.grey[700]),
+                              style: TextStyle(
+                                color:
+                                    Theme.of(
+                                      context,
+                                    ).colorScheme.onSurfaceVariant,
+                              ),
                             ),
                             Text(
                               "₹${NumberFormat.compact().format(totalSaved)}",
@@ -399,7 +414,10 @@ class _GoalHistoryScreenState extends State<GoalHistoryScreen> {
                         CircularProgressIndicator(
                           value: progress,
                           color: color,
-                          backgroundColor: Colors.white,
+                          backgroundColor:
+                              Theme.of(
+                                context,
+                              ).colorScheme.surfaceContainerHighest,
                         ),
                       ],
                     ),
@@ -436,7 +454,10 @@ class _GoalHistoryScreenState extends State<GoalHistoryScreen> {
                               style: TextStyle(
                                 fontSize: 13,
                                 fontStyle: FontStyle.italic,
-                                color: Colors.grey[800],
+                                color:
+                                    Theme.of(
+                                      context,
+                                    ).colorScheme.onSurfaceVariant,
                               ),
                             ),
                           ],
@@ -447,10 +468,10 @@ class _GoalHistoryScreenState extends State<GoalHistoryScreen> {
                         width: double.infinity,
                         padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
-                          color: Colors.green.withValues(alpha: 0.2),
+                          color: AppColors.income.withValues(alpha: 0.2),
                           borderRadius: BorderRadius.circular(12),
                           border: Border.all(
-                            color: Colors.green.withValues(alpha: 0.5),
+                            color: AppColors.income.withValues(alpha: 0.5),
                           ),
                         ),
                         child: Text(
@@ -458,7 +479,7 @@ class _GoalHistoryScreenState extends State<GoalHistoryScreen> {
                           textAlign: TextAlign.center,
                           style: TextStyle(
                             fontWeight: FontWeight.bold,
-                            color: Colors.green[800],
+                            color: AppColors.income,
                           ),
                         ),
                       ),
@@ -467,7 +488,7 @@ class _GoalHistoryScreenState extends State<GoalHistoryScreen> {
                       "${CMS.goals['goal_target']!}₹${NumberFormat.currency(symbol: '', decimalDigits: 0).format(goalTarget)}",
                       style: TextStyle(
                         fontWeight: FontWeight.w500,
-                        color: Colors.grey[700],
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
                       ),
                     ),
                   ],
@@ -491,13 +512,16 @@ class _GoalHistoryScreenState extends State<GoalHistoryScreen> {
                               leading: CircleAvatar(
                                 backgroundColor:
                                     isDeposit
-                                        ? Colors.green.shade50
-                                        : Colors.red.shade50,
+                                        ? AppColors.incomeBackground
+                                        : AppColors.expenseBackground,
                                 child: Icon(
                                   isDeposit
                                       ? Icons.arrow_upward
                                       : Icons.arrow_downward,
-                                  color: isDeposit ? Colors.green : Colors.red,
+                                  color:
+                                      isDeposit
+                                          ? AppColors.income
+                                          : AppColors.expense,
                                   size: 18,
                                 ),
                               ),
@@ -513,7 +537,10 @@ class _GoalHistoryScreenState extends State<GoalHistoryScreen> {
                                 "${isDeposit ? '+' : '-'} ₹${tx['amount']}",
                                 style: TextStyle(
                                   fontWeight: FontWeight.bold,
-                                  color: isDeposit ? Colors.green : Colors.red,
+                                  color:
+                                      isDeposit
+                                          ? AppColors.income
+                                          : AppColors.expense,
                                   fontSize: 16,
                                 ),
                               ),

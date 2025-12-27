@@ -6,6 +6,7 @@ import 'add_transaction_screen.dart';
 import 'settings_page.dart';
 import 'goal_history_screen.dart';
 import '../viewmodels/home_view_model.dart';
+import '../utils/app_colors.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -104,7 +105,7 @@ class HomePageState extends State<HomePage> {
                           Icons.restore,
                           color: Theme.of(context).colorScheme.primary,
                         ),
-                        tooltip: "Reset to Current Month",
+                        tooltip: CMS.home['reset_tooltip'],
                         visualDensity: VisualDensity.compact,
                         onPressed: _resetSummaryMonth,
                       ),
@@ -135,7 +136,7 @@ class HomePageState extends State<HomePage> {
                     Text(
                       CMS.home['spends_label']!,
                       style: const TextStyle(
-                        color: Colors.red,
+                        color: AppColors.expense,
                         fontWeight: FontWeight.bold,
                         fontSize: 12,
                       ),
@@ -163,7 +164,7 @@ class HomePageState extends State<HomePage> {
                     Text(
                       CMS.home['credits_label']!,
                       style: const TextStyle(
-                        color: Colors.green,
+                        color: AppColors.income,
                         fontWeight: FontWeight.bold,
                         fontSize: 12,
                       ),
@@ -452,20 +453,21 @@ class HomePageState extends State<HomePage> {
                           }
 
                           // Build the Transaction Tile
+                          final isCredit = tx['type'] == 'credit';
                           final tile = ListTile(
                             leading: CircleAvatar(
                               backgroundColor:
-                                  tx['type'] == 'credit'
-                                      ? Colors.green.withValues(alpha: 0.1)
-                                      : Colors.red.withValues(alpha: 0.1),
+                                  isCredit
+                                      ? AppColors.incomeBackground
+                                      : AppColors.expenseBackground,
                               child: Icon(
-                                tx['type'] == 'credit'
+                                isCredit
                                     ? Icons.arrow_downward
                                     : Icons.arrow_upward,
                                 color:
-                                    tx['type'] == 'credit'
-                                        ? Colors.green
-                                        : Colors.red,
+                                    isCredit
+                                        ? AppColors.income
+                                        : AppColors.expense,
                                 size: 20,
                               ),
                             ),
@@ -484,9 +486,9 @@ class HomePageState extends State<HomePage> {
                                 fontWeight: FontWeight.bold,
                                 fontSize: 16,
                                 color:
-                                    tx['type'] == 'credit'
-                                        ? Colors.green
-                                        : Colors.red,
+                                    isCredit
+                                        ? AppColors.income
+                                        : AppColors.expense,
                               ),
                             ),
                             onTap: () async {
@@ -610,10 +612,10 @@ class HomePageState extends State<HomePage> {
     final progress = currentMonthSpent / _viewModel.monthlyBudget;
     final color =
         progress > 1.0
-            ? Colors.red
+            ? AppColors.expense
             : progress > 0.8
             ? Colors.orange
-            : Colors.green;
+            : AppColors.income;
 
     return Card(
       margin: const EdgeInsets.all(16),
@@ -751,9 +753,7 @@ class HomePageState extends State<HomePage> {
                                   color:
                                       cat['color'] != null
                                           ? Color(cat['color'])
-                                          : Theme.of(
-                                            context,
-                                          ).colorScheme.onSurfaceVariant,
+                                          : AppColors.defaultCategoryColor,
                                 ),
                               ),
                               const SizedBox(width: 8),
@@ -995,14 +995,7 @@ class HomePageState extends State<HomePage> {
                       scrollDirection: Axis.horizontal,
                       child: Row(
                         children:
-                            [
-                              Colors.blue,
-                              Colors.purple,
-                              Colors.green,
-                              Colors.orange,
-                              Colors.red,
-                              Colors.teal,
-                            ].map((c) {
+                            AppColors.selectionColors.map((c) {
                               return Padding(
                                 padding: const EdgeInsets.symmetric(
                                   horizontal: 4,

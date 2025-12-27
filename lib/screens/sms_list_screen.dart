@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:another_telephony/telephony.dart';
 import 'package:intl/intl.dart';
+import '../utils/cms.dart';
 import '../viewmodels/sms_list_view_model.dart';
 
 import 'sms_parsing_screen.dart';
@@ -34,7 +35,7 @@ class _SmsListScreenState extends State<SmsListScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text("Select Transaction")),
+      appBar: AppBar(title: Text(CMS.smsList['title']!)),
       body: Column(
         children: [
           // Persistent Search Bar
@@ -43,7 +44,7 @@ class _SmsListScreenState extends State<SmsListScreen> {
             child: TextField(
               controller: _searchController,
               decoration: InputDecoration(
-                hintText: "Search sender or message...",
+                hintText: CMS.smsList['search_hint'],
                 prefixIcon: const Icon(Icons.search),
                 suffixIcon:
                     _searchController.text.isNotEmpty
@@ -56,7 +57,9 @@ class _SmsListScreenState extends State<SmsListScreen> {
                         )
                         : null,
                 filled: true,
-                fillColor: Colors.grey.shade100,
+                fillColor: Theme.of(
+                  context,
+                ).colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
                   borderSide: BorderSide.none,
@@ -78,7 +81,9 @@ class _SmsListScreenState extends State<SmsListScreen> {
                       widget.messages.isEmpty
                           ? "No messages found."
                           : "No matching results.",
-                      style: TextStyle(color: Colors.grey.shade600),
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
                     ),
                   );
                 }
@@ -99,8 +104,12 @@ class _SmsListScreenState extends State<SmsListScreen> {
 
                     return ListTile(
                       leading: CircleAvatar(
-                        backgroundColor: Colors.blue.shade100,
-                        child: const Icon(Icons.message, color: Colors.blue),
+                        backgroundColor:
+                            Theme.of(context).colorScheme.primaryContainer,
+                        child: Icon(
+                          Icons.message,
+                          color: Theme.of(context).colorScheme.primary,
+                        ),
                       ),
                       title: Text(
                         msg.address ?? "Unknown Sender",

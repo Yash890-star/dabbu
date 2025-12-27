@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../utils/cms.dart';
+import '../utils/app_colors.dart';
 import '../viewmodels/add_transaction_view_model.dart';
 
 class AddTransactionScreen extends StatefulWidget {
@@ -105,7 +106,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                   ),
                   decoration: InputDecoration(
                     labelText: CMS.transaction['amount_label']!,
-                    prefixText: "₹ ",
+                    prefixText: "${CMS.common['currency_symbol']!} ",
                     border: const OutlineInputBorder(),
                     contentPadding: const EdgeInsets.symmetric(
                       horizontal: 16,
@@ -125,9 +126,15 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                   Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: Colors.blue.shade50,
+                      color: Theme.of(
+                        context,
+                      ).colorScheme.primaryContainer.withValues(alpha: 0.2),
                       borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: Colors.blue.shade200),
+                      border: Border.all(
+                        color: Theme.of(
+                          context,
+                        ).colorScheme.primary.withValues(alpha: 0.5),
+                      ),
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -135,7 +142,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                         Text(
                           CMS.transaction['impact_title']!,
                           style: TextStyle(
-                            color: Colors.blue.shade800,
+                            color: Theme.of(context).colorScheme.primary,
                             fontWeight: FontWeight.bold,
                           ),
                         ),
@@ -148,12 +155,17 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                                   child: Text(CMS.transaction['impact_add']!),
                                 ),
                                 selected: _viewModel.isGoalAddition,
-                                selectedColor: Colors.blue,
+                                selectedColor:
+                                    Theme.of(context).colorScheme.primary,
                                 labelStyle: TextStyle(
                                   color:
                                       _viewModel.isGoalAddition
-                                          ? Colors.white
-                                          : Colors.black,
+                                          ? Theme.of(
+                                            context,
+                                          ).colorScheme.onPrimary
+                                          : Theme.of(
+                                            context,
+                                          ).colorScheme.onSurface,
                                 ),
                                 onSelected: (val) {
                                   if (val) _viewModel.setIsGoalAddition(true);
@@ -169,12 +181,17 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                                   ),
                                 ),
                                 selected: !_viewModel.isGoalAddition,
-                                selectedColor: Colors.orange,
+                                selectedColor:
+                                    Theme.of(context).colorScheme.tertiary,
                                 labelStyle: TextStyle(
                                   color:
                                       !_viewModel.isGoalAddition
-                                          ? Colors.white
-                                          : Colors.black,
+                                          ? Theme.of(
+                                            context,
+                                          ).colorScheme.onTertiary
+                                          : Theme.of(
+                                            context,
+                                          ).colorScheme.onSurface,
                                 ),
                                 onSelected: (val) {
                                   if (val) _viewModel.setIsGoalAddition(false);
@@ -202,12 +219,12 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                             child: Text(CMS.transaction['flow_expense']!),
                           ),
                           selected: _viewModel.type == 'debit',
-                          selectedColor: Colors.red.shade100,
+                          selectedColor: AppColors.expenseBackground,
                           labelStyle: TextStyle(
                             color:
                                 _viewModel.type == 'debit'
-                                    ? Colors.red
-                                    : Colors.black,
+                                    ? AppColors.expense
+                                    : Theme.of(context).colorScheme.onSurface,
                             fontWeight: FontWeight.bold,
                           ),
                           onSelected: (val) {
@@ -222,12 +239,12 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                             child: Text(CMS.transaction['flow_income']!),
                           ),
                           selected: _viewModel.type == 'credit',
-                          selectedColor: Colors.green.shade100,
+                          selectedColor: AppColors.incomeBackground,
                           labelStyle: TextStyle(
                             color:
                                 _viewModel.type == 'credit'
-                                    ? Colors.green
-                                    : Colors.black,
+                                    ? AppColors.income
+                                    : Theme.of(context).colorScheme.onSurface,
                             fontWeight: FontWeight.bold,
                           ),
                           onSelected: (val) {
@@ -247,12 +264,12 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                             child: Text(CMS.transaction['type_expense']!),
                           ),
                           selected: _viewModel.type == 'debit',
-                          selectedColor: Colors.red.shade100,
+                          selectedColor: AppColors.expenseBackground,
                           labelStyle: TextStyle(
                             color:
                                 _viewModel.type == 'debit'
-                                    ? Colors.red
-                                    : Colors.black,
+                                    ? AppColors.expense
+                                    : Theme.of(context).colorScheme.onSurface,
                             fontWeight: FontWeight.bold,
                           ),
                           onSelected: (val) {
@@ -267,12 +284,12 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                             child: Text(CMS.transaction['type_income']!),
                           ),
                           selected: _viewModel.type == 'credit',
-                          selectedColor: Colors.green.shade100,
+                          selectedColor: AppColors.incomeBackground,
                           labelStyle: TextStyle(
                             color:
                                 _viewModel.type == 'credit'
-                                    ? Colors.green
-                                    : Colors.black,
+                                    ? AppColors.income
+                                    : Theme.of(context).colorScheme.onSurface,
                             fontWeight: FontWeight.bold,
                           ),
                           onSelected: (val) {
@@ -353,15 +370,15 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                   onPressed: _viewModel.isLoading ? null : _saveTransaction,
                   style: ElevatedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 16),
-                    backgroundColor: Colors.blueAccent,
+                    backgroundColor: Theme.of(context).colorScheme.primary,
                   ),
                   child:
                       _viewModel.isLoading
-                          ? const SizedBox(
+                          ? SizedBox(
                             height: 20,
                             width: 20,
                             child: CircularProgressIndicator(
-                              color: Colors.white,
+                              color: Theme.of(context).colorScheme.onPrimary,
                               strokeWidth: 2,
                             ),
                           )
@@ -369,9 +386,9 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                             isEditing
                                 ? CMS.transaction['update_btn']!
                                 : CMS.transaction['save_btn']!,
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 18,
-                              color: Colors.white,
+                              color: Theme.of(context).colorScheme.onPrimary,
                             ),
                           ),
                 ),

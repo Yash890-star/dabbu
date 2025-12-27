@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../services/database_helper.dart';
+import '../utils/app_colors.dart';
 import '../utils/cms.dart';
 
 class CategorySummary {
@@ -212,7 +213,8 @@ class AnalyticsViewModel extends ChangeNotifier {
 
       if (!colors.containsKey(catName)) {
         int? colorInt = tx['categoryColor'];
-        colors[catName] = colorInt != null ? Color(colorInt) : Colors.grey;
+        colors[catName] =
+            colorInt != null ? Color(colorInt) : AppColors.defaultCategoryColor;
       }
     }
 

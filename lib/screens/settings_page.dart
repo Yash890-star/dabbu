@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../utils/cms.dart';
+import '../utils/app_colors.dart';
 
 import 'sms_parsing_screen.dart';
 import 'sms_setup_screen.dart';
@@ -61,7 +62,7 @@ class _SettingsPageState extends State<SettingsPage>
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(ctx),
-                child: const Text("Cancel"),
+                child: Text(CMS.common['cancel']!),
               ),
               ElevatedButton(
                 onPressed: () async {
@@ -103,7 +104,9 @@ class _SettingsPageState extends State<SettingsPage>
             builder: (context, setDialogState) {
               return AlertDialog(
                 title: Text(
-                  existingCategory == null ? "New Category" : "Edit Category",
+                  existingCategory == null
+                      ? CMS.settings['new_category_title']!
+                      : CMS.settings['edit_category_title']!,
                 ),
                 content: SingleChildScrollView(
                   child: Column(
@@ -161,7 +164,10 @@ class _SettingsPageState extends State<SettingsPage>
                                     border:
                                         isSelected
                                             ? Border.all(
-                                              color: Colors.black,
+                                              color:
+                                                  Theme.of(
+                                                    context,
+                                                  ).colorScheme.onSurface,
                                               width: 3,
                                             )
                                             : null,
@@ -192,7 +198,7 @@ class _SettingsPageState extends State<SettingsPage>
                 actions: [
                   TextButton(
                     onPressed: () => Navigator.pop(ctx),
-                    child: const Text("Cancel"),
+                    child: Text(CMS.common['cancel']!),
                   ),
                   ElevatedButton(
                     onPressed: () async {
@@ -217,10 +223,9 @@ class _SettingsPageState extends State<SettingsPage>
                       if (ctx.mounted && wasBudgetUpdated) {
                         ScaffoldMessenger.of(ctx).showSnackBar(
                           SnackBar(
-                            content: Text(
-                              "Monthly Budget updated automatically to match category limits.",
-                            ),
-                            backgroundColor: Colors.blue,
+                            content: Text(CMS.settings['auto_budget_update']!),
+                            backgroundColor:
+                                Theme.of(context).colorScheme.primary,
                             duration: const Duration(seconds: 4),
                           ),
                         );
@@ -239,9 +244,7 @@ class _SettingsPageState extends State<SettingsPage>
     // 1. Prevent deleting Default Category
     if (id == 1) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text("Cannot delete the default 'Uncategorized' category."),
-        ),
+        SnackBar(content: Text(CMS.settings['cannot_delete_default']!)),
       );
       return;
     }
@@ -256,11 +259,11 @@ class _SettingsPageState extends State<SettingsPage>
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(ctx, false),
-                child: const Text("Cancel"),
+                child: Text(CMS.common['cancel']!),
               ),
               TextButton(
                 onPressed: () => Navigator.pop(ctx, true),
-                style: TextButton.styleFrom(foregroundColor: Colors.red),
+                style: TextButton.styleFrom(foregroundColor: AppColors.delete),
                 child: Text(CMS.common['delete']!),
               ),
             ],
@@ -280,12 +283,12 @@ class _SettingsPageState extends State<SettingsPage>
       context: context,
       builder:
           (ctx) => AlertDialog(
-            title: const Text("Archived Goals"),
+            title: Text(CMS.settings['archived_goals_title']!),
             content:
                 archived.isEmpty
-                    ? const Padding(
+                    ? Padding(
                       padding: EdgeInsets.all(16.0),
-                      child: Text("No archived goals."),
+                      child: Text(CMS.settings['no_archived_goals']!),
                     )
                     : SizedBox(
                       width: double.maxFinite,
@@ -305,7 +308,7 @@ class _SettingsPageState extends State<SettingsPage>
                             title: Text(goal['name']),
                             subtitle: Text("Target: ₹${goal['targetAmount']}"),
                             trailing: TextButton(
-                              child: const Text("Restore"),
+                              child: Text(CMS.common['restore']!),
                               onPressed: () async {
                                 await _viewModel.restoreGoal(goal['id']);
                                 if (ctx.mounted) {
@@ -315,7 +318,11 @@ class _SettingsPageState extends State<SettingsPage>
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     SnackBar(
                                       content: Text(
-                                        "'${goal['name']}' restored to Home Screen",
+                                        (CMS.settings['restored_msg'] as String)
+                                            .replaceFirst(
+                                              '{goalName}',
+                                              goal['name'],
+                                            ),
                                       ),
                                     ),
                                   );
@@ -329,7 +336,7 @@ class _SettingsPageState extends State<SettingsPage>
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(ctx),
-                child: const Text("Close"),
+                child: Text(CMS.common['close']!),
               ),
             ],
           ),
@@ -369,9 +376,12 @@ class _SettingsPageState extends State<SettingsPage>
         context: context,
         builder:
             (ctx) => AlertDialog(
-              title: const Text("No SMS Found"),
+              title: Text(CMS.settings['no_sms_title']!),
               content: Text(
-                "Could not find any recent SMS from ${pattern['senderId']} to retrain the pattern.",
+                (CMS.errors['no_sms_found'] as String).replaceFirst(
+                  '{senderId}',
+                  pattern['senderId'],
+                ),
               ),
               actions: [
                 TextButton(
@@ -390,23 +400,21 @@ class _SettingsPageState extends State<SettingsPage>
       context: context,
       builder:
           (ctx) => AlertDialog(
-            title: const Text("Delete Pattern?"),
-            content: const Text(
-              "Do you want to delete the transactions associated with this pattern as well?",
-            ),
+            title: Text(CMS.settings['delete_pattern_title']!),
+            content: Text(CMS.settings['delete_pattern_content']!),
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(ctx, null), // Cancel
-                child: const Text("Cancel"),
+                child: Text(CMS.common['cancel']!),
               ),
               TextButton(
                 onPressed: () => Navigator.pop(ctx, false), // Keep Transactions
-                child: const Text("Keep Transactions"),
+                child: Text(CMS.settings['keep_transactions_btn']!),
               ),
               TextButton(
                 onPressed: () => Navigator.pop(ctx, true), // Delete All
-                style: TextButton.styleFrom(foregroundColor: Colors.red),
-                child: const Text("Delete All"),
+                style: TextButton.styleFrom(foregroundColor: AppColors.delete),
+                child: Text(CMS.settings['delete_all_btn']!),
               ),
             ],
           ),
@@ -452,7 +460,7 @@ class _SettingsPageState extends State<SettingsPage>
                     child: Text(
                       CMS.settings['general_settings_header']!,
                       style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        color: Colors.blue,
+                        color: Theme.of(context).colorScheme.primary,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
@@ -460,7 +468,7 @@ class _SettingsPageState extends State<SettingsPage>
                   ListTile(
                     leading: const Icon(
                       Icons.account_balance_wallet,
-                      color: Colors.deepPurple,
+                      color: AppColors.walletIcon,
                     ),
                     title: Text(CMS.settings['monthly_budget']!),
                     subtitle: Text(
@@ -474,7 +482,7 @@ class _SettingsPageState extends State<SettingsPage>
                   ListTile(
                     leading: const Icon(
                       Icons.receipt_long,
-                      color: Colors.purple,
+                      color: AppColors.subscriptionIcon,
                     ),
                     title: Text(CMS.settings['subscriptions_title']!),
                     subtitle: Text(CMS.settings['subscriptions_subtitle']!),
@@ -489,7 +497,10 @@ class _SettingsPageState extends State<SettingsPage>
                     },
                   ),
                   ListTile(
-                    leading: const Icon(Icons.archive, color: Colors.orange),
+                    leading: const Icon(
+                      Icons.archive,
+                      color: AppColors.archiveIcon,
+                    ),
                     title: Text(CMS.settings['archived_goals_title']!),
                     subtitle: Text(CMS.settings['archived_goals_subtitle']!),
                     trailing: const Icon(Icons.arrow_forward_ios, size: 16),
@@ -511,7 +522,7 @@ class _SettingsPageState extends State<SettingsPage>
                           style: Theme.of(
                             context,
                           ).textTheme.titleMedium?.copyWith(
-                            color: Colors.blue,
+                            color: Theme.of(context).colorScheme.primary,
                             fontWeight: FontWeight.bold,
                           ),
                         ),
@@ -538,7 +549,7 @@ class _SettingsPageState extends State<SettingsPage>
                     final color =
                         cat['color'] != null
                             ? Color(cat['color'])
-                            : Colors.grey;
+                            : Theme.of(context).disabledColor;
 
                     return ListTile(
                       leading: CircleAvatar(
@@ -572,10 +583,10 @@ class _SettingsPageState extends State<SettingsPage>
                             ),
 
                           IconButton(
-                            icon: const Icon(
+                            icon: Icon(
                               Icons.edit,
                               size: 20,
-                              color: Colors.blue,
+                              color: Theme.of(context).colorScheme.primary,
                             ),
                             onPressed: () => _addOrEditCategory(cat),
                           ),
@@ -583,7 +594,7 @@ class _SettingsPageState extends State<SettingsPage>
                             icon: const Icon(
                               Icons.delete,
                               size: 20,
-                              color: Colors.red,
+                              color: AppColors.delete,
                             ),
                             onPressed: () => _deleteCategory(cat['id']),
                           ),
@@ -604,10 +615,15 @@ class _SettingsPageState extends State<SettingsPage>
                     leading: Container(
                       padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
-                        color: Colors.blue.shade50,
+                        color: Theme.of(
+                          context,
+                        ).colorScheme.primaryContainer.withValues(alpha: 0.2),
                         borderRadius: BorderRadius.circular(8),
                       ),
-                      child: const Icon(Icons.add, color: Colors.blue),
+                      child: Icon(
+                        Icons.add,
+                        color: Theme.of(context).colorScheme.primary,
+                      ),
                     ),
                     title: Text(CMS.settings['add_pattern_title']!),
                     subtitle: Text(CMS.settings['add_pattern_subtitle']!),
@@ -638,11 +654,17 @@ class _SettingsPageState extends State<SettingsPage>
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           IconButton(
-                            icon: const Icon(Icons.edit, color: Colors.blue),
+                            icon: Icon(
+                              Icons.edit,
+                              color: Theme.of(context).colorScheme.primary,
+                            ),
                             onPressed: () => _editPattern(p),
                           ),
                           IconButton(
-                            icon: const Icon(Icons.delete, color: Colors.red),
+                            icon: const Icon(
+                              Icons.delete,
+                              color: AppColors.delete,
+                            ),
                             onPressed: () => _deletePattern(p['id']),
                           ),
                         ],
