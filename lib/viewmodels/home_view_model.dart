@@ -104,9 +104,11 @@ class HomeViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
-  // Helper to sum amounts per day
+  // Helper to sum amounts per day and per category
   Map<DateTime, double> _calculateDailyTotals(List<Map<String, dynamic>> txs) {
     Map<DateTime, double> totals = {};
+    _categorySpending = {}; // Reset category spending
+
     for (var tx in txs) {
       final date = DateTime.fromMillisecondsSinceEpoch(tx['date']);
       final key = DateTime(
@@ -115,22 +117,48 @@ class HomeViewModel extends ChangeNotifier {
         date.day,
       ); // Normalize to midnight
 
+      final amount = (tx['amount'] as num).toDouble();
+
+      // Daily Totals
       if (!totals.containsKey(key)) {
         totals[key] = 0.0;
       }
-      totals[key] = totals[key]! + (tx['amount'] as num).toDouble();
+      totals[key] = totals[key]! + amount;
+
+      // Category Totals
+      // Check if it's an expense (DEBIT) before adding to category spending
+      final type = (tx['type'] as String?)?.toUpperCase() ?? '';
+      if (type.contains('DEBIT')) {
+        final catId =
+            tx['categoryId'] as int? ?? 0; // Default to 0 (Uncategorized)
+        _categorySpending[catId] = (_categorySpending[catId] ?? 0.0) + amount;
+      }
     }
     return totals;
   }
 
+  // Exposed getter for category spending
+  Map<int, double> _categorySpending = {};
+  Map<int, double> get categorySpending => _categorySpending;
+
   void changeSummaryMonth(int months) {
     final newDate = DateTime(summaryMonth.year, summaryMonth.month + months, 1);
-    // Prevent going to future months
-    if (newDate.isAfter(DateTime.now())) return;
+    // Allow going back to any past month. Prevent going to FUTURE months beyond current.
+    final now = DateTime.now();
+    final currentMonthStart = DateTime(now.year, now.month, 1);
+
+    if (newDate.isAfter(currentMonthStart)) return;
 
     summaryMonth = newDate;
     notifyListeners(); // Immediate update for UI
     refreshData();
+  }
+
+  bool get canGoNext {
+    final now = DateTime.now();
+    final currentMonthStart = DateTime(now.year, now.month, 1);
+    final nextMonth = DateTime(summaryMonth.year, summaryMonth.month + 1, 1);
+    return !nextMonth.isAfter(currentMonthStart);
   }
 
   void resetSummaryMonth() {

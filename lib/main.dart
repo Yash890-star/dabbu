@@ -1,5 +1,6 @@
 import 'package:dabbu/screens/initial_setup_screen.dart';
 import 'package:dabbu/screens/main_screen.dart';
+import 'package:dabbu/utils/app_colors.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -20,13 +21,15 @@ class MyApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       themeMode: ThemeMode.system, // Follow system setting
       theme: ThemeData.light().copyWith(
-        scaffoldBackgroundColor: Colors.white,
         colorScheme: ColorScheme.fromSeed(
-          seedColor: Colors.deepPurple,
+          seedColor: AppColors.primary,
           brightness: Brightness.light,
+          primary: AppColors.primary,
+          secondary: AppColors.secondary,
         ),
+        scaffoldBackgroundColor: const Color(0xFFF2F2F7), // iOS Off-White
         appBarTheme: const AppBarTheme(
-          backgroundColor: Colors.white,
+          backgroundColor: Color(0xFFF2F2F7),
           surfaceTintColor: Colors.transparent,
           foregroundColor: Colors.black,
           elevation: 0,
@@ -46,25 +49,23 @@ class MyApp extends StatelessWidget {
         ),
       ),
       darkTheme: ThemeData.dark().copyWith(
-        scaffoldBackgroundColor: Colors.black,
         colorScheme: ColorScheme.fromSeed(
-          seedColor: Colors.deepPurple,
+          seedColor: AppColors.primary,
           brightness: Brightness.dark,
-          surface: const Color(
-            0xFF1E1E1E,
-          ), // Slightly lighter than black for cards
-          primary: Colors.deepPurpleAccent,
-          secondary: Colors.tealAccent,
+          surface: const Color(0xFF1E293B), // Slate 800 for cards
+          primary: AppColors.primary,
+          secondary: AppColors.secondary,
           onSurface: Colors.white,
         ),
+        scaffoldBackgroundColor: AppColors.surfaceDark, // Slate 900
         appBarTheme: const AppBarTheme(
-          backgroundColor: Colors.black,
+          backgroundColor: AppColors.surfaceDark,
           surfaceTintColor: Colors.transparent, // Avoid tint on scroll
           foregroundColor: Colors.white,
           elevation: 0,
         ),
         cardTheme: CardThemeData(
-          color: const Color(0xFF1E1E1E),
+          color: const Color(0xFF1E293B), // Slate 800
           elevation: 0,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
@@ -72,8 +73,8 @@ class MyApp extends StatelessWidget {
           ),
         ),
         navigationBarTheme: NavigationBarThemeData(
-          backgroundColor: Colors.black,
-          indicatorColor: Colors.deepPurpleAccent.withValues(alpha: 0.2),
+          backgroundColor: AppColors.surfaceDark,
+          indicatorColor: AppColors.primary.withValues(alpha: 0.2),
           labelBehavior: NavigationDestinationLabelBehavior.onlyShowSelected,
           labelTextStyle: WidgetStateProperty.resolveWith((states) {
             if (states.contains(WidgetState.selected)) {

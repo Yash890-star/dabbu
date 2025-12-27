@@ -2,16 +2,20 @@ import 'package:flutter/material.dart';
 
 class AppColors {
   // Semantic Colors
-  static const Color income = Colors.green;
-  static const Color expense = Colors.red;
-  static const Color delete = Colors.red;
+  static const Color income = Color(0xFF2ECC71); // Emerald Green
+  static const Color success = Color(0xFF2ECC71); // Emerald Green
+  static const Color expense = Color(0xFFE74C3C); // Alizarin Red
+  static const Color delete = Color(0xFFE74C3C); // Alizarin Red
+  static const Color primary = Color(0xFF00796B); // Teal 700
+  static const Color secondary = Color(0xFF00BFA5); // Teal Accent 700
+  static const Color surfaceDark = Color(0xFF0F172A); // Slate 900
 
   // Settings Icons
-  static const Color walletIcon = Colors.deepPurple;
-  static const Color subscriptionIcon = Colors.purple;
-  static const Color archiveIcon = Colors.orange;
+  static const Color walletIcon = Color(0xFF6C63FF); // Modern Blurple
+  static const Color subscriptionIcon = Color(0xFFA569BD); // Wisteria Purple
+  static const Color archiveIcon = Color(0xFFF39C12); // Orange
   static const Color defaultCategoryColor = Colors.grey;
-  static const Color defaultGoalColor = Colors.blue;
+  static const Color defaultGoalColor = Color(0xFF00BFA5); // Teal Accent
   static const Color onColoredBackground = Colors.white;
 
   // Backgrounds with Opacity (Helpers)
