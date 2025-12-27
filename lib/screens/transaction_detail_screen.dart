@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import '../services/database_helper.dart';
 import '../utils/cms.dart';
+import '../viewmodels/transaction_detail_view_model.dart';
 
 class TransactionDetailScreen extends StatefulWidget {
   final Map<String, dynamic> transaction;
@@ -14,98 +14,44 @@ class TransactionDetailScreen extends StatefulWidget {
 }
 
 class _TransactionDetailScreenState extends State<TransactionDetailScreen> {
-  late int _selectedCategoryId;
-  late String _categoryName;
-  List<Map<String, dynamic>> _allCategories = [];
+  final TransactionDetailViewModel _viewModel = TransactionDetailViewModel();
 
-  // NEW: Goal State
-  int? _selectedGoalId;
-  String? _goalName;
-  List<Map<String, dynamic>> _allGoals = [];
-
-  // Edit Mode State
-  bool _isManual = false;
+  // Edit Mode State - UI specific
   bool _isEditing = false;
   late TextEditingController _amountController;
   late TextEditingController _noteController;
   late DateTime _selectedDate;
 
-  // Local Mutable Copy
-  late Map<String, dynamic> _localTransaction;
-
   @override
   void initState() {
     super.initState();
-    // Create a mutable copy of the transaction data
-    _localTransaction = Map<String, dynamic>.from(widget.transaction);
-
-    _selectedCategoryId = _localTransaction['categoryId'] ?? 1;
-    _categoryName = _localTransaction['categoryName'] ?? "Uncategorized";
-
-    // Initialize Goal from transaction
-    _selectedGoalId = _localTransaction['goalId'];
-
-    // Check if Manual Transaction (patternId is NULL)
-    _isManual = _localTransaction['patternId'] == null;
+    _viewModel.init(widget.transaction);
 
     // Initialize Controllers with current values
     _amountController = TextEditingController(
-      text: _localTransaction['amount'].toString(),
+      text: widget.transaction['amount'].toString(),
     );
     _noteController = TextEditingController(
       text:
-          _localTransaction['sender'] == "Manual Entry"
-              ? (_localTransaction['body'] ?? "")
-              : _localTransaction['sender'],
+          widget.transaction['sender'] == "Manual Entry"
+              ? (widget.transaction['body'] ?? "")
+              : widget.transaction['sender'],
     );
     _selectedDate = DateTime.fromMillisecondsSinceEpoch(
-      _localTransaction['date'],
+      widget.transaction['date'],
     );
-
-    _loadData();
   }
 
   @override
   void dispose() {
     _amountController.dispose();
     _noteController.dispose();
+    _viewModel.dispose();
     super.dispose();
   }
 
-  Future<void> _loadData() async {
-    final cats = await DatabaseHelper.instance.getCategories();
-    final goals =
-        await DatabaseHelper.instance.getAllGoals(); // <--- Fetch Goals
-
-    String? currentGoalName;
-    if (_selectedGoalId != null) {
-      final found = goals.where((g) => g['id'] == _selectedGoalId).firstOrNull;
-      currentGoalName = found?['name'];
-    }
-
-    setState(() {
-      _allCategories = cats;
-      _allGoals = goals;
-      _goalName = currentGoalName;
-    });
-  }
-
   Future<void> _updateCategory(int newCatId, String newCatName) async {
-    final db = await DatabaseHelper.instance.database;
-    await db.update(
-      'transactions',
-      {'categoryId': newCatId},
-      where: 'id = ?',
-      whereArgs: [_localTransaction['id']],
-    );
-
-    setState(() {
-      _selectedCategoryId = newCatId;
-      _categoryName = newCatName;
-      _localTransaction['categoryId'] = newCatId;
-      _localTransaction['categoryName'] = newCatName;
-    });
-
+    await _viewModel.updateCategory(newCatId, newCatName);
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(CMS.transaction['category_updated']!)),
@@ -124,26 +70,10 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen> {
 
     final newNote = _noteController.text.trim();
 
-    final updatedRow = {
-      'id': _localTransaction['id'],
-      'amount': newAmount,
-      'date': _selectedDate.millisecondsSinceEpoch,
-      'sender':
-          newNote.isEmpty
-              ? "Manual Entry"
-              : newNote, // Use Note as Sender for manual
-      'body': newNote, // Store note in body as well
-    };
-
-    await DatabaseHelper.instance.updateTransaction(updatedRow);
+    await _viewModel.saveChanges(newAmount, newNote, _selectedDate);
 
     setState(() {
       _isEditing = false;
-      // Update local widget data for display
-      _localTransaction['amount'] = newAmount;
-      _localTransaction['date'] = _selectedDate.millisecondsSinceEpoch;
-      _localTransaction['sender'] = updatedRow['sender'];
-      _localTransaction['body'] = updatedRow['body'];
     });
 
     if (mounted) {
@@ -175,7 +105,7 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen> {
     );
 
     if (confirmed == true) {
-      await DatabaseHelper.instance.deleteTransaction(_localTransaction['id']);
+      await _viewModel.deleteTransaction();
       if (mounted) {
         Navigator.pop(context, true); // Return true to refresh details
       }
@@ -219,13 +149,13 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen> {
               const Divider(),
               Expanded(
                 child: ListView.builder(
-                  itemCount: _allCategories.length,
+                  itemCount: _viewModel.allCategories.length,
                   itemBuilder: (ctx, i) {
-                    final cat = _allCategories[i];
+                    final cat = _viewModel.allCategories[i];
                     return ListTile(
                       title: Text(cat['name']),
                       trailing:
-                          _selectedCategoryId == cat['id']
+                          _viewModel.selectedCategoryId == cat['id']
                               ? const Icon(Icons.check, color: Colors.green)
                               : null,
                       onTap: () {
@@ -247,31 +177,12 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen> {
     bool isGoalAddition = true,
   }) async {
     try {
-      print(
-        "Debug: Assigning Goal ID: $newGoalId, Name: $newGoalName, Impact: $isGoalAddition",
+      await _viewModel.updateGoal(
+        newGoalId,
+        newGoalName,
+        isGoalAddition: isGoalAddition,
       );
-
-      final db = await DatabaseHelper.instance.database;
-      await db.update(
-        'transactions',
-        {'goalId': newGoalId, 'is_goal_addition': isGoalAddition ? 1 : 0},
-        where: 'id = ?',
-        whereArgs: [widget.transaction['id']],
-      );
-
-      if (mounted) {
-        setState(() {
-          _selectedGoalId = newGoalId;
-          _goalName = newGoalName;
-          _localTransaction['goalId'] = newGoalId;
-          _localTransaction['is_goal_addition'] = isGoalAddition ? 1 : 0;
-        });
-
-        // Refresh data to ensure consistency (and if goal name was null for some reason, fetch it)
-        await _loadData();
-      }
     } catch (e) {
-      print("Error updating goal: $e");
       if (mounted) {
         ScaffoldMessenger.of(
           context,
@@ -298,9 +209,9 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen> {
               ),
               Expanded(
                 child: ListView.builder(
-                  itemCount: _allGoals.length,
+                  itemCount: _viewModel.allGoals.length,
                   itemBuilder: (ctx, i) {
-                    final goal = _allGoals[i];
+                    final goal = _viewModel.allGoals[i];
                     return ListTile(
                       leading: Icon(
                         Icons.savings,
@@ -308,7 +219,7 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen> {
                       ),
                       title: Text(goal['name']),
                       trailing:
-                          _selectedGoalId == goal['id']
+                          _viewModel.selectedGoalId == goal['id']
                               ? const Icon(Icons.check, color: Colors.green)
                               : null,
                       onTap: () async {
@@ -368,33 +279,9 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen> {
     );
   }
 
-  // Copied from SettingsPage for consistency
-  final List<Color> _categoryColors = [
-    Colors.red,
-    Colors.pink,
-    Colors.purple,
-    Colors.deepPurple,
-    Colors.indigo,
-    Colors.blue,
-    Colors.lightBlue,
-    Colors.cyan,
-    Colors.teal,
-    Colors.green,
-    Colors.lightGreen,
-    Colors.lime,
-    Colors.yellow,
-    Colors.amber,
-    Colors.orange,
-    Colors.deepOrange,
-    Colors.brown,
-    Colors.grey,
-    Colors.blueGrey,
-    Colors.black,
-  ];
-
   Future<void> _showCreateCategoryDialog() async {
     final controller = TextEditingController();
-    Color selectedColor = _categoryColors[0]; // Default to Red
+    Color selectedColor = _viewModel.categoryColors[0]; // Default to Red
 
     await showDialog(
       context: context,
@@ -430,7 +317,7 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen> {
                         spacing: 10,
                         runSpacing: 10,
                         children:
-                            _categoryColors.map((color) {
+                            _viewModel.categoryColors.map((color) {
                               final isSelected =
                                   selectedColor.value == color.value;
                               return GestureDetector(
@@ -484,11 +371,10 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen> {
                   ElevatedButton(
                     onPressed: () async {
                       if (controller.text.isNotEmpty) {
-                        int newId = await DatabaseHelper.instance.addCategory(
+                        int newId = await _viewModel.addNewCategory(
                           controller.text,
-                          color: selectedColor.value,
+                          selectedColor.value,
                         );
-                        await _loadData(); // Refresh local list
                         await _updateCategory(
                           newId,
                           controller.text,
@@ -507,195 +393,158 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final isCredit = widget.transaction['type'] == 'credit';
+    return AnimatedBuilder(
+      animation: _viewModel,
+      builder: (context, child) {
+        final isCredit = _viewModel.transaction['type'] == 'credit';
 
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(CMS.transaction['details_title']!),
-        actions:
-            _isManual
-                ? [
-                  if (!_isEditing)
-                    IconButton(
-                      icon: const Icon(Icons.delete, color: Colors.red),
-                      onPressed: _confirmDelete,
-                    ),
-                  IconButton(
-                    icon: Icon(_isEditing ? Icons.save : Icons.edit),
-                    onPressed: () {
-                      if (_isEditing) {
-                        _saveChanges();
-                      } else {
-                        setState(() => _isEditing = true);
-                      }
-                    },
-                  ),
-                ]
-                : null, // No edit option for automated transactions
-      ),
-      body: Padding(
-        padding: const EdgeInsets.all(24.0),
-        child: SingleChildScrollView(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Amount & Icon
-              Center(
-                child: Column(
-                  children: [
-                    CircleAvatar(
-                      radius: 30,
-                      backgroundColor:
-                          isCredit
-                              ? Colors.green.shade100
-                              : Colors.red.shade100,
-                      child: Icon(
-                        isCredit ? Icons.arrow_downward : Icons.arrow_upward,
-                        color: isCredit ? Colors.green : Colors.red,
-                        size: 30,
+        return Scaffold(
+          appBar: AppBar(
+            title: Text(CMS.transaction['details_title']!),
+            actions:
+                _viewModel.isManual
+                    ? [
+                      if (!_isEditing)
+                        IconButton(
+                          icon: const Icon(Icons.delete, color: Colors.red),
+                          onPressed: _confirmDelete,
+                        ),
+                      IconButton(
+                        icon: Icon(_isEditing ? Icons.save : Icons.edit),
+                        onPressed: () {
+                          if (_isEditing) {
+                            _saveChanges();
+                          } else {
+                            setState(() => _isEditing = true);
+                          }
+                        },
                       ),
-                    ),
-                    const SizedBox(height: 16),
-
-                    // EDITABLE AMOUNT
-                    _isEditing
-                        ? SizedBox(
-                          width: 150,
-                          child: TextField(
-                            controller: _amountController,
-                            keyboardType: const TextInputType.numberWithOptions(
-                              decimal: true,
-                            ),
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                              fontSize: 32,
-                              fontWeight: FontWeight.bold,
-                              color: isCredit ? Colors.green : Colors.red,
-                            ),
-                            decoration: const InputDecoration(
-                              border: UnderlineInputBorder(),
-                            ),
-                          ),
-                        )
-                        : Text(
-                          "${widget.transaction['amount']}",
-                          style: TextStyle(
-                            fontSize: 32,
-                            fontWeight: FontWeight.bold,
+                    ]
+                    : null,
+          ),
+          body: Padding(
+            padding: const EdgeInsets.all(24.0),
+            child: SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Amount & Icon
+                  Center(
+                    child: Column(
+                      children: [
+                        CircleAvatar(
+                          radius: 30,
+                          backgroundColor:
+                              isCredit
+                                  ? Colors.green.shade100
+                                  : Colors.red.shade100,
+                          child: Icon(
+                            isCredit
+                                ? Icons.arrow_downward
+                                : Icons.arrow_upward,
                             color: isCredit ? Colors.green : Colors.red,
+                            size: 30,
                           ),
                         ),
+                        const SizedBox(height: 16),
 
-                    const SizedBox(height: 8),
-
-                    // EDITABLE DATE
-                    InkWell(
-                      onTap: _isEditing ? _pickDate : null,
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(
-                            DateFormat.yMMMMEEEEd().add_jm().format(
-                              _selectedDate,
-                            ),
-                            style: const TextStyle(color: Colors.grey),
-                          ),
-                          if (_isEditing)
-                            const Padding(
-                              padding: EdgeInsets.only(left: 8.0),
-                              child: Icon(
-                                Icons.calendar_today,
-                                size: 16,
-                                color: Colors.blue,
+                        // EDITABLE AMOUNT
+                        _isEditing
+                            ? SizedBox(
+                              width: 150,
+                              child: TextField(
+                                controller: _amountController,
+                                keyboardType:
+                                    const TextInputType.numberWithOptions(
+                                      decimal: true,
+                                    ),
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  fontSize: 32,
+                                  fontWeight: FontWeight.bold,
+                                  color: isCredit ? Colors.green : Colors.red,
+                                ),
+                                decoration: const InputDecoration(
+                                  border: UnderlineInputBorder(),
+                                ),
+                              ),
+                            )
+                            : Text(
+                              "${_viewModel.transaction['amount']}",
+                              style: TextStyle(
+                                fontSize: 32,
+                                fontWeight: FontWeight.bold,
+                                color: isCredit ? Colors.green : Colors.red,
                               ),
                             ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const Divider(height: 40),
 
-              // Details
-              if (_isEditing)
-                TextField(
-                  controller: _noteController,
-                  decoration: InputDecoration(
-                    labelText: CMS.transaction['note_label']!,
-                    border: const OutlineInputBorder(),
-                  ),
-                )
-              else
-                _detailRow(
-                  CMS.transaction['sender_label']!,
-                  _localTransaction['sender'],
-                ),
+                        const SizedBox(height: 8),
 
-              const SizedBox(height: 20),
-
-              // Category Row (Always Clickable)
-              InkWell(
-                onTap: _showCategoryPicker,
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      CMS.transaction['category_label']!,
-                      style: const TextStyle(fontSize: 16, color: Colors.grey),
-                    ),
-                    Row(
-                      children: [
-                        Chip(
-                          label: Text(_categoryName),
-                          backgroundColor: Colors.blue.shade50,
+                        // EDITABLE DATE
+                        InkWell(
+                          onTap: _isEditing ? _pickDate : null,
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                DateFormat.yMMMMEEEEd().add_jm().format(
+                                  _selectedDate,
+                                ),
+                                style: const TextStyle(color: Colors.grey),
+                              ),
+                              if (_isEditing)
+                                const Padding(
+                                  padding: EdgeInsets.only(left: 8.0),
+                                  child: Icon(
+                                    Icons.calendar_today,
+                                    size: 16,
+                                    color: Colors.blue,
+                                  ),
+                                ),
+                            ],
+                          ),
                         ),
-                        const SizedBox(width: 8),
-                        const Icon(Icons.edit, size: 16, color: Colors.grey),
                       ],
                     ),
-                  ],
-                ),
-              ),
+                  ),
+                  const Divider(height: 40),
 
-              const SizedBox(height: 20),
-
-              // NEW: Link to Goal Row
-              if (_allGoals.isNotEmpty) ...[
-                InkWell(
-                  onTap: _showGoalPicker,
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        CMS.transaction['link_goal_label']!,
-                        style: const TextStyle(
-                          fontSize: 16,
-                          color: Colors.grey,
-                        ),
+                  // Details
+                  if (_isEditing)
+                    TextField(
+                      controller: _noteController,
+                      decoration: InputDecoration(
+                        labelText: CMS.transaction['note_label']!,
+                        border: const OutlineInputBorder(),
                       ),
-                      Row(
-                        children: [
-                          if (_goalName != null)
-                            Chip(
-                              avatar: const Icon(Icons.savings, size: 16),
-                              label: Text(
-                                "${_goalName!} (${(_localTransaction['is_goal_addition'] ?? 1) == 1 ? '+' : '-'})",
-                              ),
-                              backgroundColor: Colors.amber.shade50,
-                              deleteIcon: const Icon(Icons.close, size: 16),
-                              onDeleted: () => _updateGoal(null, null),
-                            )
-                          else
-                            Text(
-                              CMS.transaction['select_goal_label']!,
-                              style: const TextStyle(
-                                color: Colors.blue,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
+                    )
+                  else
+                    _detailRow(
+                      CMS.transaction['sender_label']!,
+                      _viewModel.transaction['sender'],
+                    ),
 
-                          if (_goalName == null) ...[
+                  const SizedBox(height: 20),
+
+                  // Category Row (Always Clickable)
+                  InkWell(
+                    onTap: _showCategoryPicker,
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          CMS.transaction['category_label']!,
+                          style: const TextStyle(
+                            fontSize: 16,
+                            color: Colors.grey,
+                          ),
+                        ),
+                        Row(
+                          children: [
+                            Chip(
+                              label: Text(_viewModel.categoryName),
+                              backgroundColor: Colors.blue.shade50,
+                            ),
                             const SizedBox(width: 8),
                             const Icon(
                               Icons.edit,
@@ -703,34 +552,86 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen> {
                               color: Colors.grey,
                             ),
                           ],
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  const SizedBox(height: 20),
+
+                  // NEW: Link to Goal Row
+                  if (_viewModel.allGoals.isNotEmpty) ...[
+                    InkWell(
+                      onTap: _showGoalPicker,
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            CMS.transaction['link_goal_label']!,
+                            style: const TextStyle(
+                              fontSize: 16,
+                              color: Colors.grey,
+                            ),
+                          ),
+                          Row(
+                            children: [
+                              if (_viewModel.goalName != null)
+                                Chip(
+                                  avatar: const Icon(Icons.savings, size: 16),
+                                  label: Text(
+                                    "${_viewModel.goalName!} (${(_viewModel.transaction['is_goal_addition'] ?? 1) == 1 ? '+' : '-'})",
+                                  ),
+                                  backgroundColor: Colors.amber.shade50,
+                                  deleteIcon: const Icon(Icons.close, size: 16),
+                                  onDeleted: () => _updateGoal(null, null),
+                                )
+                              else
+                                Text(
+                                  CMS.transaction['select_goal_label']!,
+                                  style: const TextStyle(
+                                    color: Colors.blue,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+
+                              if (_viewModel.goalName == null) ...[
+                                const SizedBox(width: 8),
+                                const Icon(
+                                  Icons.edit,
+                                  size: 16,
+                                  color: Colors.grey,
+                                ),
+                              ],
+                            ],
+                          ),
                         ],
                       ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 20),
-              ],
+                    ),
+                    const SizedBox(height: 20),
+                  ],
 
-              if (!_isEditing) ...[
-                Text(
-                  CMS.transaction['original_message_label']!,
-                  style: const TextStyle(fontSize: 16, color: Colors.grey),
-                ),
-                const SizedBox(height: 8),
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  width: double.infinity,
-                  decoration: BoxDecoration(
-                    color: Colors.grey.shade100,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Text(_localTransaction['body'] ?? ""),
-                ),
-              ],
-            ],
+                  if (!_isEditing) ...[
+                    Text(
+                      CMS.transaction['original_message_label']!,
+                      style: const TextStyle(fontSize: 16, color: Colors.grey),
+                    ),
+                    const SizedBox(height: 8),
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      width: double.infinity,
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade100,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(_viewModel.transaction['body'] ?? ""),
+                    ),
+                  ],
+                ],
+              ),
+            ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 

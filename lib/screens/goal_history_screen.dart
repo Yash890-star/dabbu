@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import '../services/database_helper.dart';
 import '../utils/cms.dart';
+import '../viewmodels/goal_history_view_model.dart';
 import 'add_transaction_screen.dart';
 
 class GoalHistoryScreen extends StatefulWidget {
@@ -13,38 +13,30 @@ class GoalHistoryScreen extends StatefulWidget {
 }
 
 class _GoalHistoryScreenState extends State<GoalHistoryScreen> {
-  List<Map<String, dynamic>> _transactions = [];
-  bool _isLoading = true;
+  final GoalHistoryViewModel _viewModel = GoalHistoryViewModel();
 
   @override
   void initState() {
     super.initState();
-    _loadHistory();
+    _viewModel.init(widget.goal);
   }
 
-  Future<void> _loadHistory() async {
-    setState(() => _isLoading = true);
-    final data = await DatabaseHelper.instance.getFilteredTransactions(
-      goalId: widget.goal['id'],
-    );
-    if (mounted) {
-      setState(() {
-        _transactions = data;
-        _isLoading = false;
-      });
-    }
+  @override
+  void dispose() {
+    _viewModel.dispose();
+    super.dispose();
   }
 
   Future<void> _toggleArchive() async {
-    final isArchived = (widget.goal['isArchived'] ?? 0) == 1;
-    await DatabaseHelper.instance.archiveGoal(widget.goal['id'], !isArchived);
+    final newStatus =
+        await _viewModel.toggleArchive(); // returns true if archived
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            isArchived
-                ? CMS.goals['goal_unarchived']!
-                : CMS.goals['goal_archived']!,
+            newStatus
+                ? CMS.goals['goal_archived']!
+                : CMS.goals['goal_unarchived']!,
           ),
         ),
       );
@@ -76,7 +68,7 @@ class _GoalHistoryScreenState extends State<GoalHistoryScreen> {
     );
 
     if (confirmed == true) {
-      await DatabaseHelper.instance.deleteGoal(widget.goal['id']);
+      await _viewModel.deleteGoal();
       if (mounted) Navigator.pop(context, true); // Return true to refresh
     }
   }
@@ -89,7 +81,59 @@ class _GoalHistoryScreenState extends State<GoalHistoryScreen> {
       ),
     );
     if (success == true) {
-      _loadHistory(); // Refresh list
+      _viewModel.refresh();
+    }
+  }
+
+  Future<void> _confirmLinkTransaction(Map<String, dynamic> tx) async {
+    await showDialog(
+      context: context,
+      builder:
+          (context) => AlertDialog(
+            title: Text(CMS.goals['select_impact_title']!),
+            content: Text(
+              (CMS.goals['select_impact_content'] as String).replaceFirst(
+                '{goalName}',
+                _viewModel.goal['name'],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () async {
+                  Navigator.pop(context);
+                  await _viewModel.linkTransactionToGoal(tx, false); // Subtract
+                  _showLinkSuccess();
+                },
+                child: Text(
+                  CMS.goals['subtract_action']!,
+                  style: const TextStyle(color: Colors.orange),
+                ),
+              ),
+              ElevatedButton(
+                onPressed: () async {
+                  Navigator.pop(context);
+                  await _viewModel.linkTransactionToGoal(tx, true); // Add
+                  _showLinkSuccess();
+                },
+                child: Text(CMS.goals['add_action']!),
+              ),
+            ],
+          ),
+    );
+  }
+
+  void _showLinkSuccess() {
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            (CMS.goals['transaction_linked'] as String).replaceFirst(
+              '{goalName}',
+              _viewModel.goal['name'],
+            ),
+          ),
+        ),
+      );
     }
   }
 
@@ -110,7 +154,10 @@ class _GoalHistoryScreenState extends State<GoalHistoryScreen> {
                       padding: const EdgeInsets.all(16.0),
                       child: Text(
                         (CMS.goals['link_transaction_title'] as String)
-                            .replaceFirst('{goalName}', widget.goal['name']),
+                            .replaceFirst(
+                              '{goalName}',
+                              _viewModel.goal['name'],
+                            ),
                         style: const TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.bold,
@@ -119,8 +166,7 @@ class _GoalHistoryScreenState extends State<GoalHistoryScreen> {
                     ),
                     Expanded(
                       child: FutureBuilder<List<Map<String, dynamic>>>(
-                        future: DatabaseHelper.instance
-                            .getTransactionsWithDetails(limit: 50),
+                        future: _viewModel.fetchUnlinkedTransactions(),
                         builder: (context, snapshot) {
                           if (!snapshot.hasData) {
                             return const Center(
@@ -128,15 +174,7 @@ class _GoalHistoryScreenState extends State<GoalHistoryScreen> {
                             );
                           }
 
-                          // Filter out transactions already in THIS goal
-                          final fullList = snapshot.data!;
-                          final candidates =
-                              fullList
-                                  .where(
-                                    (tx) => tx['goalId'] != widget.goal['id'],
-                                  )
-                                  .toList();
-
+                          final candidates = snapshot.data!;
                           if (candidates.isEmpty) {
                             return Center(
                               child: Text(
@@ -162,11 +200,7 @@ class _GoalHistoryScreenState extends State<GoalHistoryScreen> {
                                     isCredit
                                         ? Icons.arrow_downward
                                         : Icons.arrow_upward,
-                                    color:
-                                        isCredit
-                                            ? Colors.green
-                                            : Colors
-                                                .red, // UI shows actual flow: In/Out
+                                    color: isCredit ? Colors.green : Colors.red,
                                     size: 16,
                                   ),
                                 ),
@@ -194,80 +228,6 @@ class _GoalHistoryScreenState extends State<GoalHistoryScreen> {
                 ),
           ),
     );
-  }
-
-  Future<void> _confirmLinkTransaction(Map<String, dynamic> tx) async {
-    await showDialog(
-      context: context,
-      builder:
-          (context) => AlertDialog(
-            title: Text(CMS.goals['select_impact_title']!),
-            content: Text(
-              (CMS.goals['select_impact_content'] as String).replaceFirst(
-                '{goalName}',
-                widget.goal['name'],
-              ),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () {
-                  Navigator.pop(context);
-                  _linkTransactionToGoal(tx, false); // Subtract
-                },
-                child: Text(
-                  CMS.goals['subtract_action']!,
-                  style: const TextStyle(color: Colors.orange),
-                ),
-              ),
-              ElevatedButton(
-                onPressed: () {
-                  Navigator.pop(context);
-                  _linkTransactionToGoal(tx, true); // Add
-                },
-                child: Text(CMS.goals['add_action']!),
-              ),
-            ],
-          ),
-    );
-  }
-
-  Future<void> _linkTransactionToGoal(
-    Map<String, dynamic> tx,
-    bool isGoalAddition,
-  ) async {
-    try {
-      final db = await DatabaseHelper.instance.database;
-      await db.update(
-        'transactions',
-        {
-          'goalId': widget.goal['id'],
-          'is_goal_addition': isGoalAddition ? 1 : 0,
-        },
-        where: 'id = ?',
-        whereArgs: [tx['id']],
-      );
-
-      _loadHistory(); // Refresh screen
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              (CMS.goals['transaction_linked'] as String).replaceFirst(
-                '{goalName}',
-                widget.goal['name'],
-              ),
-            ),
-          ),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text("Error: $e")));
-      }
-    }
   }
 
   void _showAddFundsOptions() {
@@ -304,11 +264,11 @@ class _GoalHistoryScreenState extends State<GoalHistoryScreen> {
                     MaterialPageRoute(
                       builder:
                           (context) => AddTransactionScreen(
-                            initialGoalId: widget.goal['id'],
+                            initialGoalId: _viewModel.goal['id'],
                           ),
                     ),
                   );
-                  if (success == true) _loadHistory();
+                  if (success == true) _viewModel.refresh();
                 },
               ),
               ListTile(
@@ -333,243 +293,239 @@ class _GoalHistoryScreenState extends State<GoalHistoryScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // Calculate total on the fly for display
-    double totalSaved = 0;
-    for (var tx in _transactions) {
-      if (tx['is_goal_addition'] == 1) {
-        // 1 = Add
-        totalSaved += (tx['amount'] as num).toDouble();
-      } else {
-        // 0 = Subtract
-        totalSaved -= (tx['amount'] as num).toDouble();
-      }
-    }
+    return AnimatedBuilder(
+      animation: _viewModel,
+      builder: (context, child) {
+        final totalSaved = _viewModel.totalSaved;
+        final goalTarget = (_viewModel.goal['targetAmount'] as num).toDouble();
+        final progress = _viewModel.progress;
+        final color = Color(_viewModel.goal['color'] ?? Colors.blue.value);
+        final remaining = (goalTarget - totalSaved).clamp(0, double.infinity);
 
-    final goalTarget = (widget.goal['targetAmount'] as num).toDouble();
-    final progress =
-        goalTarget > 0 ? (totalSaved / goalTarget).clamp(0.0, 1.0) : 0.0;
-    final color = Color(widget.goal['color'] ?? Colors.blue.value);
+        String motivation = "";
+        if (progress >= 1) {
+          motivation = CMS.goals['motivation_complete']!;
+        } else if (progress >= 0.8) {
+          motivation = CMS.goals['motivation_almost']!;
+        } else if (progress >= 0.5) {
+          motivation = CMS.goals['motivation_halfway']!;
+        } else if (progress >= 0.2) {
+          motivation = CMS.goals['motivation_started']!;
+        } else {
+          motivation = CMS.goals['motivation_beginning']!;
+        }
 
-    final remaining = (goalTarget - totalSaved).clamp(0, double.infinity);
-    String motivation = "";
-    if (progress >= 1) {
-      motivation = CMS.goals['motivation_complete']!;
-    } else if (progress >= 0.8) {
-      motivation = CMS.goals['motivation_almost']!;
-    } else if (progress >= 0.5) {
-      motivation = CMS.goals['motivation_halfway']!;
-    } else if (progress >= 0.2) {
-      motivation = CMS.goals['motivation_started']!;
-    } else {
-      motivation = CMS.goals['motivation_beginning']!;
-    }
-
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(widget.goal['name']),
-        actions: [
-          PopupMenuButton<String>(
-            onSelected: (value) {
-              if (value == 'archive') _toggleArchive();
-              if (value == 'delete') _deleteGoal();
-            },
-            itemBuilder: (BuildContext context) {
-              final isArchived = (widget.goal['isArchived'] ?? 0) == 1;
-              return [
-                PopupMenuItem(
-                  value: 'archive',
-                  child: Row(
-                    children: [
-                      Icon(
-                        isArchived ? Icons.unarchive : Icons.archive,
-                        color: Colors.grey,
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        isArchived
-                            ? CMS.goals['unarchive_action']!
-                            : CMS.goals['archive_action']!,
-                      ),
-                    ],
-                  ),
-                ),
-                PopupMenuItem(
-                  value: 'delete',
-                  child: Row(
-                    children: [
-                      const Icon(Icons.delete, color: Colors.red),
-                      const SizedBox(width: 8),
-                      Text(
-                        CMS.common['delete']!,
-                        style: const TextStyle(color: Colors.red),
-                      ),
-                    ],
-                  ),
-                ),
-              ];
-            },
-          ),
-        ],
-      ),
-      floatingActionButton: FloatingActionButton.extended(
-        icon: const Icon(Icons.add),
-        label: Text(CMS.goals['add_funds_title']!),
-        backgroundColor: color,
-        onPressed: _showAddFundsOptions,
-      ),
-      body: Column(
-        children: [
-          // Header Card
-          Container(
-            padding: const EdgeInsets.all(20),
-            color: color.withOpacity(0.1),
-            child: Column(
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          CMS.goals['current_balance']!,
-                          style: TextStyle(color: Colors.grey[700]),
-                        ),
-                        Text(
-                          "₹${NumberFormat.compact().format(totalSaved)}",
-                          style: TextStyle(
-                            fontSize: 32,
-                            fontWeight: FontWeight.bold,
-                            color: color,
+        return Scaffold(
+          appBar: AppBar(
+            title: Text(_viewModel.goal['name']),
+            actions: [
+              PopupMenuButton<String>(
+                onSelected: (value) {
+                  if (value == 'archive') _toggleArchive();
+                  if (value == 'delete') _deleteGoal();
+                },
+                itemBuilder: (BuildContext context) {
+                  final isArchived = (_viewModel.goal['isArchived'] ?? 0) == 1;
+                  return [
+                    PopupMenuItem(
+                      value: 'archive',
+                      child: Row(
+                        children: [
+                          Icon(
+                            isArchived ? Icons.unarchive : Icons.archive,
+                            color: Colors.grey,
                           ),
+                          const SizedBox(width: 8),
+                          Text(
+                            isArchived
+                                ? CMS.goals['unarchive_action']!
+                                : CMS.goals['archive_action']!,
+                          ),
+                        ],
+                      ),
+                    ),
+                    PopupMenuItem(
+                      value: 'delete',
+                      child: Row(
+                        children: [
+                          const Icon(Icons.delete, color: Colors.red),
+                          const SizedBox(width: 8),
+                          Text(
+                            CMS.common['delete']!,
+                            style: const TextStyle(color: Colors.red),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ];
+                },
+              ),
+            ],
+          ),
+          floatingActionButton: FloatingActionButton.extended(
+            icon: const Icon(Icons.add),
+            label: Text(CMS.goals['add_funds_title']!),
+            backgroundColor: color,
+            onPressed: _showAddFundsOptions,
+          ),
+          body: Column(
+            children: [
+              // Header Card
+              Container(
+                padding: const EdgeInsets.all(20),
+                color: color.withOpacity(0.1),
+                child: Column(
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              CMS.goals['current_balance']!,
+                              style: TextStyle(color: Colors.grey[700]),
+                            ),
+                            Text(
+                              "₹${NumberFormat.compact().format(totalSaved)}",
+                              style: TextStyle(
+                                fontSize: 32,
+                                fontWeight: FontWeight.bold,
+                                color: color,
+                              ),
+                            ),
+                          ],
+                        ),
+                        CircularProgressIndicator(
+                          value: progress,
+                          color: color,
+                          backgroundColor: Colors.white,
                         ),
                       ],
                     ),
-                    CircularProgressIndicator(
-                      value: progress,
-                      color: color,
-                      backgroundColor: Colors.white,
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 20),
-                if (remaining > 0)
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.symmetric(
-                      vertical: 10,
-                      horizontal: 14,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.5),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                        color: color.withOpacity(0.3),
-                        width: 1,
-                      ),
-                    ),
-                    child: Column(
-                      children: [
-                        Text(
-                          "₹${NumberFormat.currency(symbol: '', decimalDigits: 0).format(remaining)}${CMS.goals['remaining_suffix']!}",
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                            color: color,
+                    const SizedBox(height: 20),
+                    if (remaining > 0)
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(
+                          vertical: 10,
+                          horizontal: 14,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.5),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: color.withOpacity(0.3),
+                            width: 1,
                           ),
                         ),
-                        const SizedBox(height: 4),
-                        Text(
+                        child: Column(
+                          children: [
+                            Text(
+                              "₹${NumberFormat.currency(symbol: '', decimalDigits: 0).format(remaining)}${CMS.goals['remaining_suffix']!}",
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                                color: color,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              motivation,
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontStyle: FontStyle.italic,
+                                color: Colors.grey[800],
+                              ),
+                            ),
+                          ],
+                        ),
+                      )
+                    else
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Colors.green.withAlpha(51),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: Colors.green.withOpacity(0.5),
+                          ),
+                        ),
+                        child: Text(
                           motivation,
                           textAlign: TextAlign.center,
                           style: TextStyle(
-                            fontSize: 13,
-                            fontStyle: FontStyle.italic,
-                            color: Colors.grey[800],
+                            fontWeight: FontWeight.bold,
+                            color: Colors.green[800],
                           ),
                         ),
-                      ],
-                    ),
-                  )
-                else
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: Colors.green.withOpacity(0.2),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: Colors.green.withOpacity(0.5)),
-                    ),
-                    child: Text(
-                      motivation,
-                      textAlign: TextAlign.center,
+                      ),
+                    const SizedBox(height: 12),
+                    Text(
+                      "${CMS.goals['goal_target']!}₹${NumberFormat.currency(symbol: '', decimalDigits: 0).format(goalTarget)}",
                       style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        color: Colors.green[800],
+                        fontWeight: FontWeight.w500,
+                        color: Colors.grey[700],
                       ),
                     ),
-                  ),
-                const SizedBox(height: 12),
-                Text(
-                  "${CMS.goals['goal_target']!}₹${NumberFormat.currency(symbol: '', decimalDigits: 0).format(goalTarget)}",
-                  style: TextStyle(
-                    fontWeight: FontWeight.w500,
-                    color: Colors.grey[700],
-                  ),
+                  ],
                 ),
-              ],
-            ),
-          ),
+              ),
 
-          Expanded(
-            child:
-                _isLoading
-                    ? const Center(child: CircularProgressIndicator())
-                    : _transactions.isEmpty
-                    ? Center(child: Text(CMS.goals['no_history']!))
-                    : ListView.builder(
-                      itemCount: _transactions.length,
-                      itemBuilder: (context, index) {
-                        final tx = _transactions[index];
-                        // Use the new flag for display logic
-                        // Default to 1 (deposit) if null
-                        final isDeposit = (tx['is_goal_addition'] ?? 1) == 1;
+              Expanded(
+                child:
+                    _viewModel.isLoading
+                        ? const Center(child: CircularProgressIndicator())
+                        : _viewModel.transactions.isEmpty
+                        ? Center(child: Text(CMS.goals['no_history']!))
+                        : ListView.builder(
+                          itemCount: _viewModel.transactions.length,
+                          itemBuilder: (context, index) {
+                            final tx = _viewModel.transactions[index];
+                            final isDeposit =
+                                (tx['is_goal_addition'] ?? 1) == 1;
 
-                        return ListTile(
-                          leading: CircleAvatar(
-                            backgroundColor:
-                                isDeposit
-                                    ? Colors.green.shade50
-                                    : Colors.red.shade50,
-                            child: Icon(
-                              isDeposit
-                                  ? Icons.arrow_upward
-                                  : Icons.arrow_downward,
-                              color: isDeposit ? Colors.green : Colors.red,
-                              size: 18,
-                            ),
-                          ),
-                          title: Text(tx['sender'] ?? "Manual"),
-                          subtitle: Text(
-                            DateFormat.yMMMd().format(
-                              DateTime.fromMillisecondsSinceEpoch(tx['date']),
-                            ),
-                          ),
-                          trailing: Text(
-                            "${isDeposit ? '+' : '-'} ₹${tx['amount']}",
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              color: isDeposit ? Colors.green : Colors.red,
-                              fontSize: 16,
-                            ),
-                          ),
-                          onTap: () => _handleTransactionTap(tx),
-                        );
-                      },
-                    ),
+                            return ListTile(
+                              leading: CircleAvatar(
+                                backgroundColor:
+                                    isDeposit
+                                        ? Colors.green.shade50
+                                        : Colors.red.shade50,
+                                child: Icon(
+                                  isDeposit
+                                      ? Icons.arrow_upward
+                                      : Icons.arrow_downward,
+                                  color: isDeposit ? Colors.green : Colors.red,
+                                  size: 18,
+                                ),
+                              ),
+                              title: Text(tx['sender'] ?? "Manual"),
+                              subtitle: Text(
+                                DateFormat.yMMMd().format(
+                                  DateTime.fromMillisecondsSinceEpoch(
+                                    tx['date'],
+                                  ),
+                                ),
+                              ),
+                              trailing: Text(
+                                "${isDeposit ? '+' : '-'} ₹${tx['amount']}",
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  color: isDeposit ? Colors.green : Colors.red,
+                                  fontSize: 16,
+                                ),
+                              ),
+                              onTap: () => _handleTransactionTap(tx),
+                            );
+                          },
+                        ),
+              ),
+            ],
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 }

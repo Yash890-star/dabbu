@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import '../services/database_helper.dart';
-import '../services/subscription_service.dart';
 import '../utils/cms.dart';
+import '../viewmodels/subscriptions_view_model.dart';
 
 class SubscriptionsScreen extends StatefulWidget {
   const SubscriptionsScreen({super.key});
@@ -12,49 +11,31 @@ class SubscriptionsScreen extends StatefulWidget {
 }
 
 class _SubscriptionsScreenState extends State<SubscriptionsScreen> {
-  List<Map<String, dynamic>> _subscriptions = [];
-  bool _isLoading = true;
+  final SubscriptionsViewModel _viewModel = SubscriptionsViewModel();
 
   @override
   void initState() {
     super.initState();
-    _loadSubscriptions();
+    _viewModel.loadSubscriptions();
   }
 
-  Future<void> _loadSubscriptions() async {
-    setState(() => _isLoading = true);
-    final subs = await DatabaseHelper.instance.getAllSubscriptions();
-    if (mounted) {
-      setState(() {
-        _subscriptions = subs;
-        _isLoading = false;
-      });
-    }
-  }
-
-  Future<void> _deleteSubscription(int id) async {
-    await DatabaseHelper.instance.deleteSubscription(id);
-    _loadSubscriptions();
+  @override
+  void dispose() {
+    _viewModel.dispose();
+    super.dispose();
   }
 
   Future<void> _scanForSubscriptions() async {
-    setState(() => _isLoading = true);
-    try {
-      final candidates = await SubscriptionService().scanForSubscriptions();
+    final candidates = await _viewModel.scanForSubscriptions();
 
-      if (candidates.isEmpty) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(CMS.subscriptions['no_patterns_found']!)),
-          );
-        }
-      } else {
-        if (mounted) {
-          _showCandidatesDialog(candidates);
-        }
-      }
-    } finally {
-      if (mounted) _loadSubscriptions(); // Reset loading state
+    if (!mounted) return;
+
+    if (candidates.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(CMS.subscriptions['no_patterns_found']!)),
+      );
+    } else {
+      _showCandidatesDialog(candidates);
     }
   }
 
@@ -83,7 +64,7 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> {
                     trailing: IconButton(
                       icon: const Icon(Icons.add_circle, color: Colors.green),
                       onPressed: () async {
-                        await DatabaseHelper.instance.createSubscription({
+                        await _viewModel.createSubscription({
                           'name': cand['name'],
                           'amount': cand['amount'],
                           'sender': cand['sender'],
@@ -93,7 +74,6 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> {
                         });
                         if (mounted) {
                           Navigator.pop(ctx);
-                          _loadSubscriptions();
                         }
                       },
                     ),
@@ -175,7 +155,7 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> {
                         final amount =
                             double.tryParse(amountController.text) ?? 0;
                         if (nameController.text.isNotEmpty && amount > 0) {
-                          await DatabaseHelper.instance.createSubscription({
+                          await _viewModel.createSubscription({
                             'name': nameController.text,
                             'amount': amount,
                             'sender':
@@ -187,7 +167,6 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> {
                           });
                           if (mounted) {
                             Navigator.pop(ctx);
-                            _loadSubscriptions();
                           }
                         }
                       },
@@ -208,7 +187,7 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> {
           IconButton(
             icon: const Icon(Icons.autorenew),
             tooltip: CMS.subscriptions['scan_tooltip']!,
-            onPressed: _scanForSubscriptions,
+            onPressed: () => _scanForSubscriptions(),
           ),
         ],
       ),
@@ -216,81 +195,87 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> {
         onPressed: _showAddDialog,
         child: const Icon(Icons.add),
       ),
-      body:
-          _isLoading
-              ? const Center(child: CircularProgressIndicator())
-              : _subscriptions.isEmpty
-              ? Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Icon(
-                      Icons.subscriptions_outlined,
-                      size: 64,
-                      color: Colors.grey,
-                    ),
-                    const SizedBox(height: 16),
-                    Text(
-                      CMS.subscriptions['no_subscriptions']!,
-                      style: const TextStyle(color: Colors.grey),
-                    ),
-                    TextButton(
-                      onPressed: _scanForSubscriptions,
-                      child: Text(CMS.subscriptions['scan_history_btn']!),
-                    ),
-                  ],
-                ),
-              )
-              : ListView.builder(
-                padding: const EdgeInsets.all(16),
-                itemCount: _subscriptions.length,
-                itemBuilder: (context, index) {
-                  final sub = _subscriptions[index];
-                  final nextDate = DateTime.fromMillisecondsSinceEpoch(
-                    sub['nextBillDate'],
-                  );
-                  final daysLeft = nextDate.difference(DateTime.now()).inDays;
+      body: AnimatedBuilder(
+        animation: _viewModel,
+        builder: (context, child) {
+          if (_viewModel.isLoading) {
+            return const Center(child: CircularProgressIndicator());
+          }
 
-                  return Card(
-                    margin: const EdgeInsets.only(bottom: 12),
-                    child: ListTile(
-                      leading: CircleAvatar(
-                        backgroundColor: Colors.purple.shade50,
-                        child: const Icon(
-                          Icons.receipt_long,
-                          color: Colors.purple,
+          if (_viewModel.subscriptions.isEmpty) {
+            return Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(
+                    Icons.subscriptions_outlined,
+                    size: 64,
+                    color: Colors.grey,
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    CMS.subscriptions['no_subscriptions']!,
+                    style: const TextStyle(color: Colors.grey),
+                  ),
+                  TextButton(
+                    onPressed: () => _scanForSubscriptions(),
+                    child: Text(CMS.subscriptions['scan_history_btn']!),
+                  ),
+                ],
+              ),
+            );
+          }
+
+          return ListView.builder(
+            padding: const EdgeInsets.all(16),
+            itemCount: _viewModel.subscriptions.length,
+            itemBuilder: (context, index) {
+              final sub = _viewModel.subscriptions[index];
+              final nextDate = DateTime.fromMillisecondsSinceEpoch(
+                sub['nextBillDate'],
+              );
+              final daysLeft = nextDate.difference(DateTime.now()).inDays;
+
+              return Card(
+                margin: const EdgeInsets.only(bottom: 12),
+                child: ListTile(
+                  leading: CircleAvatar(
+                    backgroundColor: Colors.purple.shade50,
+                    child: const Icon(Icons.receipt_long, color: Colors.purple),
+                  ),
+                  title: Text(
+                    sub['name'],
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  subtitle: Text(
+                    "${CMS.subscriptions['next_due_label']!}${DateFormat.yMMMd().format(nextDate)} ($daysLeft${CMS.subscriptions['days_left_suffix']!})",
+                  ),
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        "₹${sub['amount']}",
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
                         ),
                       ),
-                      title: Text(
-                        sub['name'],
-                        style: const TextStyle(fontWeight: FontWeight.bold),
+                      IconButton(
+                        icon: const Icon(
+                          Icons.delete_outline,
+                          color: Colors.grey,
+                        ),
+                        onPressed:
+                            () => _viewModel.deleteSubscription(sub['id']),
                       ),
-                      subtitle: Text(
-                        "${CMS.subscriptions['next_due_label']!}${DateFormat.yMMMd().format(nextDate)} ($daysLeft${CMS.subscriptions['days_left_suffix']!})",
-                      ),
-                      trailing: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(
-                            "₹${sub['amount']}",
-                            style: const TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 16,
-                            ),
-                          ),
-                          IconButton(
-                            icon: const Icon(
-                              Icons.delete_outline,
-                              color: Colors.grey,
-                            ),
-                            onPressed: () => _deleteSubscription(sub['id']),
-                          ),
-                        ],
-                      ),
-                    ),
-                  );
-                },
-              ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          );
+        },
+      ),
     );
   }
 }

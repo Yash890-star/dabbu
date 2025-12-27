@@ -1,14 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:intl/intl.dart';
-
-import '../services/database_helper.dart';
-import '../services/message_helper.dart';
 import '../utils/cms.dart';
 import 'transaction_detail_screen.dart';
 import 'add_transaction_screen.dart';
 import 'settings_page.dart';
 import 'goal_history_screen.dart';
+import '../viewmodels/home_view_model.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -18,140 +15,58 @@ class HomePage extends StatefulWidget {
 }
 
 class HomePageState extends State<HomePage> {
-  String _userName = "";
-  List<Map<String, dynamic>> _transactions = [];
-  List<Map<String, dynamic>> _categories = [];
-  List<Map<String, dynamic>> _goals = [];
-  List<Map<String, dynamic>> _upcomingBills = []; // <--- New State
-  DateTime _summaryMonth = DateTime.now();
-  Map<String, double> _summaryData = {'expense': 0.0, 'income': 0.0};
-  Map<DateTime, double> _dailyTotals = {};
-  double _monthlyBudget = 0.0;
-  bool _isSyncing = false;
+  final HomeViewModel _viewModel = HomeViewModel();
 
   @override
   void initState() {
     super.initState();
-    _initDefaults();
-    refreshData();
+    _viewModel.init();
   }
 
-  Future<void> _initDefaults() async {
-    await DatabaseHelper.instance.seedDefaultCategories();
-    if (mounted) refreshData();
+  void refreshData() {
+    _viewModel.refreshData();
   }
 
-  Future<void> refreshData() async {
-    final prefs = await SharedPreferences.getInstance();
-    // Fetch transactions for the selected summary month
-    final start = DateTime(_summaryMonth.year, _summaryMonth.month, 1);
-    final end = DateTime(
-      _summaryMonth.year,
-      _summaryMonth.month + 1,
-      0,
-      23,
-      59,
-      59,
-      999,
-    );
-
-    final data = await DatabaseHelper.instance.getFilteredTransactions(
-      startEpoch: start.millisecondsSinceEpoch,
-      endEpoch: end.millisecondsSinceEpoch,
-    );
-    final cats = await DatabaseHelper.instance.getCategories();
-    final goals = await DatabaseHelper.instance.getAllGoals();
-    final subs =
-        await DatabaseHelper.instance.getAllSubscriptions(); // <--- Fetch Subs
-
-    // Fetch Monthly Summary
-    final summary = await DatabaseHelper.instance.getMonthlySummary(
-      _summaryMonth.month,
-      _summaryMonth.year,
-    );
-
-    // Filter upcoming bills (Next 7 days)
-    final now = DateTime.now();
-    final nextWeek = now.add(const Duration(days: 7));
-    final upcoming =
-        subs.where((s) {
-          if ((s['isActive'] ?? 0) == 0) return false;
-          final date = DateTime.fromMillisecondsSinceEpoch(s['nextBillDate']);
-          // Show if overdue or within next week
-          return date.isBefore(nextWeek);
-        }).toList();
-    // Sort by date
-    upcoming.sort(
-      (a, b) => (a['nextBillDate'] as int).compareTo(b['nextBillDate'] as int),
-    );
-
-    // Fetch Budget Overrides for the selected month
-    final budgetOverrides = await DatabaseHelper.instance.getMonthBudgets(
-      _summaryMonth.month,
-      _summaryMonth.year,
-    );
-
-    // 1. Determine Total Monthly Budget (Override > Default)
-    double finalBudget =
-        budgetOverrides['total'] ?? (prefs.getDouble('monthly_budget') ?? 0.0);
-
-    // 2. Apply Category Limit Overrides
-    final updatedCats =
-        cats.map((cat) {
-          final catId = cat['id'];
-          final override = budgetOverrides['cat_$catId'];
-          if (override != null) {
-            final newCat = Map<String, dynamic>.from(cat);
-            newCat['budgetLimit'] =
-                override; // Store for use in _buildBudgetCard
-            return newCat;
-          }
-          return cat;
-        }).toList();
-
-    // Calculate totals whenever data loads (for the graph/daily list)
-    final totals = _calculateDailyTotals(data);
-
-    if (mounted) {
-      setState(() {
-        _userName = prefs.getString('userName') ?? "User";
-        _transactions = data;
-        _categories = updatedCats; // Use updated categories
-        _goals = goals;
-        _upcomingBills = upcoming;
-        _dailyTotals = totals;
-        _monthlyBudget = finalBudget; // Use final budget
-        _summaryData = summary; // Update summary
-      });
-    }
+  @override
+  void dispose() {
+    _viewModel.dispose();
+    super.dispose();
   }
 
   void _changeSummaryMonth(int months) {
-    final newDate = DateTime(
-      _summaryMonth.year,
-      _summaryMonth.month + months,
-      1,
-    );
-    // Prevent going to future months
-    if (newDate.isAfter(DateTime.now())) return;
-
-    setState(() {
-      _summaryMonth = newDate;
-    });
-    refreshData();
+    _viewModel.changeSummaryMonth(months);
   }
 
   void _resetSummaryMonth() {
-    setState(() {
-      _summaryMonth = DateTime.now();
-    });
-    refreshData();
+    _viewModel.resetSummaryMonth();
+  }
+
+  Future<void> _syncMessages() async {
+    final int newCount = await _viewModel.syncMessages();
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            newCount > 0
+                ? (CMS.home['new_transaction_found'] as String).replaceFirst(
+                  '{count}',
+                  '$newCount',
+                )
+                : CMS.home['no_new_transaction']!,
+          ),
+          backgroundColor: newCount > 0 ? Colors.green : Colors.grey,
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    }
   }
 
   Widget _buildMonthlySummaryCard() {
     final now = DateTime.now();
     final isCurrentMonth =
-        _summaryMonth.year == now.year && _summaryMonth.month == now.month;
+        _viewModel.summaryMonth.year == now.year &&
+        _viewModel.summaryMonth.month == now.month;
 
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -170,7 +85,7 @@ class HomePageState extends State<HomePage> {
                   onPressed: () => _changeSummaryMonth(-1),
                 ),
                 Text(
-                  DateFormat.yMMMM().format(_summaryMonth),
+                  DateFormat.yMMMM().format(_viewModel.summaryMonth),
                   style: const TextStyle(
                     fontWeight: FontWeight.bold,
                     fontSize: 16,
@@ -220,7 +135,7 @@ class HomePageState extends State<HomePage> {
                     Text(
                       NumberFormat.compactCurrency(
                         symbol: CMS.common['currency_symbol']!,
-                      ).format(_summaryData['expense']),
+                      ).format(_viewModel.summaryData['expense']),
                       style: const TextStyle(
                         fontWeight: FontWeight.bold,
                         fontSize: 18,
@@ -247,7 +162,7 @@ class HomePageState extends State<HomePage> {
                     Text(
                       NumberFormat.compactCurrency(
                         symbol: CMS.common['currency_symbol']!,
-                      ).format(_summaryData['income']),
+                      ).format(_viewModel.summaryData['income']),
                       style: const TextStyle(
                         fontWeight: FontWeight.bold,
                         fontSize: 18,
@@ -264,7 +179,7 @@ class HomePageState extends State<HomePage> {
   }
 
   Widget _buildUpcomingBills() {
-    if (_upcomingBills.isEmpty) return const SizedBox.shrink();
+    if (_viewModel.upcomingBills.isEmpty) return const SizedBox.shrink();
 
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -290,13 +205,13 @@ class HomePageState extends State<HomePage> {
               ),
               const Spacer(),
               Text(
-                "${_upcomingBills.length} ${CMS.home['upcoming_due']!}",
+                "${_viewModel.upcomingBills.length} ${CMS.home['upcoming_due']!}",
                 style: TextStyle(color: Colors.orange.shade800, fontSize: 12),
               ),
             ],
           ),
           const SizedBox(height: 8),
-          ..._upcomingBills.map((bill) {
+          ..._viewModel.upcomingBills.map((bill) {
             final date = DateTime.fromMillisecondsSinceEpoch(
               bill['nextBillDate'],
             );
@@ -327,52 +242,6 @@ class HomePageState extends State<HomePage> {
         ],
       ),
     );
-  }
-
-  // --- NEW: Helper to sum amounts per day ---
-  Map<DateTime, double> _calculateDailyTotals(List<Map<String, dynamic>> txs) {
-    Map<DateTime, double> totals = {};
-    for (var tx in txs) {
-      final date = DateTime.fromMillisecondsSinceEpoch(tx['date']);
-      final key = DateTime(
-        date.year,
-        date.month,
-        date.day,
-      ); // Normalize to midnight
-
-      if (!totals.containsKey(key)) {
-        totals[key] = 0.0;
-      }
-      // We sum the amounts. You can choose to subtract credits if you want "Net Spend"
-      // For now, this shows "Total Activity" (Volume)
-      totals[key] = totals[key]! + (tx['amount'] as num).toDouble();
-    }
-    return totals;
-  }
-
-  Future<void> _syncMessages() async {
-    setState(() => _isSyncing = true);
-    final helper = MessageHelper();
-    int newCount = await helper.processNewMessages(lookBackDays: 60);
-    await refreshData();
-    setState(() => _isSyncing = false);
-
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            newCount > 0
-                ? (CMS.home['new_transaction_found'] as String).replaceFirst(
-                  '{count}',
-                  '$newCount',
-                )
-                : CMS.home['no_new_transaction']!,
-          ),
-          backgroundColor: newCount > 0 ? Colors.green : Colors.grey,
-          duration: const Duration(seconds: 2),
-        ),
-      );
-    }
   }
 
   // --- Date Helpers ---
@@ -430,7 +299,7 @@ class HomePageState extends State<HomePage> {
                       builder: (context) => const AddTransactionScreen(),
                     ),
                   );
-                  refreshData();
+                  _viewModel.refreshData();
                 },
               ),
               const SizedBox(height: 10),
@@ -452,7 +321,7 @@ class HomePageState extends State<HomePage> {
                     MaterialPageRoute(
                       builder: (context) => const SettingsPage(initialIndex: 1),
                     ),
-                  ).then((_) => refreshData());
+                  ).then((_) => _viewModel.refreshData());
                 },
               ),
               const SizedBox(height: 10),
@@ -465,187 +334,203 @@ class HomePageState extends State<HomePage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text("${CMS.home['greeting_prefix']!} $_userName"),
-        actions: [
-          IconButton(
-            icon:
-                _isSyncing
-                    ? const SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                    : const Icon(Icons.refresh),
-            onPressed: _isSyncing ? null : _syncMessages,
+    return AnimatedBuilder(
+      animation: _viewModel,
+      builder: (context, child) {
+        return Scaffold(
+          appBar: AppBar(
+            title: Text(
+              "${CMS.home['greeting_prefix']!} ${_viewModel.userName}",
+            ),
+            actions: [
+              IconButton(
+                icon:
+                    _viewModel.isSyncing
+                        ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                        : const Icon(Icons.refresh),
+                onPressed: _viewModel.isSyncing ? null : _syncMessages,
+              ),
+            ],
           ),
-        ],
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => _showAddMenu(context),
-        child: const Icon(Icons.add),
-      ),
-      body: GestureDetector(
-        onHorizontalDragEnd: (details) {
-          if (details.primaryVelocity! > 0) {
-            // Swiped Right -> Previous Month
-            _changeSummaryMonth(-1);
-          } else if (details.primaryVelocity! < 0) {
-            // Swiped Left -> Next Month
-            _changeSummaryMonth(1);
-          }
-        },
-        child: RefreshIndicator(
-          onRefresh: _syncMessages,
-          child:
-              _transactions.isEmpty
-                  ? ListView(
-                    children: [
-                      const SizedBox(height: 200),
-                      Center(
-                        child: Text(
-                          CMS.home['no_transactions']!,
-                          textAlign: TextAlign.center,
-                        ),
-                      ),
-                    ],
-                  )
-                  : ListView.builder(
-                    // +1 Summary, +1 Budget, +1 Bills, +1 Goals, +Transactions
-                    itemCount: _transactions.length + 4,
-                    itemBuilder: (context, index) {
-                      if (index == 0)
-                        return _buildMonthlySummaryCard(); // New Widget
-
-                      // Shift indices for others
-                      if (index == 1) return _buildBudgetCard();
-                      if (index == 2) return _buildUpcomingBills();
-                      if (index == 3) return _buildGoalsSection();
-
-                      // Adjust index for transactions (4 items before list)
-                      final txIndex = index - 4;
-                      final tx = _transactions[txIndex];
-                      final date = DateTime.fromMillisecondsSinceEpoch(
-                        tx['date'],
-                      );
-                      final normalizedDate = DateTime(
-                        date.year,
-                        date.month,
-                        date.day,
-                      );
-
-                      bool showHeader = false;
-                      if (txIndex == 0) {
-                        showHeader = true;
-                      } else {
-                        final prevTx = _transactions[txIndex - 1];
-                        final prevDate = DateTime.fromMillisecondsSinceEpoch(
-                          prevTx['date'],
-                        );
-                        if (!_isSameDay(date, prevDate)) {
-                          showHeader = true;
-                        }
-                      }
-
-                      // Build the Transaction Tile
-                      final tile = ListTile(
-                        leading: CircleAvatar(
-                          backgroundColor:
-                              tx['type'] == 'credit'
-                                  ? Colors.green.shade50
-                                  : Colors.red.shade50,
-                          child: Icon(
-                            tx['type'] == 'credit'
-                                ? Icons.arrow_downward
-                                : Icons.arrow_upward,
-                            color:
-                                tx['type'] == 'credit'
-                                    ? Colors.green
-                                    : Colors.red,
-                            size: 20,
-                          ),
-                        ),
-                        title: Text(
-                          tx['patternName'] ?? tx['sender'] ?? "Unknown",
-                          style: const TextStyle(fontWeight: FontWeight.w500),
-                        ),
-                        subtitle: Text(tx['categoryName'] ?? "Uncategorized"),
-                        trailing: Text(
-                          "${tx['amount']}",
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 16,
-                            color:
-                                tx['type'] == 'credit'
-                                    ? Colors.green
-                                    : Colors.red,
-                          ),
-                        ),
-                        onTap: () async {
-                          await Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder:
-                                  (context) =>
-                                      TransactionDetailScreen(transaction: tx),
+          floatingActionButton: FloatingActionButton(
+            onPressed: () => _showAddMenu(context),
+            child: const Icon(Icons.add),
+          ),
+          body: GestureDetector(
+            onHorizontalDragEnd: (details) {
+              if (details.primaryVelocity! > 0) {
+                // Swiped Right -> Previous Month
+                _changeSummaryMonth(-1);
+              } else if (details.primaryVelocity! < 0) {
+                // Swiped Left -> Next Month
+                _changeSummaryMonth(1);
+              }
+            },
+            child: RefreshIndicator(
+              onRefresh: _syncMessages,
+              child:
+                  _viewModel.transactions.isEmpty
+                      ? ListView(
+                        children: [
+                          const SizedBox(height: 200),
+                          Center(
+                            child: Text(
+                              CMS.home['no_transactions']!,
+                              textAlign: TextAlign.center,
                             ),
+                          ),
+                        ],
+                      )
+                      : ListView.builder(
+                        // +1 Summary, +1 Budget, +1 Bills, +1 Goals, +Transactions
+                        itemCount: _viewModel.transactions.length + 4,
+                        itemBuilder: (context, index) {
+                          if (index == 0) return _buildMonthlySummaryCard();
+
+                          if (index == 1) return _buildBudgetCard();
+                          if (index == 2) return _buildUpcomingBills();
+                          if (index == 3) return _buildGoalsSection();
+
+                          // Adjust index for transactions (4 items before list)
+                          final txIndex = index - 4;
+                          final tx = _viewModel.transactions[txIndex];
+                          final date = DateTime.fromMillisecondsSinceEpoch(
+                            tx['date'],
                           );
-                          refreshData();
-                        },
-                      );
+                          final normalizedDate = DateTime(
+                            date.year,
+                            date.month,
+                            date.day,
+                          );
 
-                      if (showHeader) {
-                        // Get the total for this day from our map
-                        final dailyTotal = _dailyTotals[normalizedDate] ?? 0.0;
+                          bool showHeader = false;
+                          if (txIndex == 0) {
+                            showHeader = true;
+                          } else {
+                            final prevTx = _viewModel.transactions[txIndex - 1];
+                            final prevDate =
+                                DateTime.fromMillisecondsSinceEpoch(
+                                  prevTx['date'],
+                                );
+                            if (!_isSameDay(date, prevDate)) {
+                              showHeader = true;
+                            }
+                          }
 
-                        return Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Padding(
-                              padding: const EdgeInsets.fromLTRB(16, 24, 16, 8),
-                              // CHANGED: Row to show Date on Left, Total on Right
-                              child: Row(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Text(
-                                    _formatDateHeader(date),
-                                    style: TextStyle(
-                                      color: Colors.grey[800],
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 15,
-                                    ),
-                                  ),
-                                  Text(
-                                    NumberFormat.currency(
-                                      symbol: "INR ",
-                                      locale: "en_IN",
-                                    ).format(dailyTotal),
-                                    style: TextStyle(
-                                      color: Colors.grey[600],
-                                      fontWeight: FontWeight.w600,
-                                      fontSize: 13,
-                                    ),
-                                  ),
-                                ],
+                          // Build the Transaction Tile
+                          final tile = ListTile(
+                            leading: CircleAvatar(
+                              backgroundColor:
+                                  tx['type'] == 'credit'
+                                      ? Colors.green.shade50
+                                      : Colors.red.shade50,
+                              child: Icon(
+                                tx['type'] == 'credit'
+                                    ? Icons.arrow_downward
+                                    : Icons.arrow_upward,
+                                color:
+                                    tx['type'] == 'credit'
+                                        ? Colors.green
+                                        : Colors.red,
+                                size: 20,
                               ),
                             ),
-                            tile,
-                          ],
-                        );
-                      } else {
-                        return tile;
-                      }
-                    },
-                  ),
-        ),
-      ),
+                            title: Text(
+                              tx['patternName'] ?? tx['sender'] ?? "Unknown",
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                            subtitle: Text(
+                              tx['categoryName'] ?? "Uncategorized",
+                            ),
+                            trailing: Text(
+                              "${tx['amount']}",
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 16,
+                                color:
+                                    tx['type'] == 'credit'
+                                        ? Colors.green
+                                        : Colors.red,
+                              ),
+                            ),
+                            onTap: () async {
+                              await Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder:
+                                      (context) => TransactionDetailScreen(
+                                        transaction: tx,
+                                      ),
+                                ),
+                              );
+                              _viewModel.refreshData();
+                            },
+                          );
+
+                          if (showHeader) {
+                            // Get the total for this day from our map
+                            final dailyTotal =
+                                _viewModel.dailyTotals[normalizedDate] ?? 0.0;
+
+                            return Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Padding(
+                                  padding: const EdgeInsets.fromLTRB(
+                                    16,
+                                    24,
+                                    16,
+                                    8,
+                                  ),
+                                  child: Row(
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Text(
+                                        _formatDateHeader(date),
+                                        style: TextStyle(
+                                          color: Colors.grey[800],
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 15,
+                                        ),
+                                      ),
+                                      Text(
+                                        NumberFormat.currency(
+                                          symbol: "INR ",
+                                          locale: "en_IN",
+                                        ).format(dailyTotal),
+                                        style: TextStyle(
+                                          color: Colors.grey[600],
+                                          fontWeight: FontWeight.w600,
+                                          fontSize: 13,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                tile,
+                              ],
+                            );
+                          } else {
+                            return tile;
+                          }
+                        },
+                      ),
+            ),
+          ),
+        );
+      },
     );
   }
 
   Widget _buildBudgetCard() {
-    if (_monthlyBudget <= 0) {
+    if (_viewModel.monthlyBudget <= 0) {
       return Card(
         margin: const EdgeInsets.all(16),
         color: Colors.blue.shade50,
@@ -675,16 +560,15 @@ class HomePageState extends State<HomePage> {
     }
 
     // 1. Calculate this month's spending
-    // Since _transactions is now filtered to _summaryMonth, we can sum directly
     double currentMonthSpent = 0.0;
 
-    for (var tx in _transactions) {
+    for (var tx in _viewModel.transactions) {
       if (tx['type'] == 'debit' || tx['type'] == 'expense') {
         currentMonthSpent += (tx['amount'] as num).toDouble();
       }
     }
 
-    final progress = currentMonthSpent / _monthlyBudget;
+    final progress = currentMonthSpent / _viewModel.monthlyBudget;
     final color =
         progress > 1.0
             ? Colors.red
@@ -707,7 +591,7 @@ class HomePageState extends State<HomePage> {
                 Row(
                   children: [
                     Text(
-                      "${CMS.home['monthly_budget_title']!} (${DateFormat.MMMM().format(_summaryMonth)})",
+                      "${CMS.home['monthly_budget_title']!} (${DateFormat.MMMM().format(_viewModel.summaryMonth)})",
                       style: const TextStyle(fontWeight: FontWeight.bold),
                     ),
                     IconButton(
@@ -744,24 +628,26 @@ class HomePageState extends State<HomePage> {
                   style: const TextStyle(color: Colors.grey),
                 ),
                 Text(
-                  "${CMS.home['remaining_label']!}₹${(_monthlyBudget - currentMonthSpent).toStringAsFixed(0)}",
+                  "${CMS.home['remaining_label']!}₹${(_viewModel.monthlyBudget - currentMonthSpent).toStringAsFixed(0)}",
                   style: TextStyle(
                     color:
-                        (_monthlyBudget - currentMonthSpent) < 0
+                        (_viewModel.monthlyBudget - currentMonthSpent) < 0
                             ? Colors.red
                             : Colors.green,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
                 Text(
-                  "${CMS.home['limit_label']!}₹${_monthlyBudget.toStringAsFixed(0)}",
+                  "${CMS.home['limit_label']!}₹${_viewModel.monthlyBudget.toStringAsFixed(0)}",
                   style: const TextStyle(fontWeight: FontWeight.bold),
                 ),
               ],
             ),
 
             // --- Category Breakdown ---
-            if (_categories.any((c) => (c['budgetLimit'] ?? 0) > 0)) ...[
+            if (_viewModel.categories.any(
+              (c) => (c['budgetLimit'] ?? 0) > 0,
+            )) ...[
               const Divider(height: 30),
               const Align(
                 alignment: Alignment.centerLeft,
@@ -775,11 +661,11 @@ class HomePageState extends State<HomePage> {
                 ),
               ),
               const SizedBox(height: 10),
-              ..._categories.where((c) => (c['budgetLimit'] ?? 0) > 0).map((
+              ..._viewModel.categories.where((c) => (c['budgetLimit'] ?? 0) > 0).map((
                 cat,
               ) {
                 double catSpent = 0.0;
-                for (var tx in _transactions) {
+                for (var tx in _viewModel.transactions) {
                   if (tx['categoryId'] == cat['id'] &&
                       (tx['type'] == 'debit' || tx['type'] == 'expense')) {
                     catSpent += (tx['amount'] as num).toDouble();
@@ -814,7 +700,7 @@ class HomePageState extends State<HomePage> {
                                 radius: 10,
                                 backgroundColor:
                                     cat['color'] != null
-                                        ? Color(cat['color']).withOpacity(0.2)
+                                        ? Color(cat['color']).withAlpha(51)
                                         : Colors.grey.shade200,
                                 child: Icon(
                                   Icons.category,
@@ -868,7 +754,7 @@ class HomePageState extends State<HomePage> {
 
   Widget _buildGoalsSection() {
     final activeGoals =
-        _goals.where((g) => (g['isArchived'] ?? 0) == 0).toList();
+        _viewModel.goals.where((g) => (g['isArchived'] ?? 0) == 0).toList();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -944,7 +830,7 @@ class HomePageState extends State<HomePage> {
                       builder: (context) => GoalHistoryScreen(goal: goal),
                     ),
                   );
-                  refreshData();
+                  _viewModel.refreshData();
                 },
                 child: Container(
                   width: 160,
@@ -970,7 +856,7 @@ class HomePageState extends State<HomePage> {
                         children: [
                           CircleAvatar(
                             radius: 14,
-                            backgroundColor: color.withOpacity(0.2),
+                            backgroundColor: color.withAlpha(51),
                             child: Icon(Icons.savings, size: 16, color: color),
                           ),
                           const Spacer(),
@@ -1025,7 +911,6 @@ class HomePageState extends State<HomePage> {
       context: context,
       builder:
           (context) => StatefulBuilder(
-            // Use StatefulBuilder to update color picker
             builder: (context, setState) {
               return AlertDialog(
                 title: Text(CMS.home['create_goal_title']!),
@@ -1104,14 +989,12 @@ class HomePageState extends State<HomePage> {
                           amountController.text.isNotEmpty) {
                         final target =
                             double.tryParse(amountController.text) ?? 0;
-                        await DatabaseHelper.instance.createGoal({
-                          'name': nameController.text,
-                          'targetAmount': target,
-                          'color': selectedColor.value,
-                          'icon': 'savings',
-                        });
+                        await _viewModel.createGoal(
+                          nameController.text,
+                          target,
+                          selectedColor.value,
+                        );
                         if (mounted) Navigator.pop(context);
-                        refreshData();
                       }
                     },
                     child: Text(CMS.home['create_goal_btn']!),
@@ -1125,11 +1008,13 @@ class HomePageState extends State<HomePage> {
 
   void _showBudgetEditor() {
     final totalController = TextEditingController(
-      text: _monthlyBudget > 0 ? _monthlyBudget.toStringAsFixed(0) : '',
+      text:
+          _viewModel.monthlyBudget > 0
+              ? _viewModel.monthlyBudget.toStringAsFixed(0)
+              : '',
     );
-    // Create controllers for each category
     final Map<int, TextEditingController> catControllers = {};
-    for (var cat in _categories) {
+    for (var cat in _viewModel.categories) {
       final limit = (cat['budgetLimit'] as num?)?.toDouble() ?? 0.0;
       catControllers[cat['id']] = TextEditingController(
         text: limit > 0 ? limit.toStringAsFixed(0) : '',
@@ -1160,7 +1045,7 @@ class HomePageState extends State<HomePage> {
                         (CMS.home['budget_editor_title'] as String)
                             .replaceFirst(
                               '{month}',
-                              DateFormat.MMMM().format(_summaryMonth),
+                              DateFormat.MMMM().format(_viewModel.summaryMonth),
                             ),
                         style: const TextStyle(
                           fontSize: 20,
@@ -1170,33 +1055,22 @@ class HomePageState extends State<HomePage> {
                       IconButton(
                         icon: const Icon(Icons.check, color: Colors.green),
                         onPressed: () async {
-                          // Save Total
                           final total =
                               double.tryParse(totalController.text) ?? 0.0;
-                          await DatabaseHelper.instance.setMonthBudget(
-                            month: _summaryMonth.month,
-                            year: _summaryMonth.year,
-                            amount: total,
-                            categoryId: 0,
-                          );
+                          final Map<int, double> catBudgets = {};
 
-                          // Save Categories
                           for (var entry in catControllers.entries) {
                             final catTotal =
                                 double.tryParse(entry.value.text) ?? 0.0;
-                            // Save if modified (or even if 0 to clear it?)
-                            // For overrides, seeing 0 might mean "No Limit" or "0 Limit".
-                            // Let's assume user input means setting it.
-                            await DatabaseHelper.instance.setMonthBudget(
-                              month: _summaryMonth.month,
-                              year: _summaryMonth.year,
-                              amount: catTotal,
-                              categoryId: entry.key,
-                            );
+                            catBudgets[entry.key] = catTotal;
                           }
 
+                          await _viewModel.saveBudgetSettings(
+                            total,
+                            catBudgets,
+                          );
+
                           if (mounted) Navigator.pop(ctx);
-                          refreshData();
                         },
                       ),
                     ],
@@ -1226,7 +1100,7 @@ class HomePageState extends State<HomePage> {
                         ),
                       ),
                       const SizedBox(height: 12),
-                      ..._categories.map((cat) {
+                      ..._viewModel.categories.map((cat) {
                         return Padding(
                           padding: const EdgeInsets.only(bottom: 12.0),
                           child: Row(

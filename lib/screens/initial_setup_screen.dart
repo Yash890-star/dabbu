@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import '../utils/cms.dart';
-
-// We will create this next. It handles the Telephony logic.
+import '../viewmodels/initial_setup_view_model.dart';
 import 'sms_setup_screen.dart';
 
 class InitialSetupScreen extends StatefulWidget {
@@ -14,7 +12,7 @@ class InitialSetupScreen extends StatefulWidget {
 
 class _InitialSetupScreenState extends State<InitialSetupScreen> {
   final TextEditingController _nameController = TextEditingController();
-  bool _isLoading = false;
+  final InitialSetupViewModel _viewModel = InitialSetupViewModel();
 
   Future<void> _submitName() async {
     final name = _nameController.text.trim();
@@ -25,11 +23,7 @@ class _InitialSetupScreenState extends State<InitialSetupScreen> {
       return;
     }
 
-    setState(() => _isLoading = true);
-
-    // Save Name
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('userName', name);
+    await _viewModel.saveName(name);
 
     if (!mounted) return;
 
@@ -38,6 +32,13 @@ class _InitialSetupScreenState extends State<InitialSetupScreen> {
       context,
       MaterialPageRoute(builder: (context) => const SmsSetupScreen()),
     );
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _viewModel.dispose();
+    super.dispose();
   }
 
   @override
@@ -76,19 +77,24 @@ class _InitialSetupScreenState extends State<InitialSetupScreen> {
                 textCapitalization: TextCapitalization.words,
               ),
               const SizedBox(height: 24),
-              ElevatedButton(
-                onPressed: _isLoading ? null : _submitName,
-                style: ElevatedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                ),
-                child:
-                    _isLoading
-                        ? const SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                        : Text(CMS.setup['next_step']!),
+              AnimatedBuilder(
+                animation: _viewModel,
+                builder: (context, child) {
+                  return ElevatedButton(
+                    onPressed: _viewModel.isLoading ? null : _submitName,
+                    style: ElevatedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                    ),
+                    child:
+                        _viewModel.isLoading
+                            ? const SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                            : Text(CMS.setup['next_step']!),
+                  );
+                },
               ),
             ],
           ),
