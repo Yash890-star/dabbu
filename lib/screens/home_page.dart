@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 
 import '../services/database_helper.dart';
 import '../services/message_helper.dart';
+import '../utils/cms.dart';
 import 'transaction_detail_screen.dart';
 import 'add_transaction_screen.dart';
 import 'settings_page.dart';
@@ -207,9 +208,9 @@ class HomePageState extends State<HomePage> {
               children: [
                 Column(
                   children: [
-                    const Text(
-                      "SPENDS",
-                      style: TextStyle(
+                    Text(
+                      CMS.home['spends_label']!,
+                      style: const TextStyle(
                         color: Colors.red,
                         fontWeight: FontWeight.bold,
                         fontSize: 12,
@@ -218,7 +219,7 @@ class HomePageState extends State<HomePage> {
                     const SizedBox(height: 4),
                     Text(
                       NumberFormat.compactCurrency(
-                        symbol: "₹",
+                        symbol: CMS.common['currency_symbol']!,
                       ).format(_summaryData['expense']),
                       style: const TextStyle(
                         fontWeight: FontWeight.bold,
@@ -234,9 +235,9 @@ class HomePageState extends State<HomePage> {
                 ), // Vertical Divider
                 Column(
                   children: [
-                    const Text(
-                      "CREDITS",
-                      style: TextStyle(
+                    Text(
+                      CMS.home['credits_label']!,
+                      style: const TextStyle(
                         color: Colors.green,
                         fontWeight: FontWeight.bold,
                         fontSize: 12,
@@ -245,7 +246,7 @@ class HomePageState extends State<HomePage> {
                     const SizedBox(height: 4),
                     Text(
                       NumberFormat.compactCurrency(
-                        symbol: "₹",
+                        symbol: CMS.common['currency_symbol']!,
                       ).format(_summaryData['income']),
                       style: const TextStyle(
                         fontWeight: FontWeight.bold,
@@ -280,16 +281,16 @@ class HomePageState extends State<HomePage> {
             children: [
               const Icon(Icons.warning_amber_rounded, color: Colors.orange),
               const SizedBox(width: 8),
-              const Text(
-                "Upcoming Bills",
-                style: TextStyle(
+              Text(
+                CMS.home['upcoming_bills']!,
+                style: const TextStyle(
                   fontWeight: FontWeight.bold,
                   color: Colors.deepOrange,
                 ),
               ),
               const Spacer(),
               Text(
-                "${_upcomingBills.length} Due",
+                "${_upcomingBills.length} ${CMS.home['upcoming_due']!}",
                 style: TextStyle(color: Colors.orange.shade800, fontSize: 12),
               ),
             ],
@@ -361,8 +362,11 @@ class HomePageState extends State<HomePage> {
         SnackBar(
           content: Text(
             newCount > 0
-                ? "Found $newCount new transactions!"
-                : "No new transactions found.",
+                ? (CMS.home['new_transaction_found'] as String).replaceFirst(
+                  '{count}',
+                  '$newCount',
+                )
+                : CMS.home['no_new_transaction']!,
           ),
           backgroundColor: newCount > 0 ? Colors.green : Colors.grey,
           duration: const Duration(seconds: 2),
@@ -399,9 +403,12 @@ class HomePageState extends State<HomePage> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Text(
-                "What would you like to add?",
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              Text(
+                CMS.home['add_menu_title']!,
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
               const SizedBox(height: 20),
               ListTile(
@@ -413,8 +420,8 @@ class HomePageState extends State<HomePage> {
                   ),
                   child: const Icon(Icons.add_card, color: Colors.blue),
                 ),
-                title: const Text("New Transaction"),
-                subtitle: const Text("Manually add an expense or income"),
+                title: Text(CMS.home['add_menu_transaction']!),
+                subtitle: Text(CMS.home['add_menu_transaction_sub']!),
                 onTap: () async {
                   Navigator.pop(context); // Close sheet
                   await Navigator.push(
@@ -436,8 +443,8 @@ class HomePageState extends State<HomePage> {
                   ),
                   child: const Icon(Icons.auto_fix_high, color: Colors.purple),
                 ),
-                title: const Text("Manage SMS Patterns"),
-                subtitle: const Text("Go to Settings to train patterns"),
+                title: Text(CMS.home['add_menu_pattern']!),
+                subtitle: Text(CMS.home['add_menu_pattern_sub']!),
                 onTap: () {
                   Navigator.pop(context); // Close sheet
                   Navigator.push(
@@ -460,7 +467,7 @@ class HomePageState extends State<HomePage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text("Hello, $_userName"),
+        title: Text("${CMS.home['greeting_prefix']!} $_userName"),
         actions: [
           IconButton(
             icon:
@@ -494,11 +501,11 @@ class HomePageState extends State<HomePage> {
           child:
               _transactions.isEmpty
                   ? ListView(
-                    children: const [
-                      SizedBox(height: 200),
+                    children: [
+                      const SizedBox(height: 200),
                       Center(
                         child: Text(
-                          "No transactions yet.\nPull down to scan.",
+                          CMS.home['no_transactions']!,
                           textAlign: TextAlign.center,
                         ),
                       ),
@@ -653,7 +660,7 @@ class HomePageState extends State<HomePage> {
                 Icon(Icons.add_circle_outline, color: Colors.blue.shade700),
                 const SizedBox(width: 12),
                 Text(
-                  "Set a Monthly Budget",
+                  CMS.home['monthly_budget_set']!,
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
@@ -700,7 +707,7 @@ class HomePageState extends State<HomePage> {
                 Row(
                   children: [
                     Text(
-                      "Monthly Budget (${DateFormat.MMMM().format(_summaryMonth)})",
+                      "${CMS.home['monthly_budget_title']!} (${DateFormat.MMMM().format(_summaryMonth)})",
                       style: const TextStyle(fontWeight: FontWeight.bold),
                     ),
                     IconButton(
@@ -733,11 +740,11 @@ class HomePageState extends State<HomePage> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
-                  "Spent: ₹${currentMonthSpent.toStringAsFixed(0)}",
+                  "${CMS.home['spent_label']!}₹${currentMonthSpent.toStringAsFixed(0)}",
                   style: const TextStyle(color: Colors.grey),
                 ),
                 Text(
-                  "Remaining: ₹${(_monthlyBudget - currentMonthSpent).toStringAsFixed(0)}",
+                  "${CMS.home['remaining_label']!}₹${(_monthlyBudget - currentMonthSpent).toStringAsFixed(0)}",
                   style: TextStyle(
                     color:
                         (_monthlyBudget - currentMonthSpent) < 0
@@ -747,7 +754,7 @@ class HomePageState extends State<HomePage> {
                   ),
                 ),
                 Text(
-                  "Limit: ₹${_monthlyBudget.toStringAsFixed(0)}",
+                  "${CMS.home['limit_label']!}₹${_monthlyBudget.toStringAsFixed(0)}",
                   style: const TextStyle(fontWeight: FontWeight.bold),
                 ),
               ],
@@ -1021,23 +1028,23 @@ class HomePageState extends State<HomePage> {
             // Use StatefulBuilder to update color picker
             builder: (context, setState) {
               return AlertDialog(
-                title: const Text("New Savings Goal"),
+                title: Text(CMS.home['create_goal_title']!),
                 content: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     TextField(
                       controller: nameController,
-                      decoration: const InputDecoration(
-                        labelText: "Goal Name (e.g. Vacation)",
-                        prefixIcon: Icon(Icons.flag),
+                      decoration: InputDecoration(
+                        labelText: CMS.home['create_goal_name']!,
+                        prefixIcon: const Icon(Icons.flag),
                       ),
                     ),
                     const SizedBox(height: 12),
                     TextField(
                       controller: amountController,
-                      decoration: const InputDecoration(
-                        labelText: "Target Amount",
-                        prefixIcon: Icon(Icons.currency_rupee),
+                      decoration: InputDecoration(
+                        labelText: CMS.home['create_goal_amount']!,
+                        prefixIcon: const Icon(Icons.currency_rupee),
                       ),
                       keyboardType: TextInputType.number,
                     ),
@@ -1089,7 +1096,7 @@ class HomePageState extends State<HomePage> {
                 actions: [
                   TextButton(
                     onPressed: () => Navigator.pop(context),
-                    child: const Text("Cancel"),
+                    child: Text(CMS.common['cancel']!),
                   ),
                   ElevatedButton(
                     onPressed: () async {
@@ -1107,7 +1114,7 @@ class HomePageState extends State<HomePage> {
                         refreshData();
                       }
                     },
-                    child: const Text("Create Goal"),
+                    child: Text(CMS.home['create_goal_btn']!),
                   ),
                 ],
               );
@@ -1150,7 +1157,11 @@ class HomePageState extends State<HomePage> {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Text(
-                        "Budget for ${DateFormat.MMMM().format(_summaryMonth)}",
+                        (CMS.home['budget_editor_title'] as String)
+                            .replaceFirst(
+                              '{month}',
+                              DateFormat.MMMM().format(_summaryMonth),
+                            ),
                         style: const TextStyle(
                           fontSize: 20,
                           fontWeight: FontWeight.bold,
@@ -1198,17 +1209,17 @@ class HomePageState extends State<HomePage> {
                     children: [
                       TextField(
                         controller: totalController,
-                        decoration: const InputDecoration(
-                          labelText: "Total Monthly Goal",
-                          border: OutlineInputBorder(),
-                          prefixIcon: Icon(Icons.account_balance_wallet),
+                        decoration: InputDecoration(
+                          labelText: CMS.home['budget_total_label']!,
+                          border: const OutlineInputBorder(),
+                          prefixIcon: const Icon(Icons.account_balance_wallet),
                         ),
                         keyboardType: TextInputType.number,
                       ),
                       const SizedBox(height: 24),
-                      const Text(
-                        "Category Sub-limits (Optional)",
-                        style: TextStyle(
+                      Text(
+                        CMS.home['budget_sublimits_label']!,
+                        style: const TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
                           color: Colors.grey,

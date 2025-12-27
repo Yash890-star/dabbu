@@ -1,6 +1,7 @@
 import 'package:dabbu/screens/analytics_screen.dart';
 import 'package:dabbu/screens/calendar_screen.dart';
 import 'package:flutter/material.dart';
+import '../utils/cms.dart';
 import 'home_page.dart';
 import 'settings_page.dart';
 
@@ -48,26 +49,26 @@ class _MainScreenState extends State<MainScreen> {
         bottomNavigationBar: NavigationBar(
           selectedIndex: _selectedIndex,
           onDestinationSelected: _onItemTapped,
-          destinations: const [
+          destinations: [
             NavigationDestination(
-              icon: Icon(Icons.home_outlined),
-              selectedIcon: Icon(Icons.home),
-              label: 'Home',
+              icon: const Icon(Icons.home_outlined),
+              selectedIcon: const Icon(Icons.home),
+              label: CMS.main['nav_home']!,
             ),
             NavigationDestination(
-              icon: Icon(Icons.pie_chart_outline),
-              selectedIcon: Icon(Icons.pie_chart),
-              label: 'Analytics',
+              icon: const Icon(Icons.pie_chart_outline),
+              selectedIcon: const Icon(Icons.pie_chart),
+              label: CMS.main['nav_analytics']!,
             ),
             NavigationDestination(
-              icon: Icon(Icons.calendar_month_outlined),
-              selectedIcon: Icon(Icons.calendar_month),
-              label: 'Calendar',
+              icon: const Icon(Icons.calendar_month_outlined),
+              selectedIcon: const Icon(Icons.calendar_month),
+              label: CMS.main['nav_calendar']!,
             ),
             NavigationDestination(
-              icon: Icon(Icons.settings_outlined),
-              selectedIcon: Icon(Icons.settings),
-              label: 'Settings',
+              icon: const Icon(Icons.settings_outlined),
+              selectedIcon: const Icon(Icons.settings),
+              label: CMS.main['nav_settings']!,
             ),
           ],
         ),

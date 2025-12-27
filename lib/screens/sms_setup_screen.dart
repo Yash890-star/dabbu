@@ -3,6 +3,7 @@ import 'package:permission_handler/permission_handler.dart'; // Explicitly used 
 import 'package:another_telephony/telephony.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../utils/cms.dart';
 
 import 'sms_list_screen.dart';
 
@@ -40,9 +41,7 @@ class _SmsSetupScreenState extends State<SmsSetupScreen> {
           _showSettingsDialog();
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('SMS permission is required to find transactions.'),
-            ),
+            SnackBar(content: Text(CMS.sms_setup['permission_required']!)),
           );
         }
       }
@@ -76,7 +75,7 @@ class _SmsSetupScreenState extends State<SmsSetupScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              'No messages found after ${DateFormat.yMMMd().format(_selectedDate)}',
+              '${CMS.sms_setup['no_messages']!}${DateFormat.yMMMd().format(_selectedDate)}',
             ),
           ),
         );
@@ -94,9 +93,9 @@ class _SmsSetupScreenState extends State<SmsSetupScreen> {
     } catch (e) {
       debugPrint("Error fetching SMS: $e");
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Error: $e')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('${CMS.sms_setup['error_prefix']!}$e')),
+        );
       }
     } finally {
       if (mounted) setState(() => _isLoading = false);
@@ -108,21 +107,19 @@ class _SmsSetupScreenState extends State<SmsSetupScreen> {
       context: context,
       builder:
           (ctx) => AlertDialog(
-            title: const Text("Permission Required"),
-            content: const Text(
-              "SMS permission is permanently denied. Please enable it in app settings to use this feature.",
-            ),
+            title: Text(CMS.sms_setup['perm_denied_title']!),
+            content: Text(CMS.sms_setup['perm_denied_content']!),
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(ctx),
-                child: const Text("Cancel"),
+                child: Text(CMS.common['cancel']!),
               ),
               TextButton(
                 onPressed: () {
                   Navigator.pop(ctx);
                   openAppSettings();
                 },
-                child: const Text("Open Settings"),
+                child: Text(CMS.sms_setup['open_settings']!),
               ),
             ],
           ),
@@ -146,7 +143,7 @@ class _SmsSetupScreenState extends State<SmsSetupScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text("Setup Tracking")),
+      appBar: AppBar(title: Text(CMS.sms_setup['title']!)),
       body: Padding(
         padding: const EdgeInsets.all(24.0),
         child: Column(
@@ -155,16 +152,16 @@ class _SmsSetupScreenState extends State<SmsSetupScreen> {
           children: [
             const Icon(Icons.sms_failed_outlined, size: 80, color: Colors.blue),
             const SizedBox(height: 24),
-            const Text(
-              "Scan for Transactions",
+            Text(
+              CMS.sms_setup['scan_title']!,
               textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+              style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 12),
-            const Text(
-              "We will scan your inbox to find bank messages. Select how far back we should look.",
+            Text(
+              CMS.sms_setup['scan_subtitle']!,
               textAlign: TextAlign.center,
-              style: TextStyle(color: Colors.grey),
+              style: const TextStyle(color: Colors.grey),
             ),
             const SizedBox(height: 40),
 
@@ -172,7 +169,7 @@ class _SmsSetupScreenState extends State<SmsSetupScreen> {
               onPressed: _pickDate,
               icon: const Icon(Icons.calendar_today),
               label: Text(
-                "Start from: ${DateFormat.yMMMd().format(_selectedDate)}",
+                "${CMS.sms_setup['start_from']!}${DateFormat.yMMMd().format(_selectedDate)}",
               ),
               style: OutlinedButton.styleFrom(
                 padding: const EdgeInsets.all(16),
@@ -196,7 +193,7 @@ class _SmsSetupScreenState extends State<SmsSetupScreen> {
                           color: Colors.white,
                         ),
                       )
-                      : const Text("Scan Inbox"),
+                      : Text(CMS.sms_setup['scan_btn']!),
             ),
           ],
         ),

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../services/database_helper.dart';
+import '../utils/cms.dart';
 
 class AddTransactionScreen extends StatefulWidget {
   final int? initialGoalId;
@@ -99,16 +100,16 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
     final noteText = _noteController.text.trim();
 
     if (amountText.isEmpty) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Please enter an amount')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(CMS.transaction['amount_error_empty']!)),
+      );
       return;
     }
 
     final amount = double.tryParse(amountText);
     if (amount == null || amount <= 0) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter a valid amount')),
+        SnackBar(content: Text(CMS.transaction['amount_error_invalid']!)),
       );
       return;
     }
@@ -120,9 +121,11 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
         'amount': amount,
         'sender':
             noteText.isEmpty
-                ? (_isGoalMode ? "Goal Contribution" : "Manual Entry")
+                ? (_isGoalMode
+                    ? CMS.transaction['default_goal_contribution']!
+                    : CMS.transaction['default_manual_entry']!)
                 : noteText,
-        'body': "Manually added transaction",
+        'body': CMS.transaction['default_manual_body'],
         'date': _selectedDate.millisecondsSinceEpoch,
         'type': _type, // Actual Money Flow
         'categoryId': _selectedCategoryId,
@@ -149,9 +152,9 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
       debugPrint("Error saving manual tx: $e");
       if (mounted) {
         setState(() => _isLoading = false);
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Error saving: $e')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('${CMS.transaction['error_saving']!}$e')),
+        );
       }
     }
   }
@@ -161,7 +164,11 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
     bool isEditing = widget.transaction != null;
     return Scaffold(
       appBar: AppBar(
-        title: Text(isEditing ? "Edit Transaction" : "Add Transaction"),
+        title: Text(
+          isEditing
+              ? CMS.transaction['edit_title']!
+              : CMS.transaction['add_title']!,
+        ),
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),
@@ -174,11 +181,11 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
               keyboardType: const TextInputType.numberWithOptions(
                 decimal: true,
               ),
-              decoration: const InputDecoration(
-                labelText: "Amount",
+              decoration: InputDecoration(
+                labelText: CMS.transaction['amount_label']!,
                 prefixText: "₹ ",
-                border: OutlineInputBorder(),
-                contentPadding: EdgeInsets.symmetric(
+                border: const OutlineInputBorder(),
+                contentPadding: const EdgeInsets.symmetric(
                   horizontal: 16,
                   vertical: 16,
                 ),
@@ -201,7 +208,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      "Impact on Goal",
+                      CMS.transaction['impact_title']!,
                       style: TextStyle(
                         color: Colors.blue.shade800,
                         fontWeight: FontWeight.bold,
@@ -212,7 +219,9 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                       children: [
                         Expanded(
                           child: ChoiceChip(
-                            label: const Center(child: Text("Add (Deposit)")),
+                            label: Center(
+                              child: Text(CMS.transaction['impact_add']!),
+                            ),
                             selected: _isGoalAddition,
                             selectedColor: Colors.blue,
                             labelStyle: TextStyle(
@@ -227,8 +236,8 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                         const SizedBox(width: 12),
                         Expanded(
                           child: ChoiceChip(
-                            label: const Center(
-                              child: Text("Subtract (Withdraw)"),
+                            label: Center(
+                              child: Text(CMS.transaction['impact_subtract']!),
                             ),
                             selected: !_isGoalAddition,
                             selectedColor: Colors.orange,
@@ -251,16 +260,18 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
               const SizedBox(height: 16),
 
               // B. TRANSACTION TYPE (Money Flow)
-              const Text(
-                "Actual Money Flow:",
-                style: TextStyle(fontWeight: FontWeight.bold),
+              Text(
+                CMS.transaction['flow_label']!,
+                style: const TextStyle(fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 8),
               Row(
                 children: [
                   Expanded(
                     child: ChoiceChip(
-                      label: const Center(child: Text("Paid Out (Expense)")),
+                      label: Center(
+                        child: Text(CMS.transaction['flow_expense']!),
+                      ),
                       selected: _type == 'debit',
                       selectedColor: Colors.red.shade100,
                       labelStyle: TextStyle(
@@ -275,7 +286,9 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                   const SizedBox(width: 12),
                   Expanded(
                     child: ChoiceChip(
-                      label: const Center(child: Text("Received (Income)")),
+                      label: Center(
+                        child: Text(CMS.transaction['flow_income']!),
+                      ),
                       selected: _type == 'credit',
                       selectedColor: Colors.green.shade100,
                       labelStyle: TextStyle(
@@ -295,7 +308,9 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                 children: [
                   Expanded(
                     child: ChoiceChip(
-                      label: const Center(child: Text("Expense (Debit)")),
+                      label: Center(
+                        child: Text(CMS.transaction['type_expense']!),
+                      ),
                       selected: _type == 'debit',
                       selectedColor: Colors.red.shade100,
                       labelStyle: TextStyle(
@@ -310,7 +325,9 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                   const SizedBox(width: 12),
                   Expanded(
                     child: ChoiceChip(
-                      label: const Center(child: Text("Income (Credit)")),
+                      label: Center(
+                        child: Text(CMS.transaction['type_income']!),
+                      ),
                       selected: _type == 'credit',
                       selectedColor: Colors.green.shade100,
                       labelStyle: TextStyle(
@@ -333,10 +350,10 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
               onTap: _selectDate,
               borderRadius: BorderRadius.circular(8),
               child: InputDecorator(
-                decoration: const InputDecoration(
-                  labelText: "Date",
-                  border: OutlineInputBorder(),
-                  prefixIcon: Icon(Icons.calendar_today),
+                decoration: InputDecoration(
+                  labelText: CMS.transaction['date_label']!,
+                  border: const OutlineInputBorder(),
+                  prefixIcon: const Icon(Icons.calendar_today),
                 ),
                 child: Text(
                   DateFormat.yMMMd().add_jm().format(_selectedDate),
@@ -349,11 +366,11 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
             // 4. Note / Payee
             TextField(
               controller: _noteController,
-              decoration: const InputDecoration(
-                labelText: "Note / Payee",
-                hintText: "e.g. Cash, Lunch, Taxi",
-                border: OutlineInputBorder(),
-                prefixIcon: Icon(Icons.description),
+              decoration: InputDecoration(
+                labelText: CMS.transaction['note_label']!,
+                hintText: CMS.transaction['note_hint']!,
+                border: const OutlineInputBorder(),
+                prefixIcon: const Icon(Icons.description),
               ),
               textCapitalization: TextCapitalization.sentences,
             ),
@@ -361,10 +378,10 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
 
             // 5. Category
             InputDecorator(
-              decoration: const InputDecoration(
-                labelText: "Category",
-                border: OutlineInputBorder(),
-                prefixIcon: Icon(Icons.category),
+              decoration: InputDecoration(
+                labelText: CMS.transaction['category_label']!,
+                border: const OutlineInputBorder(),
+                prefixIcon: const Icon(Icons.category),
               ),
               child: DropdownButtonHideUnderline(
                 child: DropdownButton<int>(
@@ -406,7 +423,9 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                         ),
                       )
                       : Text(
-                        isEditing ? "Update Transaction" : "Save Transaction",
+                        isEditing
+                            ? CMS.transaction['update_btn']!
+                            : CMS.transaction['save_btn']!,
                         style: const TextStyle(
                           fontSize: 18,
                           color: Colors.white,

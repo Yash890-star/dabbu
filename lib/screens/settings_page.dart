@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../services/database_helper.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../utils/cms.dart';
 
 import 'package:another_telephony/telephony.dart';
 import 'sms_parsing_screen.dart';
@@ -85,13 +86,13 @@ class _SettingsPageState extends State<SettingsPage>
       context: context,
       builder:
           (ctx) => AlertDialog(
-            title: const Text("Set Monthly Budget"),
+            title: Text(CMS.settings['edit_budget_dialog_title']!),
             content: TextField(
               controller: controller,
               keyboardType: TextInputType.number,
-              decoration: const InputDecoration(
-                labelText: "Amount (₹)",
-                border: OutlineInputBorder(),
+              decoration: InputDecoration(
+                labelText: CMS.settings['monthly_budget_subtitle']!,
+                border: const OutlineInputBorder(),
               ),
             ),
             actions: [
@@ -109,7 +110,7 @@ class _SettingsPageState extends State<SettingsPage>
                     _loadData();
                   }
                 },
-                child: const Text("Save"),
+                child: Text(CMS.common['save']!),
               ),
             ],
           ),
@@ -151,29 +152,29 @@ class _SettingsPageState extends State<SettingsPage>
                     children: [
                       TextField(
                         controller: nameController,
-                        decoration: const InputDecoration(
-                          labelText: "Category Name",
-                          border: OutlineInputBorder(),
-                          hintText: "e.g. Travel",
+                        decoration: InputDecoration(
+                          labelText: CMS.settings['category_name_label']!,
+                          border: const OutlineInputBorder(),
+                          hintText: CMS.settings['category_name_hint']!,
                         ),
                         textCapitalization: TextCapitalization.sentences,
                       ),
                       const SizedBox(height: 16),
                       TextField(
                         controller: budgetController,
-                        decoration: const InputDecoration(
-                          labelText: "Monthly Limit (Optional)",
-                          border: OutlineInputBorder(),
-                          hintText: "e.g. 5000",
+                        decoration: InputDecoration(
+                          labelText: CMS.settings['category_limit_label']!,
+                          border: const OutlineInputBorder(),
+                          hintText: CMS.settings['category_limit_hint']!,
                           prefixText: "₹ ",
                         ),
                         keyboardType: TextInputType.number,
                       ),
                       const SizedBox(height: 16),
-                      const Align(
+                      Align(
                         alignment: Alignment.centerLeft,
                         child: Text(
-                          "Pick a Color:",
+                          CMS.settings['pick_color']!,
                           style: TextStyle(fontWeight: FontWeight.bold),
                         ),
                       ),
@@ -296,7 +297,7 @@ class _SettingsPageState extends State<SettingsPage>
                         _loadData(); // Re-load to show updated global budget
                       }
                     },
-                    child: const Text("Save"),
+                    child: Text(CMS.common['save']!),
                   ),
                 ],
               );
@@ -321,11 +322,8 @@ class _SettingsPageState extends State<SettingsPage>
       context: context,
       builder:
           (ctx) => AlertDialog(
-            title: const Text("Delete Category?"),
-            content: const Text(
-              "Are you sure you want to delete this category?\n\n"
-              "All its transactions will be moved to 'Uncategorized'.",
-            ),
+            title: Text(CMS.settings['delete_category_title']!),
+            content: Text(CMS.settings['delete_category_content']!),
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(ctx, false),
@@ -334,7 +332,7 @@ class _SettingsPageState extends State<SettingsPage>
               TextButton(
                 onPressed: () => Navigator.pop(ctx, true),
                 style: TextButton.styleFrom(foregroundColor: Colors.red),
-                child: const Text("Delete"),
+                child: Text(CMS.common['delete']!),
               ),
             ],
           ),
@@ -397,7 +395,7 @@ class _SettingsPageState extends State<SettingsPage>
                 actions: [
                   TextButton(
                     onPressed: () => Navigator.pop(ctx),
-                    child: const Text("OK"),
+                    child: Text(CMS.common['ok']!),
                   ),
                 ],
               ),
@@ -518,10 +516,13 @@ class _SettingsPageState extends State<SettingsPage>
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text("Settings"),
+        title: Text(CMS.settings['app_bar_title']!),
         bottom: TabBar(
           controller: _tabController,
-          tabs: const [Tab(text: "General"), Tab(text: "Patterns")],
+          tabs: [
+            Tab(text: CMS.settings['general_tab']!),
+            Tab(text: CMS.settings['patterns_tab']!),
+          ],
         ),
       ),
       body: TabBarView(
@@ -534,7 +535,7 @@ class _SettingsPageState extends State<SettingsPage>
               Padding(
                 padding: const EdgeInsets.all(16.0),
                 child: Text(
-                  "General Settings",
+                  CMS.settings['general_settings_header']!,
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
                     color: Colors.blue,
                     fontWeight: FontWeight.bold,
@@ -546,19 +547,19 @@ class _SettingsPageState extends State<SettingsPage>
                   Icons.account_balance_wallet,
                   color: Colors.deepPurple,
                 ),
-                title: const Text("Monthly Budget"),
+                title: Text(CMS.settings['monthly_budget']!),
                 subtitle: Text(
                   _monthlyBudget > 0
                       ? "₹ ${_monthlyBudget.toStringAsFixed(0)}"
-                      : "Not Set",
+                      : CMS.settings['monthly_budget_not_set']!,
                 ),
                 trailing: const Icon(Icons.edit),
                 onTap: _editBudget,
               ),
               ListTile(
                 leading: const Icon(Icons.receipt_long, color: Colors.purple),
-                title: const Text("Subscriptions & Recurring Bills"),
-                subtitle: const Text("Manage recurring payments"),
+                title: Text(CMS.settings['subscriptions_title']!),
+                subtitle: Text(CMS.settings['subscriptions_subtitle']!),
                 trailing: const Icon(Icons.arrow_forward_ios, size: 16),
                 onTap: () {
                   Navigator.push(
@@ -571,14 +572,13 @@ class _SettingsPageState extends State<SettingsPage>
               ),
               ListTile(
                 leading: const Icon(Icons.archive, color: Colors.orange),
-                title: const Text("Archived Goals"),
-                subtitle: const Text("View and restore hidden goals"),
+                title: Text(CMS.settings['archived_goals_title']!),
+                subtitle: Text(CMS.settings['archived_goals_subtitle']!),
                 trailing: const Icon(Icons.arrow_forward_ios, size: 16),
                 onTap: _showArchivedGoals,
               ),
 
               const Divider(height: 32),
-
               // Section 2: Categories
               Padding(
                 padding: const EdgeInsets.symmetric(
@@ -589,7 +589,7 @@ class _SettingsPageState extends State<SettingsPage>
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text(
-                      "Categories",
+                      CMS.settings['categories_header']!,
                       style: Theme.of(context).textTheme.titleMedium?.copyWith(
                         color: Colors.blue,
                         fontWeight: FontWeight.bold,
@@ -598,23 +598,23 @@ class _SettingsPageState extends State<SettingsPage>
                     TextButton.icon(
                       onPressed: () => _addOrEditCategory(),
                       icon: const Icon(Icons.add_circle, size: 20),
-                      label: const Text("Add New"),
+                      label: Text(CMS.settings['add_category']!),
                     ),
                   ],
                 ),
               ),
 
               if (_categories.isEmpty)
-                const Padding(
-                  padding: EdgeInsets.all(16.0),
-                  child: Text("No categories found."),
+                Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Text(CMS.settings['no_categories']!),
                 ),
 
               ..._categories.map((cat) {
                 final budget =
                     cat['budgetLimit'] != null && cat['budgetLimit'] > 0
-                        ? "Budget: ₹${cat['budgetLimit']}"
-                        : "No Limit";
+                        ? "${CMS.settings['budget_prefix']!}₹${cat['budgetLimit']}"
+                        : CMS.settings['no_limit']!;
                 final color =
                     cat['color'] != null ? Color(cat['color']) : Colors.grey;
 
@@ -632,7 +632,7 @@ class _SettingsPageState extends State<SettingsPage>
                       if (cat['budgetLimit'] != null &&
                           (cat['budgetLimit'] as num) > 0)
                         IconButton(
-                          tooltip: "Reset Limit",
+                          tooltip: CMS.settings['reset_limit_tooltip']!,
                           icon: const Icon(
                             Icons.restart_alt,
                             size: 20,
@@ -686,8 +686,8 @@ class _SettingsPageState extends State<SettingsPage>
                   ),
                   child: const Icon(Icons.add, color: Colors.blue),
                 ),
-                title: const Text("Add New Regex Pattern"),
-                subtitle: const Text("Scan SMS to train a new bank format"),
+                title: Text(CMS.settings['add_pattern_title']!),
+                subtitle: Text(CMS.settings['add_pattern_subtitle']!),
                 onTap: () {
                   Navigator.push(
                     context,
@@ -699,10 +699,10 @@ class _SettingsPageState extends State<SettingsPage>
               ),
               const Divider(),
               if (_patterns.isEmpty)
-                const Padding(
-                  padding: EdgeInsets.all(20),
+                Padding(
+                  padding: const EdgeInsets.all(20),
                   child: Text(
-                    "No patterns saved.",
+                    CMS.settings['no_patterns']!,
                     textAlign: TextAlign.center,
                   ),
                 ),

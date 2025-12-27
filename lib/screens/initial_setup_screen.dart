@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../utils/cms.dart';
 
 // We will create this next. It handles the Telephony logic.
 import 'sms_setup_screen.dart';
@@ -20,7 +21,7 @@ class _InitialSetupScreenState extends State<InitialSetupScreen> {
     if (name.isEmpty) {
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(const SnackBar(content: Text("Please enter your name")));
+      ).showSnackBar(SnackBar(content: Text(CMS.setup['name_error']!)));
       return;
     }
 
@@ -50,24 +51,27 @@ class _InitialSetupScreenState extends State<InitialSetupScreen> {
             mainAxisAlignment: MainAxisAlignment.center,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const Text(
-                "Welcome!",
-                style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold),
+              Text(
+                CMS.setup['welcome']!,
+                style: const TextStyle(
+                  fontSize: 32,
+                  fontWeight: FontWeight.bold,
+                ),
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 8),
-              const Text(
-                "To get started, what should we call you?",
-                style: TextStyle(fontSize: 16, color: Colors.grey),
+              Text(
+                CMS.setup['ask_name']!,
+                style: const TextStyle(fontSize: 16, color: Colors.grey),
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 40),
               TextField(
                 controller: _nameController,
-                decoration: const InputDecoration(
-                  labelText: "Your Name",
-                  border: OutlineInputBorder(),
-                  prefixIcon: Icon(Icons.person),
+                decoration: InputDecoration(
+                  labelText: CMS.setup['name_label']!,
+                  border: const OutlineInputBorder(),
+                  prefixIcon: const Icon(Icons.person),
                 ),
                 textCapitalization: TextCapitalization.words,
               ),
@@ -84,7 +88,7 @@ class _InitialSetupScreenState extends State<InitialSetupScreen> {
                           height: 20,
                           child: CircularProgressIndicator(strokeWidth: 2),
                         )
-                        : const Text("Next Step"),
+                        : Text(CMS.setup['next_step']!),
               ),
             ],
           ),

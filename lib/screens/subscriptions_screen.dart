@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../services/database_helper.dart';
 import '../services/subscription_service.dart';
+import '../utils/cms.dart';
 
 class SubscriptionsScreen extends StatefulWidget {
   const SubscriptionsScreen({super.key});
@@ -44,7 +45,7 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> {
       if (candidates.isEmpty) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text("No recurring patterns found.")),
+            SnackBar(content: Text(CMS.subscriptions['no_patterns_found']!)),
           );
         }
       } else {
@@ -62,7 +63,7 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> {
       context: context,
       builder:
           (ctx) => AlertDialog(
-            title: const Text("Detected Subscriptions"),
+            title: Text(CMS.subscriptions['detected_title']!),
             content: SizedBox(
               width: double.maxFinite,
               child: ListView.builder(
@@ -73,7 +74,11 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> {
                   return ListTile(
                     title: Text(cand['name']),
                     subtitle: Text(
-                      "Avg: ₹${cand['amount'].toStringAsFixed(0)} / mo",
+                      (CMS.subscriptions['avg_per_month'] as String)
+                          .replaceFirst(
+                            '{amount}',
+                            cand['amount'].toStringAsFixed(0),
+                          ),
                     ),
                     trailing: IconButton(
                       icon: const Icon(Icons.add_circle, color: Colors.green),
@@ -99,7 +104,7 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> {
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(ctx),
-                child: const Text("Close"),
+                child: Text(CMS.subscriptions['close']!),
               ),
             ],
           ),
@@ -117,25 +122,27 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> {
           (ctx) => StatefulBuilder(
             builder:
                 (context, setState) => AlertDialog(
-                  title: const Text("Add Subscription"),
+                  title: Text(CMS.subscriptions['add_title']!),
                   content: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       TextField(
                         controller: nameController,
-                        decoration: const InputDecoration(
-                          labelText: "Name (e.g. Netflix)",
+                        decoration: InputDecoration(
+                          labelText: CMS.subscriptions['name_label']!,
                         ),
                       ),
                       TextField(
                         controller: amountController,
-                        decoration: const InputDecoration(labelText: "Amount"),
+                        decoration: InputDecoration(
+                          labelText: CMS.subscriptions['amount_label']!,
+                        ),
                         keyboardType: TextInputType.number,
                       ),
                       const SizedBox(height: 16),
                       Row(
                         children: [
-                          const Text("Next Bill: "),
+                          Text(CMS.subscriptions['next_bill_label']!),
                           TextButton(
                             child: Text(
                               DateFormat.yMMMd().format(selectedDate),
@@ -161,7 +168,7 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> {
                   actions: [
                     TextButton(
                       onPressed: () => Navigator.pop(ctx),
-                      child: const Text("Cancel"),
+                      child: Text(CMS.common['cancel']!),
                     ),
                     ElevatedButton(
                       onPressed: () async {
@@ -184,7 +191,7 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> {
                           }
                         }
                       },
-                      child: const Text("Add"),
+                      child: Text(CMS.subscriptions['add_btn']!),
                     ),
                   ],
                 ),
@@ -196,11 +203,11 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text("Subscriptions"),
+        title: Text(CMS.subscriptions['title']!),
         actions: [
           IconButton(
             icon: const Icon(Icons.autorenew),
-            tooltip: "Scan for Subscriptions",
+            tooltip: CMS.subscriptions['scan_tooltip']!,
             onPressed: _scanForSubscriptions,
           ),
         ],
@@ -223,13 +230,13 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> {
                       color: Colors.grey,
                     ),
                     const SizedBox(height: 16),
-                    const Text(
-                      "No subscriptions yet.",
-                      style: TextStyle(color: Colors.grey),
+                    Text(
+                      CMS.subscriptions['no_subscriptions']!,
+                      style: const TextStyle(color: Colors.grey),
                     ),
                     TextButton(
                       onPressed: _scanForSubscriptions,
-                      child: const Text("Scan Transaction History"),
+                      child: Text(CMS.subscriptions['scan_history_btn']!),
                     ),
                   ],
                 ),
@@ -259,7 +266,7 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> {
                         style: const TextStyle(fontWeight: FontWeight.bold),
                       ),
                       subtitle: Text(
-                        "Next: ${DateFormat.yMMMd().format(nextDate)} ($daysLeft days)",
+                        "${CMS.subscriptions['next_due_label']!}${DateFormat.yMMMd().format(nextDate)} ($daysLeft${CMS.subscriptions['days_left_suffix']!})",
                       ),
                       trailing: Row(
                         mainAxisSize: MainAxisSize.min,

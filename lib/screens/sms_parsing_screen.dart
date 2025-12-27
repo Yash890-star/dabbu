@@ -3,6 +3,7 @@ import 'package:another_telephony/telephony.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/database_helper.dart';
 import '../services/message_helper.dart';
+import '../utils/cms.dart';
 import 'main_screen.dart';
 
 class SmsParsingScreen extends StatefulWidget {
@@ -220,11 +221,11 @@ class _SmsParsingScreenState extends State<SmsParsingScreen> {
       context: context,
       builder:
           (context) => AlertDialog(
-            title: const Text("New Category"),
+            title: Text(CMS.sms_parsing['new_category_title']!),
             content: TextField(
               controller: catController,
-              decoration: const InputDecoration(
-                hintText: "Category Name (e.g. Groceries)",
+              decoration: InputDecoration(
+                hintText: CMS.sms_parsing['category_hint']!,
               ),
             ),
             actions: [
@@ -254,11 +255,7 @@ class _SmsParsingScreenState extends State<SmsParsingScreen> {
   Future<void> _savePatternAndContinue() async {
     if (_generatedRegex.isEmpty || _selectedSenderToken == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            "Please select Bank Name, Amount, and at least one Anchor text.",
-          ),
-        ),
+        SnackBar(content: Text(CMS.sms_parsing['error_incomplete']!)),
       );
       return;
     }
@@ -289,7 +286,7 @@ class _SmsParsingScreenState extends State<SmsParsingScreen> {
 
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Pattern updated & history refreshed.")),
+          SnackBar(content: Text(CMS.sms_parsing['success_message']!)),
         );
         Navigator.pop(context); // Go back to Settings
       } else {
@@ -349,7 +346,7 @@ class _SmsParsingScreenState extends State<SmsParsingScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text("Train Parser")),
+      appBar: AppBar(title: Text(CMS.sms_parsing['title']!)),
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(16.0),
@@ -357,9 +354,9 @@ class _SmsParsingScreenState extends State<SmsParsingScreen> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               // 1. Sender ID
-              const Text(
-                "1. Select Bank Name:",
-                style: TextStyle(fontWeight: FontWeight.bold),
+              Text(
+                CMS.sms_parsing['step_1_title']!,
+                style: const TextStyle(fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 8),
               Wrap(
@@ -381,13 +378,13 @@ class _SmsParsingScreenState extends State<SmsParsingScreen> {
               const SizedBox(height: 24),
 
               // 2. Body Tokens (Visual Selection)
-              const Text(
-                "2. Select AMOUNT (Green) and ANCHOR TEXT (Blue):",
-                style: TextStyle(fontWeight: FontWeight.bold),
+              Text(
+                CMS.sms_parsing['step_2_title']!,
+                style: const TextStyle(fontWeight: FontWeight.bold),
               ),
-              const Text(
-                "Tap amount first, then tap words before/after it to lock the pattern.",
-                style: TextStyle(color: Colors.grey, fontSize: 12),
+              Text(
+                CMS.sms_parsing['step_2_subtitle']!,
+                style: const TextStyle(color: Colors.grey, fontSize: 12),
               ),
               const SizedBox(height: 8),
 
@@ -480,7 +477,7 @@ class _SmsParsingScreenState extends State<SmsParsingScreen> {
                   padding: const EdgeInsets.all(8),
                   color: Colors.grey.shade200,
                   child: Text(
-                    "Regex: $_generatedRegex",
+                    "${CMS.sms_parsing['regex_preview']!}$_generatedRegex",
                     style: const TextStyle(
                       fontFamily: 'monospace',
                       fontSize: 10,
@@ -492,16 +489,16 @@ class _SmsParsingScreenState extends State<SmsParsingScreen> {
 
               // 3. Details
               if (_selectedAmountIndex != null) ...[
-                const Text(
-                  "3. Details",
-                  style: TextStyle(fontWeight: FontWeight.bold),
+                Text(
+                  CMS.sms_parsing['step_3_title']!,
+                  style: const TextStyle(fontWeight: FontWeight.bold),
                 ),
                 const SizedBox(height: 10),
 
                 Row(
                   children: [
                     ChoiceChip(
-                      label: const Text("Debit"),
+                      label: Text(CMS.sms_parsing['debit_label']!),
                       selected: _transactionType == 'debit',
                       selectedColor: Colors.red.shade100,
                       labelStyle: TextStyle(
@@ -518,7 +515,7 @@ class _SmsParsingScreenState extends State<SmsParsingScreen> {
                     ),
                     const SizedBox(width: 12),
                     ChoiceChip(
-                      label: const Text("Credit"),
+                      label: Text(CMS.sms_parsing['credit_label']!),
                       selected: _transactionType == 'credit',
                       selectedColor: Colors.green.shade100,
                       labelStyle: TextStyle(
@@ -539,10 +536,10 @@ class _SmsParsingScreenState extends State<SmsParsingScreen> {
 
                 TextField(
                   controller: _patternNameController,
-                  decoration: const InputDecoration(
-                    labelText: "Pattern Name",
-                    helperText: "e.g., 'Axis Credit Card'",
-                    border: OutlineInputBorder(),
+                  decoration: InputDecoration(
+                    labelText: CMS.sms_parsing['pattern_name_label']!,
+                    helperText: CMS.sms_parsing['pattern_name_helper']!,
+                    border: const OutlineInputBorder(),
                   ),
                 ),
                 const SizedBox(height: 16),
@@ -552,9 +549,9 @@ class _SmsParsingScreenState extends State<SmsParsingScreen> {
                   children: [
                     Expanded(
                       child: InputDecorator(
-                        decoration: const InputDecoration(
-                          labelText: "Default Category",
-                          border: OutlineInputBorder(),
+                        decoration: InputDecoration(
+                          labelText: CMS.sms_parsing['default_category_label']!,
+                          border: const OutlineInputBorder(),
                         ),
                         child: DropdownButtonHideUnderline(
                           child: DropdownButton<int>(
@@ -598,9 +595,12 @@ class _SmsParsingScreenState extends State<SmsParsingScreen> {
                   child:
                       _isLoading
                           ? const CircularProgressIndicator(color: Colors.white)
-                          : const Text(
-                            "Save Pattern",
-                            style: TextStyle(fontSize: 18, color: Colors.white),
+                          : Text(
+                            CMS.sms_parsing['save_pattern_btn']!,
+                            style: const TextStyle(
+                              fontSize: 18,
+                              color: Colors.white,
+                            ),
                           ),
                 ),
                 const SizedBox(height: 40),

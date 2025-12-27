@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../services/database_helper.dart';
+import '../utils/cms.dart';
 
 class TransactionDetailScreen extends StatefulWidget {
   final Map<String, dynamic> transaction;
@@ -106,18 +107,18 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen> {
     });
 
     if (mounted) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text("Category updated")));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(CMS.transaction['category_updated']!)),
+      );
     }
   }
 
   Future<void> _saveChanges() async {
     final newAmount = double.tryParse(_amountController.text);
     if (newAmount == null) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text("Invalid Amount")));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(CMS.transaction['invalid_amount']!)),
+      );
       return;
     }
 
@@ -146,9 +147,9 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen> {
     });
 
     if (mounted) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text("Transaction Updated")));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(CMS.transaction['transaction_updated']!)),
+      );
     }
   }
 
@@ -157,19 +158,17 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen> {
       context: context,
       builder:
           (ctx) => AlertDialog(
-            title: const Text("Delete Transaction"),
-            content: const Text(
-              "Are you sure you want to delete this transaction? This action cannot be undone.",
-            ),
+            title: Text(CMS.transaction['delete_dialog_title']!),
+            content: Text(CMS.transaction['delete_dialog_content']!),
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(ctx, false),
-                child: const Text("Cancel"),
+                child: Text(CMS.common['cancel']!),
               ),
               TextButton(
                 onPressed: () => Navigator.pop(ctx, true),
                 style: TextButton.styleFrom(foregroundColor: Colors.red),
-                child: const Text("Delete"),
+                child: Text(CMS.common['delete']!),
               ),
             ],
           ),
@@ -211,7 +210,7 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen> {
             children: [
               ListTile(
                 leading: const Icon(Icons.add_circle, color: Colors.blue),
-                title: const Text("Create New Category"),
+                title: Text(CMS.transaction['create_category']!),
                 onTap: () {
                   Navigator.pop(ctx);
                   _showCreateCategoryDialog();
@@ -287,11 +286,14 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen> {
       builder:
           (ctx) => Column(
             children: [
-              const Padding(
-                padding: EdgeInsets.all(16.0),
+              Padding(
+                padding: const EdgeInsets.all(16.0),
                 child: Text(
-                  "Select Savings Goal",
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  CMS.transaction['select_goal_title']!,
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ),
               Expanded(
@@ -317,9 +319,13 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen> {
                           context: context,
                           builder:
                               (context) => AlertDialog(
-                                title: Text("Impact on '${goal['name']}'?"),
-                                content: const Text(
-                                  "Is this money adding to the goal or being withdrawn from it?",
+                                title: Text(
+                                  (CMS.transaction['impact_dialog_title']
+                                          as String)
+                                      .replaceFirst('{goalName}', goal['name']),
+                                ),
+                                content: Text(
+                                  CMS.transaction['impact_dialog_content']!,
                                 ),
                                 actions: [
                                   TextButton(
@@ -331,9 +337,11 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen> {
                                         isGoalAddition: false,
                                       );
                                     },
-                                    child: const Text(
-                                      "Subtract (Withdraw)",
-                                      style: TextStyle(color: Colors.orange),
+                                    child: Text(
+                                      CMS.transaction['impact_subtract']!,
+                                      style: const TextStyle(
+                                        color: Colors.orange,
+                                      ),
                                     ),
                                   ),
                                   ElevatedButton(
@@ -345,7 +353,7 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen> {
                                         isGoalAddition: true,
                                       );
                                     },
-                                    child: const Text("Add (Deposit)"),
+                                    child: Text(CMS.transaction['impact_add']!),
                                   ),
                                 ],
                               ),
@@ -401,18 +409,18 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen> {
                     children: [
                       TextField(
                         controller: controller,
-                        decoration: const InputDecoration(
-                          labelText: "Category Name",
-                          border: OutlineInputBorder(),
-                          hintText: "e.g. Utilities",
+                        decoration: InputDecoration(
+                          labelText: CMS.settings['category_name_label']!,
+                          border: const OutlineInputBorder(),
+                          hintText: CMS.settings['category_name_hint']!,
                         ),
                         textCapitalization: TextCapitalization.sentences,
                       ),
                       const SizedBox(height: 16),
-                      const Align(
+                      Align(
                         alignment: Alignment.centerLeft,
                         child: Text(
-                          "Pick a Color:",
+                          CMS.settings['pick_color']!,
                           style: TextStyle(fontWeight: FontWeight.bold),
                         ),
                       ),
@@ -471,7 +479,7 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen> {
                 actions: [
                   TextButton(
                     onPressed: () => Navigator.pop(ctx),
-                    child: const Text("Cancel"),
+                    child: Text(CMS.common['cancel']!),
                   ),
                   ElevatedButton(
                     onPressed: () async {
@@ -503,7 +511,7 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text("Details"),
+        title: Text(CMS.transaction['details_title']!),
         actions:
             _isManual
                 ? [
@@ -613,13 +621,16 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen> {
               if (_isEditing)
                 TextField(
                   controller: _noteController,
-                  decoration: const InputDecoration(
-                    labelText: "Note / Payee",
-                    border: OutlineInputBorder(),
+                  decoration: InputDecoration(
+                    labelText: CMS.transaction['note_label']!,
+                    border: const OutlineInputBorder(),
                   ),
                 )
               else
-                _detailRow("Sender", _localTransaction['sender']),
+                _detailRow(
+                  CMS.transaction['sender_label']!,
+                  _localTransaction['sender'],
+                ),
 
               const SizedBox(height: 20),
 
@@ -629,9 +640,9 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen> {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Text(
-                      "Category",
-                      style: TextStyle(fontSize: 16, color: Colors.grey),
+                    Text(
+                      CMS.transaction['category_label']!,
+                      style: const TextStyle(fontSize: 16, color: Colors.grey),
                     ),
                     Row(
                       children: [
@@ -656,9 +667,12 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen> {
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Text(
-                        "Link to Goal",
-                        style: TextStyle(fontSize: 16, color: Colors.grey),
+                      Text(
+                        CMS.transaction['link_goal_label']!,
+                        style: const TextStyle(
+                          fontSize: 16,
+                          color: Colors.grey,
+                        ),
                       ),
                       Row(
                         children: [
@@ -673,9 +687,9 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen> {
                               onDeleted: () => _updateGoal(null, null),
                             )
                           else
-                            const Text(
-                              "Select Goal",
-                              style: TextStyle(
+                            Text(
+                              CMS.transaction['select_goal_label']!,
+                              style: const TextStyle(
                                 color: Colors.blue,
                                 fontWeight: FontWeight.bold,
                               ),
@@ -698,9 +712,9 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen> {
               ],
 
               if (!_isEditing) ...[
-                const Text(
-                  "Original Message / Note",
-                  style: TextStyle(fontSize: 16, color: Colors.grey),
+                Text(
+                  CMS.transaction['original_message_label']!,
+                  style: const TextStyle(fontSize: 16, color: Colors.grey),
                 ),
                 const SizedBox(height: 8),
                 Container(

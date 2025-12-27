@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:intl/intl.dart';
 import '../services/database_helper.dart';
+import '../utils/cms.dart';
 import 'transaction_detail_screen.dart';
 
 class AnalyticsScreen extends StatefulWidget {
@@ -56,7 +57,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
     final List<Map<String, dynamic>> modifiablePatterns = List.from(pats);
     modifiablePatterns.add({
       'id': -1,
-      'name': 'Manual Transactions',
+      'name': CMS.analytics['manual_transactions'],
       'senderId': 'MANUAL', // Dummy values for required fields
       'patternRegex': '',
       'messageType': 'debit',
@@ -297,9 +298,9 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
     return Scaffold(
       backgroundColor: Colors.grey[50], // Light background for contrast
       appBar: AppBar(
-        title: const Text(
-          "Spending Analytics",
-          style: TextStyle(fontWeight: FontWeight.w600),
+        title: Text(
+          CMS.analytics['title']!,
+          style: const TextStyle(fontWeight: FontWeight.w600),
         ),
         backgroundColor: Colors.white,
         elevation: 0,
@@ -324,16 +325,16 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
             // 1.5 TYPE TOGGLE (Expenses vs Income)
             Center(
               child: SegmentedButton<String>(
-                segments: const [
+                segments: [
                   ButtonSegment<String>(
                     value: 'debit',
-                    label: Text('Expenses'),
-                    icon: Icon(Icons.arrow_upward),
+                    label: Text(CMS.analytics['expenses_label']!),
+                    icon: const Icon(Icons.arrow_upward),
                   ),
                   ButtonSegment<String>(
                     value: 'credit',
-                    label: Text('Income'),
-                    icon: Icon(Icons.arrow_downward),
+                    label: Text(CMS.analytics['income_label']!),
+                    icon: const Icon(Icons.arrow_downward),
                   ),
                 ],
                 selected: {_transactionType},
@@ -369,9 +370,12 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
             // 1.8 INSIGHTS (MoM Comparison)
             if (_insights.isNotEmpty && !_isLoading) ...[
               const SizedBox(height: 16),
-              const Text(
-                "Insights",
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              Text(
+                CMS.analytics['insights_title']!,
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
               const SizedBox(height: 8),
               SizedBox(
@@ -449,7 +453,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                           ),
                           const Spacer(),
                           Text(
-                            "${isPositive ? '+' : ''}${insight.percentageChange.toStringAsFixed(0)}% vs last ${_timeFrame.toLowerCase()}",
+                            "${isPositive ? '+' : ''}${insight.percentageChange.toStringAsFixed(0)}%${CMS.analytics['vs_last']!}${_timeFrame.toLowerCase()}",
                             style: TextStyle(
                               color: color,
                               fontWeight: FontWeight.bold,
@@ -511,8 +515,8 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                                 const SizedBox(height: 12),
                                 Text(
                                   _transactionType == 'debit'
-                                      ? "No expenses yet! 🎉"
-                                      : "No income found for this period. 💸",
+                                      ? CMS.analytics['no_expenses_title']!
+                                      : CMS.analytics['no_income_title']!,
                                   style: TextStyle(
                                     fontSize: 16,
                                     color: Colors.grey.shade600,
@@ -521,7 +525,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                                 ),
                                 const SizedBox(height: 4),
                                 Text(
-                                  "Try a different date range",
+                                  CMS.analytics['try_different_date']!,
                                   style: TextStyle(
                                     fontSize: 12,
                                     color: Colors.grey.shade400,
@@ -568,9 +572,9 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                                           mainAxisAlignment:
                                               MainAxisAlignment.center,
                                           children: [
-                                            const Text(
-                                              "Total",
-                                              style: TextStyle(
+                                            Text(
+                                              CMS.analytics['total_label']!,
+                                              style: const TextStyle(
                                                 fontSize: 10,
                                                 color: Colors.grey,
                                                 height: 1.0,
@@ -665,9 +669,12 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
 
             // 4. RECENT TRANSACTIONS HEADER
             if (_transactions.isNotEmpty) ...[
-              const Text(
-                "Recent Transactions",
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              Text(
+                CMS.analytics['recent_transactions']!,
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
               const SizedBox(height: 12),
 
@@ -738,11 +745,9 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
             ],
 
             if (!_isLoading && _transactions.isEmpty)
-              const Padding(
-                padding: EdgeInsets.only(top: 50),
-                child: Center(
-                  child: Text("No transactions found for this period"),
-                ),
+              Padding(
+                padding: const EdgeInsets.only(top: 50),
+                child: Center(child: Text(CMS.analytics['no_transactions']!)),
               ),
 
             const SizedBox(height: 80),
@@ -780,10 +785,20 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                   color: Colors.black,
                   fontSize: 16,
                 ),
-                items:
-                    ['Day', 'Week', 'Month']
-                        .map((e) => DropdownMenuItem(value: e, child: Text(e)))
-                        .toList(),
+                items: [
+                  DropdownMenuItem(
+                    value: 'Day',
+                    child: Text(CMS.analytics['time_day']!),
+                  ),
+                  DropdownMenuItem(
+                    value: 'Week',
+                    child: Text(CMS.analytics['time_week']!),
+                  ),
+                  DropdownMenuItem(
+                    value: 'Month',
+                    child: Text(CMS.analytics['time_month']!),
+                  ),
+                ],
                 onChanged: (val) {
                   setState(() => _timeFrame = val!);
                   _fetchData();

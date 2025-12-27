@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../services/database_helper.dart';
+import '../utils/cms.dart';
 import 'transaction_detail_screen.dart';
 
 enum SortOption { dateDesc, dateAsc, amountDesc, amountAsc }
@@ -250,16 +251,19 @@ class _CalendarScreenState extends State<CalendarScreen> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Padding(
-                padding: EdgeInsets.all(16.0),
+              Padding(
+                padding: const EdgeInsets.all(16.0),
                 child: Text(
-                  "Sort Transactions",
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  CMS.calendar['sort_title']!,
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ),
               ListTile(
                 leading: const Icon(Icons.calendar_today),
-                title: const Text("Newest First (Default)"),
+                title: Text(CMS.calendar['sort_newest']!),
                 trailing:
                     _sortOption == SortOption.dateDesc
                         ? const Icon(Icons.check, color: Colors.blue)
@@ -271,7 +275,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
               ),
               ListTile(
                 leading: const Icon(Icons.history),
-                title: const Text("Oldest First"),
+                title: Text(CMS.calendar['sort_oldest']!),
                 trailing:
                     _sortOption == SortOption.dateAsc
                         ? const Icon(Icons.check, color: Colors.blue)
@@ -283,7 +287,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
               ),
               ListTile(
                 leading: const Icon(Icons.arrow_upward),
-                title: const Text("Amount: High to Low"),
+                title: Text(CMS.calendar['sort_amount_high']!),
                 trailing:
                     _sortOption == SortOption.amountDesc
                         ? const Icon(Icons.check, color: Colors.blue)
@@ -295,7 +299,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
               ),
               ListTile(
                 leading: const Icon(Icons.arrow_downward),
-                title: const Text("Amount: Low to High"),
+                title: Text(CMS.calendar['sort_amount_low']!),
                 trailing:
                     _sortOption == SortOption.amountAsc
                         ? const Icon(Icons.check, color: Colors.blue)
@@ -311,7 +315,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                   setState(() => _sortOption = SortOption.dateDesc);
                   Navigator.pop(context);
                 },
-                child: const Text("Reset Sort"),
+                child: Text(CMS.calendar['reset_sort']!),
               ),
               const SizedBox(height: 8),
             ],
@@ -344,9 +348,9 @@ class _CalendarScreenState extends State<CalendarScreen> {
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          const Text(
-                            "Filter Transactions",
-                            style: TextStyle(
+                          Text(
+                            CMS.calendar['filter_title']!,
+                            style: const TextStyle(
                               fontSize: 18,
                               fontWeight: FontWeight.bold,
                             ),
@@ -360,7 +364,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                               });
                               setModalState(() {}); // Refresh modal
                             },
-                            child: const Text("Reset All"),
+                            child: Text(CMS.calendar['reset_all']!),
                           ),
                         ],
                       ),
@@ -370,9 +374,9 @@ class _CalendarScreenState extends State<CalendarScreen> {
                         controller: scrollController,
                         padding: const EdgeInsets.symmetric(horizontal: 16),
                         children: [
-                          const Text(
-                            "Categories",
-                            style: TextStyle(
+                          Text(
+                            CMS.calendar['categories_header']!,
+                            style: const TextStyle(
                               fontWeight: FontWeight.bold,
                               fontSize: 16,
                             ),
@@ -413,18 +417,18 @@ class _CalendarScreenState extends State<CalendarScreen> {
                                 }).toList(),
                           ),
                           const SizedBox(height: 24),
-                          const Text(
-                            "Payment Methods / Senders",
-                            style: TextStyle(
+                          Text(
+                            CMS.calendar['senders_header']!,
+                            style: const TextStyle(
                               fontWeight: FontWeight.bold,
                               fontSize: 16,
                             ),
                           ),
                           const SizedBox(height: 8),
                           if (_availableSenders.isEmpty)
-                            const Text(
-                              "No transactions found in this month.",
-                              style: TextStyle(color: Colors.grey),
+                            Text(
+                              CMS.calendar['no_transactions_month']!,
+                              style: const TextStyle(color: Colors.grey),
                             ),
                           Wrap(
                             spacing: 8,
@@ -489,9 +493,9 @@ class _CalendarScreenState extends State<CalendarScreen> {
     return Scaffold(
       backgroundColor: Colors.grey[50],
       appBar: AppBar(
-        title: const Text(
-          "Calendar Heat Map",
-          style: TextStyle(fontWeight: FontWeight.w600),
+        title: Text(
+          CMS.calendar['title']!,
+          style: const TextStyle(fontWeight: FontWeight.w600),
         ),
         backgroundColor: Colors.white,
         elevation: 0,
@@ -745,9 +749,9 @@ class _CalendarScreenState extends State<CalendarScreen> {
                               _rangeEnd = null;
                             });
                           },
-                          child: const Text(
-                            "Reset Date",
-                            style: TextStyle(fontSize: 12),
+                          child: Text(
+                            CMS.calendar['reset_date']!,
+                            style: const TextStyle(fontSize: 12),
                           ),
                         ),
                     ],
@@ -788,8 +792,12 @@ class _CalendarScreenState extends State<CalendarScreen> {
                         ),
                         label: Text(
                           activeFiltersCount > 0
-                              ? "Filters ($activeFiltersCount)"
-                              : "Filter",
+                              ? (CMS.calendar['filters_btn'] as String)
+                                  .replaceFirst(
+                                    '{count}',
+                                    activeFiltersCount.toString(),
+                                  )
+                              : CMS.calendar['filter_btn']!,
                           style: TextStyle(
                             color:
                                 activeFiltersCount > 0

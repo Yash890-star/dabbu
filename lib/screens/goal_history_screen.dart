@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../services/database_helper.dart';
+import '../utils/cms.dart';
 import 'add_transaction_screen.dart';
 
 class GoalHistoryScreen extends StatefulWidget {
@@ -40,7 +41,11 @@ class _GoalHistoryScreenState extends State<GoalHistoryScreen> {
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(isArchived ? "Goal unarchived" : "Goal archived"),
+          content: Text(
+            isArchived
+                ? CMS.goals['goal_unarchived']!
+                : CMS.goals['goal_archived']!,
+          ),
         ),
       );
       Navigator.pop(context); // Return to previous screen (Home)
@@ -52,20 +57,18 @@ class _GoalHistoryScreenState extends State<GoalHistoryScreen> {
       context: context,
       builder:
           (context) => AlertDialog(
-            title: const Text("Delete Goal?"),
-            content: const Text(
-              "This will delete the goal. The transactions will be kept but unlinked.",
-            ),
+            title: Text(CMS.goals['delete_goal_title']!),
+            content: Text(CMS.goals['delete_goal_content']!),
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(context, false),
-                child: const Text("Cancel"),
+                child: Text(CMS.common['cancel']!),
               ),
               TextButton(
                 onPressed: () => Navigator.pop(context, true),
-                child: const Text(
-                  "Delete",
-                  style: TextStyle(color: Colors.red),
+                child: Text(
+                  CMS.common['delete']!,
+                  style: const TextStyle(color: Colors.red),
                 ),
               ),
             ],
@@ -106,7 +109,8 @@ class _GoalHistoryScreenState extends State<GoalHistoryScreen> {
                     Padding(
                       padding: const EdgeInsets.all(16.0),
                       child: Text(
-                        "Link Transaction to '${widget.goal['name']}'",
+                        (CMS.goals['link_transaction_title'] as String)
+                            .replaceFirst('{goalName}', widget.goal['name']),
                         style: const TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.bold,
@@ -134,9 +138,9 @@ class _GoalHistoryScreenState extends State<GoalHistoryScreen> {
                                   .toList();
 
                           if (candidates.isEmpty) {
-                            return const Center(
+                            return Center(
                               child: Text(
-                                "No recent unlinked transactions found.",
+                                CMS.goals['no_unlinked_transactions']!,
                               ),
                             );
                           }
@@ -197,9 +201,12 @@ class _GoalHistoryScreenState extends State<GoalHistoryScreen> {
       context: context,
       builder:
           (context) => AlertDialog(
-            title: const Text("Select Impact"),
+            title: Text(CMS.goals['select_impact_title']!),
             content: Text(
-              "Does this transaction ADD to or SUBTRACT from '${widget.goal['name']}'?",
+              (CMS.goals['select_impact_content'] as String).replaceFirst(
+                '{goalName}',
+                widget.goal['name'],
+              ),
             ),
             actions: [
               TextButton(
@@ -207,9 +214,9 @@ class _GoalHistoryScreenState extends State<GoalHistoryScreen> {
                   Navigator.pop(context);
                   _linkTransactionToGoal(tx, false); // Subtract
                 },
-                child: const Text(
-                  "Subtract",
-                  style: TextStyle(color: Colors.orange),
+                child: Text(
+                  CMS.goals['subtract_action']!,
+                  style: const TextStyle(color: Colors.orange),
                 ),
               ),
               ElevatedButton(
@@ -217,7 +224,7 @@ class _GoalHistoryScreenState extends State<GoalHistoryScreen> {
                   Navigator.pop(context);
                   _linkTransactionToGoal(tx, true); // Add
                 },
-                child: const Text("Add (Deposit)"),
+                child: Text(CMS.goals['add_action']!),
               ),
             ],
           ),
@@ -245,7 +252,12 @@ class _GoalHistoryScreenState extends State<GoalHistoryScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text("Transaction linked to ${widget.goal['name']}"),
+            content: Text(
+              (CMS.goals['transaction_linked'] as String).replaceFirst(
+                '{goalName}',
+                widget.goal['name'],
+              ),
+            ),
           ),
         );
       }
@@ -270,9 +282,12 @@ class _GoalHistoryScreenState extends State<GoalHistoryScreen> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Text(
-                "Add Funds",
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              Text(
+                CMS.goals['add_funds_title']!,
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
               const SizedBox(height: 16),
               ListTile(
@@ -280,8 +295,8 @@ class _GoalHistoryScreenState extends State<GoalHistoryScreen> {
                   backgroundColor: Colors.green.shade50,
                   child: const Icon(Icons.add, color: Colors.green),
                 ),
-                title: const Text("New Deposit"),
-                subtitle: const Text("Create a new transaction"),
+                title: Text(CMS.goals['new_deposit_title']!),
+                subtitle: Text(CMS.goals['new_deposit_subtitle']!),
                 onTap: () async {
                   Navigator.pop(context);
                   final success = await Navigator.push(
@@ -301,8 +316,8 @@ class _GoalHistoryScreenState extends State<GoalHistoryScreen> {
                   backgroundColor: Colors.blue.shade50,
                   child: const Icon(Icons.link, color: Colors.blue),
                 ),
-                title: const Text("Link Existing"),
-                subtitle: const Text("Select from past transactions"),
+                title: Text(CMS.goals['link_existing_title']!),
+                subtitle: Text(CMS.goals['link_existing_subtitle']!),
                 onTap: () {
                   Navigator.pop(context);
                   _showLinkTransactionPicker();
@@ -338,15 +353,15 @@ class _GoalHistoryScreenState extends State<GoalHistoryScreen> {
     final remaining = (goalTarget - totalSaved).clamp(0, double.infinity);
     String motivation = "";
     if (progress >= 1) {
-      motivation = "Congratulations! You've reached your goal! 🎉";
+      motivation = CMS.goals['motivation_complete']!;
     } else if (progress >= 0.8) {
-      motivation = "Almost there! Just a little more push! 🚀";
+      motivation = CMS.goals['motivation_almost']!;
     } else if (progress >= 0.5) {
-      motivation = "Halfway done! Keep the momentum going! 🔥";
+      motivation = CMS.goals['motivation_halfway']!;
     } else if (progress >= 0.2) {
-      motivation = "Great start! Consistent savings win the race. 🐢";
+      motivation = CMS.goals['motivation_started']!;
     } else {
-      motivation = "Every journey begins with a small step. 🌱";
+      motivation = CMS.goals['motivation_beginning']!;
     }
 
     return Scaffold(
@@ -370,17 +385,24 @@ class _GoalHistoryScreenState extends State<GoalHistoryScreen> {
                         color: Colors.grey,
                       ),
                       const SizedBox(width: 8),
-                      Text(isArchived ? "Unarchive" : "Archive"),
+                      Text(
+                        isArchived
+                            ? CMS.goals['unarchive_action']!
+                            : CMS.goals['archive_action']!,
+                      ),
                     ],
                   ),
                 ),
-                const PopupMenuItem(
+                PopupMenuItem(
                   value: 'delete',
                   child: Row(
                     children: [
-                      Icon(Icons.delete, color: Colors.red),
-                      SizedBox(width: 8),
-                      Text("Delete", style: TextStyle(color: Colors.red)),
+                      const Icon(Icons.delete, color: Colors.red),
+                      const SizedBox(width: 8),
+                      Text(
+                        CMS.common['delete']!,
+                        style: const TextStyle(color: Colors.red),
+                      ),
                     ],
                   ),
                 ),
@@ -391,7 +413,7 @@ class _GoalHistoryScreenState extends State<GoalHistoryScreen> {
       ),
       floatingActionButton: FloatingActionButton.extended(
         icon: const Icon(Icons.add),
-        label: const Text("Add Funds"),
+        label: Text(CMS.goals['add_funds_title']!),
         backgroundColor: color,
         onPressed: _showAddFundsOptions,
       ),
@@ -410,7 +432,7 @@ class _GoalHistoryScreenState extends State<GoalHistoryScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          "Current Balance",
+                          CMS.goals['current_balance']!,
                           style: TextStyle(color: Colors.grey[700]),
                         ),
                         Text(
@@ -449,7 +471,7 @@ class _GoalHistoryScreenState extends State<GoalHistoryScreen> {
                     child: Column(
                       children: [
                         Text(
-                          "₹${NumberFormat.currency(symbol: '', decimalDigits: 0).format(remaining)} remaining",
+                          "₹${NumberFormat.currency(symbol: '', decimalDigits: 0).format(remaining)}${CMS.goals['remaining_suffix']!}",
                           style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.bold,
@@ -489,7 +511,7 @@ class _GoalHistoryScreenState extends State<GoalHistoryScreen> {
                   ),
                 const SizedBox(height: 12),
                 Text(
-                  "Goal Target: ₹${NumberFormat.currency(symbol: '', decimalDigits: 0).format(goalTarget)}",
+                  "${CMS.goals['goal_target']!}₹${NumberFormat.currency(symbol: '', decimalDigits: 0).format(goalTarget)}",
                   style: TextStyle(
                     fontWeight: FontWeight.w500,
                     color: Colors.grey[700],
@@ -504,13 +526,7 @@ class _GoalHistoryScreenState extends State<GoalHistoryScreen> {
                 _isLoading
                     ? const Center(child: CircularProgressIndicator())
                     : _transactions.isEmpty
-                    ? Center(
-                      child: Text(
-                        "No transactions yet.\nAdd funds to start saving!",
-                        textAlign: TextAlign.center,
-                        style: TextStyle(color: Colors.grey[600]),
-                      ),
-                    )
+                    ? Center(child: Text(CMS.goals['no_history']!))
                     : ListView.builder(
                       itemCount: _transactions.length,
                       itemBuilder: (context, index) {
