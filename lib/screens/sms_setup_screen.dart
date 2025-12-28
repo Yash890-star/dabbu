@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import '../utils/cms.dart';
 import '../viewmodels/sms_setup_view_model.dart';
 import 'sms_list_screen.dart';
+import '../widgets/app_card.dart';
 
 class SmsSetupScreen extends StatefulWidget {
   const SmsSetupScreen({super.key});
@@ -36,7 +37,6 @@ class _SmsSetupScreenState extends State<SmsSetupScreen> {
           ),
         );
       } else {
-        // Success: Navigate
         Navigator.push(
           context,
           MaterialPageRoute(
@@ -45,7 +45,6 @@ class _SmsSetupScreenState extends State<SmsSetupScreen> {
         );
       }
     } else {
-      // Failed or Denied
       if (_viewModel.permissionDeniedPermanently) {
         _showSettingsDialog();
       } else if (_viewModel.errorMessage != null) {
@@ -105,72 +104,152 @@ class _SmsSetupScreenState extends State<SmsSetupScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text(CMS.smsSetup['title']!)),
-      body: AnimatedBuilder(
-        animation: _viewModel,
-        builder: (context, child) {
-          return Padding(
-            padding: const EdgeInsets.all(24.0),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                const Icon(
-                  Icons.sms_failed_outlined,
-                  size: 80,
-                  color: Colors.blue,
+      body: SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(24.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const SizedBox(height: 20),
+              Text(
+                CMS.smsSetup['scan_title']!,
+                style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
                 ),
-                const SizedBox(height: 24),
-                Text(
-                  CMS.smsSetup['scan_title']!,
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    fontSize: 22,
-                    fontWeight: FontWeight.bold,
-                  ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                CMS.smsSetup['scan_subtitle']!,
+                style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
                 ),
-                const SizedBox(height: 12),
-                Text(
-                  CMS.smsSetup['scan_subtitle']!,
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(color: Colors.grey),
-                ),
-                const SizedBox(height: 40),
+                textAlign: TextAlign.center,
+              ),
 
-                OutlinedButton.icon(
-                  onPressed: _pickDate,
-                  icon: const Icon(Icons.calendar_today),
-                  label: Text(
-                    "${CMS.smsSetup['start_from']!}${DateFormat.yMMMd().format(_viewModel.selectedDate)}",
-                  ),
-                  style: OutlinedButton.styleFrom(
-                    padding: const EdgeInsets.all(16),
-                  ),
-                ),
+              const SizedBox(height: 40),
 
-                const Spacer(),
-
-                ElevatedButton(
-                  onPressed: _viewModel.isLoading ? null : _fetchSmsAndContinue,
-                  style: ElevatedButton.styleFrom(
-                    padding: const EdgeInsets.all(16),
-                  ),
-                  child:
-                      _viewModel.isLoading
-                          ? const SizedBox(
-                            height: 20,
-                            width: 20,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: Colors.white,
-                            ),
-                          )
-                          : Text(CMS.smsSetup['scan_btn']!),
+              // Info Card using Bento Style
+              AppCard(
+                child: Column(
+                  children: [
+                    const Icon(
+                      Icons.sms_failed_outlined,
+                      size: 48,
+                      color: Colors.blue,
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      "Why scan SMS?",
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      "Dabbu analyzes bank SMS to clear the clutter and track expenses automatically. No manual entry needed.",
+                      textAlign: TextAlign.center,
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
                 ),
-              ],
-            ),
-          );
-        },
+              ),
+
+              const SizedBox(height: 24),
+
+              // Date Picker Bento Block
+              // Date Picker Bento Block
+              AnimatedBuilder(
+                animation: _viewModel,
+                builder: (context, child) {
+                  return AppCard(
+                    onTap: _pickDate,
+                    child: Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Colors.orange.shade50,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: const Icon(
+                            Icons.calendar_today,
+                            color: Colors.orange,
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                CMS.smsSetup['start_from']!,
+                                style: Theme.of(
+                                  context,
+                                ).textTheme.bodySmall?.copyWith(
+                                  color:
+                                      Theme.of(
+                                        context,
+                                      ).colorScheme.onSurfaceVariant,
+                                ),
+                              ),
+                              Text(
+                                DateFormat.yMMMd().format(
+                                  _viewModel.selectedDate,
+                                ),
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 16,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const Icon(
+                          Icons.edit_outlined,
+                          size: 20,
+                          color: Colors.grey,
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              ),
+
+              const SizedBox(height: 40),
+
+              AnimatedBuilder(
+                animation: _viewModel,
+                builder: (context, child) {
+                  return FilledButton.icon(
+                    onPressed:
+                        _viewModel.isLoading ? null : _fetchSmsAndContinue,
+                    icon:
+                        _viewModel.isLoading
+                            ? const SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white,
+                              ),
+                            )
+                            : const Icon(Icons.search),
+                    label: Text(CMS.smsSetup['scan_btn']!),
+                    style: FilledButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
