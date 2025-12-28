@@ -4,6 +4,8 @@ import '../utils/cms.dart';
 import '../utils/app_colors.dart';
 import '../viewmodels/goal_history_view_model.dart';
 import 'add_transaction_screen.dart';
+import '../widgets/goals/goal_hero_card.dart';
+import '../widgets/goals/history_timeline.dart';
 
 class GoalHistoryScreen extends StatefulWidget {
   final Map<String, dynamic> goal;
@@ -81,7 +83,8 @@ class _GoalHistoryScreenState extends State<GoalHistoryScreen> {
         builder: (context) => AddTransactionScreen(transaction: tx),
       ),
     );
-    if (success == true) {
+
+    if (success == true && mounted) {
       _viewModel.refresh();
     }
   }
@@ -310,7 +313,6 @@ class _GoalHistoryScreenState extends State<GoalHistoryScreen> {
         final color = Color(
           _viewModel.goal['color'] ?? AppColors.defaultGoalColor.toARGB32(),
         );
-        final remaining = (goalTarget - totalSaved).clamp(0, double.infinity);
 
         String motivation = "";
         if (progress >= 1) {
@@ -378,178 +380,66 @@ class _GoalHistoryScreenState extends State<GoalHistoryScreen> {
             backgroundColor: color,
             onPressed: _showAddFundsOptions,
           ),
-          body: Column(
-            children: [
-              // Header Card
-              Container(
-                padding: const EdgeInsets.all(20),
-                color: color.withValues(alpha: 0.1),
-                child: Column(
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              CMS.goals['current_balance']!,
-                              style: TextStyle(
-                                color:
-                                    Theme.of(
-                                      context,
-                                    ).colorScheme.onSurfaceVariant,
-                              ),
-                            ),
-                            Text(
-                              "₹${NumberFormat.compact().format(totalSaved)}",
-                              style: TextStyle(
-                                fontSize: 32,
-                                fontWeight: FontWeight.bold,
-                                color: color,
-                              ),
-                            ),
-                          ],
-                        ),
-                        CircularProgressIndicator(
-                          value: progress,
-                          color: color,
-                          backgroundColor:
-                              Theme.of(
-                                context,
-                              ).colorScheme.surfaceContainerHighest,
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 20),
-                    if (remaining > 0)
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.symmetric(
-                          vertical: 10,
-                          horizontal: 14,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.5),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(
-                            color: color.withValues(alpha: 0.3),
-                            width: 1,
-                          ),
-                        ),
-                        child: Column(
-                          children: [
-                            Text(
-                              "₹${NumberFormat.currency(symbol: '', decimalDigits: 0).format(remaining)}${CMS.goals['remaining_suffix']!}",
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                                color: color,
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              motivation,
-                              textAlign: TextAlign.center,
-                              style: TextStyle(
-                                fontSize: 13,
-                                fontStyle: FontStyle.italic,
-                                color:
-                                    Theme.of(
-                                      context,
-                                    ).colorScheme.onSurfaceVariant,
-                              ),
-                            ),
-                          ],
-                        ),
-                      )
-                    else
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: AppColors.income.withValues(alpha: 0.2),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(
-                            color: AppColors.income.withValues(alpha: 0.5),
-                          ),
-                        ),
-                        child: Text(
-                          motivation,
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            color: AppColors.income,
-                          ),
-                        ),
-                      ),
-                    const SizedBox(height: 12),
+          body: RefreshIndicator(
+            onRefresh: _viewModel.refresh,
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(16),
+              physics: const AlwaysScrollableScrollPhysics(),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  GoalHeroCard(
+                    goal: _viewModel.goal,
+                    totalSaved: totalSaved,
+                    progress: progress,
+                    motivation: motivation,
+                  ),
+
+                  const SizedBox(height: 32),
+
+                  if (_viewModel.transactions.isNotEmpty) ...[
                     Text(
-                      "${CMS.goals['goal_target']!}₹${NumberFormat.currency(symbol: '', decimalDigits: 0).format(goalTarget)}",
+                      "History",
                       style: TextStyle(
-                        fontWeight: FontWeight.w500,
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: Theme.of(context).colorScheme.onSurface,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    HistoryTimeline(
+                      transactions: _viewModel.transactions,
+                      onTap: _handleTransactionTap,
+                    ),
+                  ] else ...[
+                    const SizedBox(height: 40),
+                    Center(
+                      child: Column(
+                        children: [
+                          Icon(
+                            Icons.history,
+                            size: 48,
+                            color: Theme.of(context).dividerColor,
+                          ),
+                          const SizedBox(height: 16),
+                          Text(
+                            CMS.goals['no_history']!,
+                            style: TextStyle(
+                              color:
+                                  Theme.of(
+                                    context,
+                                  ).colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ],
-                ),
-              ),
 
-              Expanded(
-                child:
-                    _viewModel.isLoading
-                        ? const Center(child: CircularProgressIndicator())
-                        : _viewModel.transactions.isEmpty
-                        ? Center(child: Text(CMS.goals['no_history']!))
-                        : ListView.builder(
-                          itemCount: _viewModel.transactions.length,
-                          itemBuilder: (context, index) {
-                            final tx = _viewModel.transactions[index];
-                            final isDeposit =
-                                (tx['is_goal_addition'] ?? 1) == 1;
-
-                            return ListTile(
-                              leading: CircleAvatar(
-                                backgroundColor:
-                                    isDeposit
-                                        ? AppColors.incomeBackground
-                                        : AppColors.expenseBackground,
-                                child: Icon(
-                                  isDeposit
-                                      ? Icons.arrow_upward
-                                      : Icons.arrow_downward,
-                                  color:
-                                      isDeposit
-                                          ? AppColors.income
-                                          : AppColors.expense,
-                                  size: 18,
-                                ),
-                              ),
-                              title: Text(tx['sender'] ?? "Manual"),
-                              subtitle: Text(
-                                DateFormat.yMMMd().format(
-                                  DateTime.fromMillisecondsSinceEpoch(
-                                    tx['date'],
-                                  ),
-                                ),
-                              ),
-                              trailing: Text(
-                                "${isDeposit ? '+' : '-'} ₹${tx['amount']}",
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  color:
-                                      isDeposit
-                                          ? AppColors.income
-                                          : AppColors.expense,
-                                  fontSize: 16,
-                                ),
-                              ),
-                              onTap: () => _handleTransactionTap(tx),
-                            );
-                          },
-                        ),
+                  const SizedBox(height: 80),
+                ],
               ),
-            ],
+            ),
           ),
         );
       },

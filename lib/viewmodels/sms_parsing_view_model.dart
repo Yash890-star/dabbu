@@ -4,6 +4,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../services/database_helper.dart';
 import '../services/message_helper.dart';
 
+enum SelectionMode { amount, anchor }
+
 class SmsParsingViewModel extends ChangeNotifier {
   // --- State ---
   List<String> bodyTokens = [];
@@ -22,6 +24,8 @@ class SmsParsingViewModel extends ChangeNotifier {
 
   List<Map<String, dynamic>> categories = [];
   int selectedCategoryId = 1;
+
+  SelectionMode selectionMode = SelectionMode.amount;
 
   // --- Dependencies/Inputs ---
   final SmsMessage message;
@@ -78,49 +82,60 @@ class SmsParsingViewModel extends ChangeNotifier {
 
   // --- Selection Logic ---
   void handleTokenTap(int index) {
-    // Case 1: Select Amount
-    if (selectedAmountIndex == null) {
-      selectedAmountIndex = index;
-      prefixStart = null;
-      prefixEnd = null;
-      suffixStart = null;
-      suffixEnd = null;
-    } else if (selectedAmountIndex == index) {
-      // Deselect Amount
-      selectedAmountIndex = null;
-      prefixStart = null;
-      prefixEnd = null;
-      suffixStart = null;
-      suffixEnd = null;
-      generatedRegex = "";
-      notifyListeners();
-      return;
-    }
-    // Case 2: Prefix Selection (Before Amount)
-    else if (index < selectedAmountIndex!) {
-      if (prefixStart == null) {
-        prefixStart = index;
-        prefixEnd = index;
+    if (selectionMode == SelectionMode.amount) {
+      if (selectedAmountIndex == index) {
+        // Deselect
+        selectedAmountIndex = null;
+        // Reset anchors as they depend on amount position relative to them
+        prefixStart = null;
+        prefixEnd = null;
+        suffixStart = null;
+        suffixEnd = null;
       } else {
-        if (prefixEnd != prefixStart || index < prefixStart!) {
+        selectedAmountIndex = index;
+        // Auto-switch to anchor mode for convenience? No, let's keep it explicit as per 'ChipSelector' requirement.
+        // Actually, clearing anchors is safer when amount moves.
+        prefixStart = null;
+        prefixEnd = null;
+        suffixStart = null;
+        suffixEnd = null;
+      }
+    } else {
+      // ANCHOR MODE
+      if (selectedAmountIndex == null) return; // Need amount first
+
+      if (index < selectedAmountIndex!) {
+        // Prefix Logic
+        if (prefixStart == null) {
           prefixStart = index;
           prefixEnd = index;
         } else {
-          prefixEnd = index;
+          // If tapping existing range, maybe clear it?
+          // Or just standard extend logic.
+          if (index < prefixStart!)
+            prefixStart = index;
+          else if (index > prefixEnd!)
+            prefixEnd = index;
+          else {
+            // Tapped inside. Maybe reset to just this token?
+            prefixStart = index;
+            prefixEnd = index;
+          }
         }
-      }
-    }
-    // Case 3: Suffix Selection (After Amount)
-    else {
-      if (suffixStart == null) {
-        suffixStart = index;
-        suffixEnd = index;
-      } else {
-        if (index > suffixEnd!) {
-          suffixEnd = index;
-        } else {
+      } else if (index > selectedAmountIndex!) {
+        // Suffix Logic
+        if (suffixStart == null) {
           suffixStart = index;
           suffixEnd = index;
+        } else {
+          if (index < suffixStart!)
+            suffixStart = index;
+          else if (index > suffixEnd!)
+            suffixEnd = index;
+          else {
+            suffixStart = index;
+            suffixEnd = index;
+          }
         }
       }
     }
@@ -187,6 +202,11 @@ class SmsParsingViewModel extends ChangeNotifier {
 
   void setSelectedCategoryId(int id) {
     selectedCategoryId = id;
+    notifyListeners();
+  }
+
+  void setSelectionMode(SelectionMode mode) {
+    selectionMode = mode;
     notifyListeners();
   }
 

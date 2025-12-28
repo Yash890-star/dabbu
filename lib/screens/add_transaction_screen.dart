@@ -107,101 +107,65 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                   decoration: InputDecoration(
                     labelText: CMS.transaction['amount_label']!,
                     prefixText: "${CMS.common['currency_symbol']!} ",
-                    border: const OutlineInputBorder(),
+                    border: const UnderlineInputBorder(), // Simplified
                     contentPadding: const EdgeInsets.symmetric(
                       horizontal: 16,
                       vertical: 16,
                     ),
                   ),
                   style: const TextStyle(
-                    fontSize: 24,
+                    fontSize: 32,
                     fontWeight: FontWeight.bold,
                   ),
+                  textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 24),
 
-                // 2. Type Selector
+                // 2. Type Selector (Simplified to standard Segmented Look if possible, or keeping chips)
+                // Keeping chips for now as they are clear, but maybe remove container border for cleaner look.
                 if (_viewModel.isGoalMode) ...[
                   // A. GOAL IMPACT
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: Theme.of(
-                        context,
-                      ).colorScheme.primaryContainer.withValues(alpha: 0.2),
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(
-                        color: Theme.of(
-                          context,
-                        ).colorScheme.primary.withValues(alpha: 0.5),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        CMS.transaction['impact_title']!,
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.primary,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          CMS.transaction['impact_title']!,
-                          style: TextStyle(
-                            color: Theme.of(context).colorScheme.primary,
-                            fontWeight: FontWeight.bold,
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: ChoiceChip(
+                              label: Center(
+                                child: Text(CMS.transaction['impact_add']!),
+                              ),
+                              selected: _viewModel.isGoalAddition,
+                              onSelected: (val) {
+                                if (val) _viewModel.setIsGoalAddition(true);
+                              },
+                            ),
                           ),
-                        ),
-                        const SizedBox(height: 8),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: ChoiceChip(
-                                label: Center(
-                                  child: Text(CMS.transaction['impact_add']!),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: ChoiceChip(
+                              label: Center(
+                                child: Text(
+                                  CMS.transaction['impact_subtract']!,
                                 ),
-                                selected: _viewModel.isGoalAddition,
-                                selectedColor:
-                                    Theme.of(context).colorScheme.primary,
-                                labelStyle: TextStyle(
-                                  color:
-                                      _viewModel.isGoalAddition
-                                          ? Theme.of(
-                                            context,
-                                          ).colorScheme.onPrimary
-                                          : Theme.of(
-                                            context,
-                                          ).colorScheme.onSurface,
-                                ),
-                                onSelected: (val) {
-                                  if (val) _viewModel.setIsGoalAddition(true);
-                                },
                               ),
+                              selected: !_viewModel.isGoalAddition,
+                              onSelected: (val) {
+                                if (val) _viewModel.setIsGoalAddition(false);
+                              },
                             ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: ChoiceChip(
-                                label: Center(
-                                  child: Text(
-                                    CMS.transaction['impact_subtract']!,
-                                  ),
-                                ),
-                                selected: !_viewModel.isGoalAddition,
-                                selectedColor:
-                                    Theme.of(context).colorScheme.tertiary,
-                                labelStyle: TextStyle(
-                                  color:
-                                      !_viewModel.isGoalAddition
-                                          ? Theme.of(
-                                            context,
-                                          ).colorScheme.onTertiary
-                                          : Theme.of(
-                                            context,
-                                          ).colorScheme.onSurface,
-                                ),
-                                onSelected: (val) {
-                                  if (val) _viewModel.setIsGoalAddition(false);
-                                },
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
+                          ),
+                        ],
+                      ),
+                    ],
                   ),
                   const SizedBox(height: 16),
 
@@ -219,14 +183,6 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                             child: Text(CMS.transaction['flow_expense']!),
                           ),
                           selected: _viewModel.type == 'debit',
-                          selectedColor: AppColors.expenseBackground,
-                          labelStyle: TextStyle(
-                            color:
-                                _viewModel.type == 'debit'
-                                    ? AppColors.expense
-                                    : Theme.of(context).colorScheme.onSurface,
-                            fontWeight: FontWeight.bold,
-                          ),
                           onSelected: (val) {
                             if (val) _viewModel.setType('debit');
                           },
@@ -239,14 +195,6 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                             child: Text(CMS.transaction['flow_income']!),
                           ),
                           selected: _viewModel.type == 'credit',
-                          selectedColor: AppColors.incomeBackground,
-                          labelStyle: TextStyle(
-                            color:
-                                _viewModel.type == 'credit'
-                                    ? AppColors.income
-                                    : Theme.of(context).colorScheme.onSurface,
-                            fontWeight: FontWeight.bold,
-                          ),
                           onSelected: (val) {
                             if (val) _viewModel.setType('credit');
                           },
@@ -269,8 +217,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                             color:
                                 _viewModel.type == 'debit'
                                     ? AppColors.expense
-                                    : Theme.of(context).colorScheme.onSurface,
-                            fontWeight: FontWeight.bold,
+                                    : null,
                           ),
                           onSelected: (val) {
                             if (val) _viewModel.setType('debit');
@@ -289,8 +236,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                             color:
                                 _viewModel.type == 'credit'
                                     ? AppColors.income
-                                    : Theme.of(context).colorScheme.onSurface,
-                            fontWeight: FontWeight.bold,
+                                    : null,
                           ),
                           onSelected: (val) {
                             if (val) _viewModel.setType('credit');
@@ -306,11 +252,10 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                 // 3. Date
                 InkWell(
                   onTap: _selectDate,
-                  borderRadius: BorderRadius.circular(8),
                   child: InputDecorator(
                     decoration: InputDecoration(
                       labelText: CMS.transaction['date_label']!,
-                      border: const OutlineInputBorder(),
+                      border: const UnderlineInputBorder(), // Simplified
                       prefixIcon: const Icon(Icons.calendar_today),
                     ),
                     child: Text(
@@ -329,7 +274,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                   decoration: InputDecoration(
                     labelText: CMS.transaction['note_label']!,
                     hintText: CMS.transaction['note_hint']!,
-                    border: const OutlineInputBorder(),
+                    border: const UnderlineInputBorder(), // Simplified
                     prefixIcon: const Icon(Icons.description),
                   ),
                   textCapitalization: TextCapitalization.sentences,
@@ -340,7 +285,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                 InputDecorator(
                   decoration: InputDecoration(
                     labelText: CMS.transaction['category_label']!,
-                    border: const OutlineInputBorder(),
+                    border: const UnderlineInputBorder(), // Simplified
                     prefixIcon: const Icon(Icons.category),
                   ),
                   child: DropdownButtonHideUnderline(
@@ -366,11 +311,11 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                 const SizedBox(height: 40),
 
                 // Save Button
-                ElevatedButton(
+                FilledButton(
+                  // Use FilledButton for modern look
                   onPressed: _viewModel.isLoading ? null : _saveTransaction,
-                  style: ElevatedButton.styleFrom(
+                  style: FilledButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 16),
-                    backgroundColor: Theme.of(context).colorScheme.primary,
                   ),
                   child:
                       _viewModel.isLoading
@@ -386,9 +331,9 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                             isEditing
                                 ? CMS.transaction['update_btn']!
                                 : CMS.transaction['save_btn']!,
-                            style: TextStyle(
+                            style: const TextStyle(
                               fontSize: 18,
-                              color: Theme.of(context).colorScheme.onPrimary,
+                              fontWeight: FontWeight.bold,
                             ),
                           ),
                 ),

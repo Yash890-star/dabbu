@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 import '../utils/cms.dart';
 import '../utils/app_colors.dart';
 import '../viewmodels/transaction_detail_view_model.dart';
+import '../widgets/transaction/ticket_modal.dart';
 
 class TransactionDetailScreen extends StatefulWidget {
   final Map<String, dynamic> transaction;
@@ -426,13 +427,14 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen> {
                     ]
                     : null,
           ),
-          body: Padding(
-            padding: const EdgeInsets.all(24.0),
-            child: SingleChildScrollView(
+          body: Center(
+            child: TicketModal(
+              backgroundColor: Theme.of(context).cardColor,
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  // Amount & Icon
+                  // Header: Amount & Icon
                   Center(
                     child: Column(
                       children: [
@@ -456,7 +458,7 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen> {
                         // EDITABLE AMOUNT
                         _isEditing
                             ? SizedBox(
-                              width: 150,
+                              width: 200,
                               child: TextField(
                                 controller: _amountController,
                                 keyboardType:
@@ -465,8 +467,8 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen> {
                                     ),
                                 textAlign: TextAlign.center,
                                 style: TextStyle(
-                                  fontSize: 32,
-                                  fontWeight: FontWeight.bold,
+                                  fontSize: 36,
+                                  fontWeight: FontWeight.w900,
                                   color:
                                       isCredit
                                           ? AppColors.income
@@ -474,14 +476,15 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen> {
                                 ),
                                 decoration: const InputDecoration(
                                   border: UnderlineInputBorder(),
+                                  prefixText: '₹ ',
                                 ),
                               ),
                             )
                             : Text(
-                              "${_viewModel.transaction['amount']}",
+                              "₹${_viewModel.transaction['amount']}",
                               style: TextStyle(
-                                fontSize: 32,
-                                fontWeight: FontWeight.bold,
+                                fontSize: 36,
+                                fontWeight: FontWeight.w900,
                                 color:
                                     isCredit
                                         ? AppColors.income
@@ -491,35 +494,51 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen> {
 
                         const SizedBox(height: 8),
 
-                        // EDITABLE DATE
+                        // Date
                         InkWell(
                           onTap: _isEditing ? _pickDate : null,
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text(
-                                DateFormat.yMMMMEEEEd().add_jm().format(
-                                  _selectedDate,
+                          borderRadius: BorderRadius.circular(4),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 4,
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  DateFormat.yMMMMEEEEd().add_jm().format(
+                                    _selectedDate,
+                                  ),
+                                  style: TextStyle(
+                                    color:
+                                        Theme.of(
+                                          context,
+                                        ).colorScheme.onSurfaceVariant,
+                                    fontSize: 14,
+                                  ),
                                 ),
-                                style: const TextStyle(color: Colors.grey),
-                              ),
-                              if (_isEditing)
-                                Padding(
-                                  padding: const EdgeInsets.only(left: 8.0),
-                                  child: Icon(
-                                    Icons.calendar_today,
-                                    size: 16,
+                                if (_isEditing)
+                                  Icon(
+                                    Icons.edit,
+                                    size: 14,
                                     color:
                                         Theme.of(context).colorScheme.primary,
                                   ),
-                                ),
-                            ],
+                              ],
+                            ),
                           ),
                         ),
                       ],
                     ),
                   ),
-                  const Divider(height: 40),
+
+                  const SizedBox(height: 32),
+                  const Divider(
+                    thickness: 1,
+                    color: Colors.grey,
+                  ), // Dashed divider would be better for receipt
+                  const SizedBox(height: 24),
 
                   // Details
                   if (_isEditing)
@@ -527,7 +546,7 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen> {
                       controller: _noteController,
                       decoration: InputDecoration(
                         labelText: CMS.transaction['note_label']!,
-                        border: const OutlineInputBorder(),
+                        border: const UnderlineInputBorder(),
                       ),
                     )
                   else
@@ -538,7 +557,7 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen> {
 
                   const SizedBox(height: 20),
 
-                  // Category Row (Always Clickable)
+                  // Category Row
                   InkWell(
                     onTap: _showCategoryPicker,
                     child: Row(
@@ -546,24 +565,31 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen> {
                       children: [
                         Text(
                           CMS.transaction['category_label']!,
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 16,
-                            color: Colors.grey,
+                            color:
+                                Theme.of(context).colorScheme.onSurfaceVariant,
                           ),
                         ),
                         Row(
                           children: [
-                            Chip(
-                              label: Text(_viewModel.categoryName),
-                              backgroundColor:
-                                  Theme.of(
-                                    context,
-                                  ).colorScheme.primaryContainer,
-                              labelStyle: TextStyle(
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 4,
+                              ),
+                              decoration: BoxDecoration(
                                 color:
                                     Theme.of(
                                       context,
-                                    ).colorScheme.onPrimaryContainer,
+                                    ).colorScheme.surfaceContainerHighest,
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: Text(
+                                _viewModel.categoryName,
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w600,
+                                ),
                               ),
                             ),
                             const SizedBox(width: 8),
@@ -583,7 +609,7 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen> {
 
                   const SizedBox(height: 20),
 
-                  // NEW: Link to Goal Row
+                  // Goal Link Row
                   if (_viewModel.allGoals.isNotEmpty) ...[
                     InkWell(
                       onTap: _showGoalPicker,
@@ -592,53 +618,74 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen> {
                         children: [
                           Text(
                             CMS.transaction['link_goal_label']!,
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 16,
-                              color: Colors.grey,
+                              color:
+                                  Theme.of(
+                                    context,
+                                  ).colorScheme.onSurfaceVariant,
                             ),
                           ),
                           Row(
                             children: [
-                              if (_viewModel.goalName != null)
-                                Chip(
-                                  avatar: const Icon(Icons.savings, size: 16),
-                                  label: Text(
-                                    "${_viewModel.goalName!} (${(_viewModel.transaction['is_goal_addition'] ?? 1) == 1 ? '+' : '-'})",
+                              _viewModel.goalName != null
+                                  ? Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 8,
+                                      vertical: 4,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color:
+                                          Theme.of(
+                                            context,
+                                          ).colorScheme.tertiaryContainer,
+                                      borderRadius: BorderRadius.circular(4),
+                                    ),
+                                    child: Row(
+                                      children: [
+                                        Icon(
+                                          Icons.savings,
+                                          size: 14,
+                                          color:
+                                              Theme.of(
+                                                context,
+                                              ).colorScheme.onTertiaryContainer,
+                                        ),
+                                        const SizedBox(width: 4),
+                                        Text(
+                                          "${_viewModel.goalName!} (${(_viewModel.transaction['is_goal_addition'] ?? 1) == 1 ? '+' : '-'})",
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            color:
+                                                Theme.of(context)
+                                                    .colorScheme
+                                                    .onTertiaryContainer,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  )
+                                  : Text(
+                                    CMS.transaction['select_goal_label']!,
+                                    style: TextStyle(
+                                      color:
+                                          Theme.of(context).colorScheme.primary,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 14,
+                                    ),
                                   ),
-                                  backgroundColor:
-                                      Theme.of(
-                                        context,
-                                      ).colorScheme.tertiaryContainer,
-                                  labelStyle: TextStyle(
-                                    color:
-                                        Theme.of(
-                                          context,
-                                        ).colorScheme.onTertiaryContainer,
-                                  ),
-                                  deleteIcon: const Icon(Icons.close, size: 16),
-                                  onDeleted: () => _updateGoal(null, null),
-                                )
-                              else
-                                Text(
-                                  CMS.transaction['select_goal_label']!,
-                                  style: TextStyle(
-                                    color:
-                                        Theme.of(context).colorScheme.primary,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-
-                              if (_viewModel.goalName == null) ...[
-                                const SizedBox(width: 8),
-                                Icon(
-                                  Icons.edit,
-                                  size: 16,
-                                  color:
-                                      Theme.of(
-                                        context,
-                                      ).colorScheme.onSurfaceVariant,
-                                ),
-                              ],
+                              const SizedBox(width: 8),
+                              Icon(
+                                _viewModel.goalName != null
+                                    ? Icons.close
+                                    : Icons.edit,
+                                size: 16,
+                                color:
+                                    Theme.of(
+                                      context,
+                                    ).colorScheme.onSurfaceVariant,
+                              ),
                             ],
                           ),
                         ],
@@ -647,23 +694,22 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen> {
                     const SizedBox(height: 20),
                   ],
 
-                  if (!_isEditing) ...[
+                  if (!_isEditing &&
+                      (_viewModel.transaction['body'] ?? "") != "") ...[
                     Text(
                       CMS.transaction['original_message_label']!,
-                      style: const TextStyle(fontSize: 16, color: Colors.grey),
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
                     ),
                     const SizedBox(height: 8),
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      width: double.infinity,
-                      decoration: BoxDecoration(
-                        color:
-                            Theme.of(
-                              context,
-                            ).colorScheme.surfaceContainerHighest,
-                        borderRadius: BorderRadius.circular(8),
+                    Text(
+                      _viewModel.transaction['body'],
+                      style: const TextStyle(
+                        fontFamily: 'Monospace',
+                        fontSize: 13,
                       ),
-                      child: Text(_viewModel.transaction['body'] ?? ""),
                     ),
                   ],
                 ],

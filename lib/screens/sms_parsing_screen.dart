@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:another_telephony/telephony.dart';
 import '../utils/cms.dart';
 import '../viewmodels/sms_parsing_view_model.dart';
+import '../widgets/sms/sms_code_block.dart';
+import '../widgets/sms/selection_tab.dart';
 import 'main_screen.dart';
 
 class SmsParsingScreen extends StatefulWidget {
@@ -147,102 +149,92 @@ class _SmsParsingScreenState extends State<SmsParsingScreen> {
                   ),
                   const SizedBox(height: 24),
 
-                  // 2. Body Tokens (Visual Selection)
+                  // 2. Message Body & Parsing
                   Text(
                     CMS.smsParsing['step_2_title']!,
                     style: const TextStyle(fontWeight: FontWeight.bold),
                   ),
+                  const SizedBox(height: 8),
+
+                  // CHIP SELECTOR (For Fields)
+                  Container(
+                    width: double.infinity,
+                    decoration: BoxDecoration(
+                      color: Theme.of(context)
+                          .colorScheme
+                          .surfaceContainerHighest
+                          .withValues(alpha: 0.3),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    padding: const EdgeInsets.all(4),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: SelectionTab(
+                            label: "Amount",
+                            isSelected:
+                                _viewModel.selectionMode ==
+                                SelectionMode.amount,
+                            activeColor: Colors.green,
+                            onTap:
+                                () => _viewModel.setSelectionMode(
+                                  SelectionMode.amount,
+                                ),
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                        Expanded(
+                          child: SelectionTab(
+                            label: "Anchor Text",
+                            isSelected:
+                                _viewModel.selectionMode ==
+                                SelectionMode.anchor,
+                            activeColor: Colors.blue,
+                            onTap:
+                                () => _viewModel.setSelectionMode(
+                                  SelectionMode.anchor,
+                                ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  const SizedBox(height: 16),
                   Text(
-                    CMS.smsParsing['step_2_subtitle']!,
+                    _viewModel.selectionMode == SelectionMode.amount
+                        ? "Tap the word that represents the transaction amount."
+                        : "Tap distinct words before/after the amount to create a stable pattern.",
                     style: const TextStyle(color: Colors.grey, fontSize: 12),
                   ),
                   const SizedBox(height: 8),
 
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      border: Border.all(color: Colors.grey.shade300),
-                      borderRadius: BorderRadius.circular(8),
-                      color: Colors.grey.shade50,
-                    ),
-                    child: Wrap(
-                      spacing: 4,
-                      runSpacing: 8,
-                      children: List.generate(_viewModel.bodyTokens.length, (
-                        index,
-                      ) {
-                        Color bgColor = Colors.transparent;
-                        Color textColor = Colors.black87;
-                        FontWeight fontWeight = FontWeight.normal;
-
-                        if (index == _viewModel.selectedAmountIndex) {
-                          bgColor = Colors.green;
-                          textColor = Colors.white;
-                          fontWeight = FontWeight.bold;
-                        } else if (_viewModel.prefixStart != null &&
-                            _viewModel.prefixEnd != null &&
-                            index >= _viewModel.prefixStart! &&
-                            index <= _viewModel.prefixEnd!) {
-                          bgColor = Colors.blue;
-                          textColor = Colors.white;
-                          fontWeight = FontWeight.bold;
-                        } else if (_viewModel.suffixStart != null &&
-                            _viewModel.suffixEnd != null &&
-                            index >= _viewModel.suffixStart! &&
-                            index <= _viewModel.suffixEnd!) {
-                          bgColor = Colors.blue;
-                          textColor = Colors.white;
-                          fontWeight = FontWeight.bold;
-                        } else if (_viewModel.prefixEnd != null &&
-                            _viewModel.selectedAmountIndex != null &&
-                            index > _viewModel.prefixEnd! &&
-                            index < _viewModel.selectedAmountIndex!) {
-                          bgColor = Colors.blue.shade50;
-                        } else if (_viewModel.suffixStart != null &&
-                            _viewModel.selectedAmountIndex != null &&
-                            index > _viewModel.selectedAmountIndex! &&
-                            index < _viewModel.suffixStart!) {
-                          bgColor = Colors.blue.shade50;
-                        }
-
-                        return InkWell(
-                          onTap: () => _viewModel.handleTokenTap(index),
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 6,
-                            ),
-                            decoration: BoxDecoration(
-                              color: bgColor,
-                              borderRadius: BorderRadius.circular(6),
-                              border:
-                                  (bgColor == Colors.transparent)
-                                      ? Border.all(color: Colors.grey.shade300)
-                                      : null,
-                            ),
-                            child: Text(
-                              _viewModel.bodyTokens[index],
-                              style: TextStyle(
-                                color: textColor,
-                                fontWeight: fontWeight,
-                              ),
-                            ),
-                          ),
-                        );
-                      }),
-                    ),
+                  // CODE BLOCK
+                  SmsCodeBlock(
+                    tokens: _viewModel.bodyTokens,
+                    onTokenTap: _viewModel.handleTokenTap,
+                    selectedAmountIndex: _viewModel.selectedAmountIndex,
+                    prefixStart: _viewModel.prefixStart,
+                    prefixEnd: _viewModel.prefixEnd,
+                    suffixStart: _viewModel.suffixStart,
+                    suffixEnd: _viewModel.suffixEnd,
                   ),
 
                   const SizedBox(height: 8),
                   if (_viewModel.generatedRegex.isNotEmpty)
                     Container(
-                      padding: const EdgeInsets.all(8),
-                      color: Colors.grey.shade200,
+                      padding: const EdgeInsets.all(12),
+                      width: double.infinity,
+                      decoration: BoxDecoration(
+                        color: Colors.black87,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
                       child: Text(
                         "${CMS.smsParsing['regex_preview']!}${_viewModel.generatedRegex}",
                         style: const TextStyle(
                           fontFamily: 'monospace',
-                          fontSize: 10,
+                          fontSize: 11,
+                          color: Colors.greenAccent,
                         ),
                       ),
                     ),

@@ -184,6 +184,17 @@ class DatabaseHelper {
       )
     ''');
 
+    // 6. Budget Overrides Table
+    await db.execute('''
+      CREATE TABLE budget_overrides (
+        month INTEGER,
+        year INTEGER,
+        categoryId INTEGER, 
+        amount REAL,
+        PRIMARY KEY (month, year, categoryId)
+      )
+    ''');
+
     // Insert default categories
     await _insertDefaultCategories(db);
   }

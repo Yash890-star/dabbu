@@ -6,6 +6,7 @@ import 'sms_parsing_screen.dart';
 import 'sms_setup_screen.dart';
 import 'subscriptions_screen.dart';
 import '../viewmodels/settings_view_model.dart';
+import '../widgets/settings/settings_section.dart';
 
 class SettingsPage extends StatefulWidget {
   final int initialIndex;
@@ -15,26 +16,18 @@ class SettingsPage extends StatefulWidget {
   State<SettingsPage> createState() => _SettingsPageState();
 }
 
-class _SettingsPageState extends State<SettingsPage>
-    with SingleTickerProviderStateMixin {
-  late TabController _tabController;
+class _SettingsPageState extends State<SettingsPage> {
   final SettingsViewModel _viewModel = SettingsViewModel();
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(
-      length: 2,
-      vsync: this,
-      initialIndex: widget.initialIndex,
-    );
     _viewModel.loadData();
   }
 
   @override
   void dispose() {
     _viewModel.dispose();
-    _tabController.dispose();
     super.dispose();
   }
 
@@ -219,9 +212,9 @@ class _SettingsPageState extends State<SettingsPage>
                       if (ctx.mounted) {
                         Navigator.pop(ctx);
                       }
-                      // Use ctx (from showDialog context) or Ensure context is valid if using ScaffoldMessenger
-                      if (ctx.mounted && wasBudgetUpdated) {
-                        ScaffoldMessenger.of(ctx).showSnackBar(
+
+                      if (mounted && wasBudgetUpdated) {
+                        ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
                             content: Text(CMS.settings['auto_budget_update']!),
                             backgroundColor:
@@ -433,13 +426,7 @@ class _SettingsPageState extends State<SettingsPage>
     return Scaffold(
       appBar: AppBar(
         title: Text(CMS.settings['app_bar_title']!),
-        bottom: TabBar(
-          controller: _tabController,
-          tabs: [
-            Tab(text: CMS.settings['general_tab']!),
-            Tab(text: CMS.settings['patterns_tab']!),
-          ],
-        ),
+        centerTitle: false,
       ),
       body: AnimatedBuilder(
         animation: _viewModel,
@@ -448,232 +435,211 @@ class _SettingsPageState extends State<SettingsPage>
             return const Center(child: CircularProgressIndicator());
           }
 
-          return TabBarView(
-            controller: _tabController,
-            children: [
-              // 0. General Tab (Now includes Categories)
-              ListView(
-                children: [
-                  // Section 1: Budget
-                  Padding(
-                    padding: const EdgeInsets.all(16.0),
-                    child: Text(
-                      CMS.settings['general_settings_header']!,
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        color: Theme.of(context).colorScheme.primary,
-                        fontWeight: FontWeight.bold,
+          return SingleChildScrollView(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              children: [
+                // 1. GENERAL SETTINGS
+                SettingsSection(
+                  title: CMS.settings['general_settings_header']!,
+                  icon: Icons.tune,
+                  children: [
+                    ListTile(
+                      leading: const Icon(
+                        Icons.account_balance_wallet_outlined,
+                        color: AppColors.walletIcon,
                       ),
-                    ),
-                  ),
-                  ListTile(
-                    leading: const Icon(
-                      Icons.account_balance_wallet,
-                      color: AppColors.walletIcon,
-                    ),
-                    title: Text(CMS.settings['monthly_budget']!),
-                    subtitle: Text(
-                      _viewModel.monthlyBudget > 0
-                          ? "₹ ${_viewModel.monthlyBudget.toStringAsFixed(0)}"
-                          : CMS.settings['monthly_budget_not_set']!,
-                    ),
-                    trailing: const Icon(Icons.edit),
-                    onTap: _editBudget,
-                  ),
-                  ListTile(
-                    leading: const Icon(
-                      Icons.receipt_long,
-                      color: AppColors.subscriptionIcon,
-                    ),
-                    title: Text(CMS.settings['subscriptions_title']!),
-                    subtitle: Text(CMS.settings['subscriptions_subtitle']!),
-                    trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => const SubscriptionsScreen(),
-                        ),
-                      );
-                    },
-                  ),
-                  ListTile(
-                    leading: const Icon(
-                      Icons.archive,
-                      color: AppColors.archiveIcon,
-                    ),
-                    title: Text(CMS.settings['archived_goals_title']!),
-                    subtitle: Text(CMS.settings['archived_goals_subtitle']!),
-                    trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-                    onTap: _showArchivedGoals,
-                  ),
-
-                  const Divider(height: 32),
-                  // Section 2: Categories
-                  Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16.0,
-                      vertical: 8.0,
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          CMS.settings['categories_header']!,
-                          style: Theme.of(
-                            context,
-                          ).textTheme.titleMedium?.copyWith(
-                            color: Theme.of(context).colorScheme.primary,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        TextButton.icon(
-                          onPressed: () => _addOrEditCategory(),
-                          icon: const Icon(Icons.add_circle, size: 20),
-                          label: Text(CMS.settings['add_category']!),
-                        ),
-                      ],
-                    ),
-                  ),
-
-                  if (_viewModel.categories.isEmpty)
-                    Padding(
-                      padding: const EdgeInsets.all(16.0),
-                      child: Text(CMS.settings['no_categories']!),
-                    ),
-
-                  ..._viewModel.categories.map((cat) {
-                    final budget =
-                        cat['budgetLimit'] != null && cat['budgetLimit'] > 0
-                            ? "${CMS.settings['budget_prefix']!}₹${cat['budgetLimit']}"
-                            : CMS.settings['no_limit']!;
-                    final color =
-                        cat['color'] != null
-                            ? Color(cat['color'])
-                            : Theme.of(context).disabledColor;
-
-                    return ListTile(
-                      leading: CircleAvatar(
-                        backgroundColor: color.withValues(alpha: 0.2),
-                        child: Icon(Icons.category, color: color),
+                      title: Text(CMS.settings['monthly_budget']!),
+                      subtitle: Text(
+                        _viewModel.monthlyBudget > 0
+                            ? "₹ ${_viewModel.monthlyBudget.toStringAsFixed(0)}"
+                            : CMS.settings['monthly_budget_not_set']!,
                       ),
-                      title: Text(cat['name']),
-                      subtitle: Text(budget),
-                      trailing: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          // Reset Limit Button (Only if limit > 0)
-                          if (cat['budgetLimit'] != null &&
-                              (cat['budgetLimit'] as num) > 0)
-                            IconButton(
-                              tooltip: CMS.settings['reset_limit_tooltip']!,
-                              icon: const Icon(
-                                Icons.restart_alt,
-                                size: 20,
-                                color: Colors.orange,
-                              ),
-                              onPressed: () async {
-                                await _viewModel.addOrUpdateCategory(
-                                  id: cat['id'],
-                                  name: cat['name'],
-                                  colorValue: cat['color'],
-                                  budgetLimit: 0.0,
-                                  icon: cat['icon'],
-                                );
-                              },
-                            ),
-
-                          IconButton(
-                            icon: Icon(
-                              Icons.edit,
-                              size: 20,
-                              color: Theme.of(context).colorScheme.primary,
-                            ),
-                            onPressed: () => _addOrEditCategory(cat),
-                          ),
-                          IconButton(
-                            icon: const Icon(
-                              Icons.delete,
-                              size: 20,
-                              color: AppColors.delete,
-                            ),
-                            onPressed: () => _deleteCategory(cat['id']),
-                          ),
-                        ],
+                      trailing: const Icon(Icons.edit_outlined, size: 20),
+                      onTap: _editBudget,
+                    ),
+                    const Divider(height: 1, indent: 56),
+                    ListTile(
+                      leading: const Icon(
+                        Icons.receipt_long_outlined,
+                        color: AppColors.subscriptionIcon,
                       ),
-                      onTap: () => _addOrEditCategory(cat),
-                    );
-                  }),
-
-                  const SizedBox(height: 80), // Bottom padding
-                ],
-              ),
-
-              // 1. Patterns Tab
-              ListView(
-                children: [
-                  ListTile(
-                    leading: Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: Theme.of(
+                      title: Text(CMS.settings['subscriptions_title']!),
+                      subtitle: Text(CMS.settings['subscriptions_subtitle']!),
+                      trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                      onTap: () {
+                        Navigator.push(
                           context,
-                        ).colorScheme.primaryContainer.withValues(alpha: 0.2),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Icon(
-                        Icons.add,
-                        color: Theme.of(context).colorScheme.primary,
-                      ),
+                          MaterialPageRoute(
+                            builder: (context) => const SubscriptionsScreen(),
+                          ),
+                        );
+                      },
                     ),
-                    title: Text(CMS.settings['add_pattern_title']!),
-                    subtitle: Text(CMS.settings['add_pattern_subtitle']!),
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => const SmsSetupScreen(),
-                        ),
-                      ).then((_) => _viewModel.loadData());
-                    },
-                  ),
-                  const Divider(),
-                  if (_viewModel.patterns.isEmpty)
-                    Padding(
-                      padding: const EdgeInsets.all(20),
-                      child: Text(
-                        CMS.settings['no_patterns']!,
-                        textAlign: TextAlign.center,
+                    const Divider(height: 1, indent: 56),
+                    ListTile(
+                      leading: const Icon(
+                        Icons.archive_outlined,
+                        color: AppColors.archiveIcon,
                       ),
+                      title: Text(CMS.settings['archived_goals_title']!),
+                      subtitle: Text(CMS.settings['archived_goals_subtitle']!),
+                      trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                      onTap: _showArchivedGoals,
                     ),
+                  ],
+                ),
 
-                  ..._viewModel.patterns.map(
-                    (p) => ListTile(
-                      title: Text(p['name'] ?? "Unnamed"),
-                      subtitle: Text(p['senderId']),
-                      trailing: Row(
-                        mainAxisSize: MainAxisSize.min,
+                // 2. CATEGORIES
+                SettingsSection(
+                  title: CMS.settings['categories_header']!,
+                  icon: Icons.category_outlined,
+                  children: [
+                    ..._viewModel.categories.map((cat) {
+                      final budget =
+                          cat['budgetLimit'] != null && cat['budgetLimit'] > 0
+                              ? "${CMS.settings['budget_prefix']!}₹${cat['budgetLimit']}"
+                              : CMS.settings['no_limit']!;
+                      final color =
+                          cat['color'] != null
+                              ? Color(cat['color'])
+                              : Theme.of(context).disabledColor;
+
+                      return Column(
                         children: [
-                          IconButton(
-                            icon: Icon(
-                              Icons.edit,
-                              color: Theme.of(context).colorScheme.primary,
+                          ListTile(
+                            leading: CircleAvatar(
+                              backgroundColor: color.withValues(alpha: 0.2),
+                              child: Icon(Icons.circle, color: color, size: 12),
                             ),
-                            onPressed: () => _editPattern(p),
-                          ),
-                          IconButton(
-                            icon: const Icon(
-                              Icons.delete,
-                              color: AppColors.delete,
+                            title: Text(
+                              cat['name'],
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w500,
+                              ),
                             ),
-                            onPressed: () => _deletePattern(p['id']),
+                            subtitle: Text(budget),
+                            trailing: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                if (cat['budgetLimit'] != null &&
+                                    (cat['budgetLimit'] as num) > 0)
+                                  IconButton(
+                                    tooltip:
+                                        CMS.settings['reset_limit_tooltip']!,
+                                    icon: const Icon(
+                                      Icons.restart_alt,
+                                      size: 20,
+                                      color: Colors.orange,
+                                    ),
+                                    onPressed: () async {
+                                      await _viewModel.addOrUpdateCategory(
+                                        id: cat['id'],
+                                        name: cat['name'],
+                                        colorValue: cat['color'],
+                                        budgetLimit: 0.0,
+                                        icon: cat['icon'],
+                                      );
+                                    },
+                                  ),
+                                IconButton(
+                                  icon: const Icon(
+                                    Icons.edit_outlined,
+                                    size: 20,
+                                  ),
+                                  onPressed: () => _addOrEditCategory(cat),
+                                ),
+                              ],
+                            ),
+                            onTap: () => _addOrEditCategory(cat),
                           ),
+                          const Divider(height: 1, indent: 56),
+                        ],
+                      );
+                    }),
+                    ListTile(
+                      leading: const Icon(
+                        Icons.add_circle_outline,
+                        color: Colors.blue,
+                      ),
+                      title: Text(
+                        CMS.settings['add_category']!,
+                        style: const TextStyle(
+                          color: Colors.blue,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      onTap: () => _addOrEditCategory(),
+                    ),
+                  ],
+                ),
+
+                // 3. PATTERNS
+                SettingsSection(
+                  title: CMS.settings['patterns_tab']!,
+                  icon: Icons.code,
+                  children: [
+                    ..._viewModel.patterns.map(
+                      (p) => Column(
+                        children: [
+                          ListTile(
+                            title: Text(
+                              p['name'] ?? "Unnamed",
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                            subtitle: Text(
+                              p['senderId'],
+                              style: const TextStyle(fontFamily: 'monospace'),
+                            ),
+                            trailing: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                IconButton(
+                                  icon: const Icon(
+                                    Icons.edit_outlined,
+                                    size: 20,
+                                  ),
+                                  onPressed: () => _editPattern(p),
+                                ),
+                                IconButton(
+                                  icon: const Icon(
+                                    Icons.delete_outline,
+                                    size: 20,
+                                    color: AppColors.delete,
+                                  ),
+                                  onPressed: () => _deletePattern(p['id']),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const Divider(height: 1, indent: 16),
                         ],
                       ),
                     ),
-                  ),
-                ],
-              ),
-            ],
+                    ListTile(
+                      leading: const Icon(Icons.add, color: Colors.blue),
+                      title: Text(
+                        CMS.settings['add_pattern_title']!,
+                        style: const TextStyle(
+                          color: Colors.blue,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const SmsSetupScreen(),
+                          ),
+                        ).then((_) => _viewModel.loadData());
+                      },
+                    ),
+                  ],
+                ),
+              ],
+            ),
           );
         },
       ),

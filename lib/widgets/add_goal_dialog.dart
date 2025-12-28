@@ -98,7 +98,8 @@ class _AddGoalDialogState extends State<AddGoalDialog> {
                         .add(const Duration(days: 365))
                         .millisecondsSinceEpoch, // Default 1 year
               });
-              if (mounted) Navigator.pop(context);
+              if (!mounted) return;
+              Navigator.pop(context);
               widget.onGoalAdded();
             }
           },
