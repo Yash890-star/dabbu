@@ -309,7 +309,7 @@ class _GoalHistoryScreenState extends State<GoalHistoryScreen> {
       animation: _viewModel,
       builder: (context, child) {
         final totalSaved = _viewModel.totalSaved;
-        final goalTarget = (_viewModel.goal['targetAmount'] as num).toDouble();
+
         final progress = _viewModel.progress;
         final color = Color(
           _viewModel.goal['color'] ?? AppColors.defaultGoalColor.toARGB32(),

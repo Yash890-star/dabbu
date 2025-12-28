@@ -103,7 +103,7 @@ class SettingsPageState extends State<SettingsPage>
       context: context,
       builder:
           (ctx) => StatefulBuilder(
-            builder: (context, setDialogState) {
+            builder: (innerContext, setDialogState) {
               return AlertDialog(
                 title: Text(
                   existingCategory == null
@@ -168,7 +168,7 @@ class SettingsPageState extends State<SettingsPage>
                                             ? Border.all(
                                               color:
                                                   Theme.of(
-                                                    context,
+                                                    innerContext,
                                                   ).colorScheme.onSurface,
                                               width: 3,
                                             )
