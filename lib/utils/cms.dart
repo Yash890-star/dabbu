@@ -1,0 +1,305 @@
+class CMS {
+  static const Map<String, String> common = {
+    'cancel': 'Cancel',
+    'delete': 'Delete',
+    'save': 'Save',
+    'edit': 'Edit',
+    'add': 'Add',
+    'close': 'Close',
+    'apply': 'Apply',
+    'clear_all': 'Clear All',
+    'currency_symbol': '₹',
+    'ok': 'OK',
+    'yes': 'Yes',
+    'no': 'No',
+    'restore': 'Restore',
+  };
+
+  static const List<String> months = [
+    'January',
+    'February',
+    'March',
+    'April',
+    'May',
+    'June',
+    'July',
+    'August',
+    'September',
+    'October',
+    'November',
+    'December',
+  ];
+
+  static const Map<String, String> errors = {
+    'invalid_month': 'Invalid Month',
+    'no_sms_found':
+        "Could not find any recent SMS from {senderId} to retrain the pattern.",
+  };
+
+  static const Map<String, dynamic> home = {
+    'greeting_prefix': 'Hello,',
+    'monthly_budget_title': 'Monthly Budget',
+    'monthly_budget_set': 'Set a Monthly Budget',
+    'upcoming_bills': 'Upcoming Bills',
+    'upcoming_due': 'Due',
+    'goals_header': 'Savings Goals',
+    'goals_add_new': 'Add New Goal',
+    'transaction_list_header': 'Recent Transactions',
+    'spends_label': 'SPENDS',
+    'credits_label': 'CREDITS',
+    'no_transactions': 'No transactions yet.\nPull down to scan.',
+    'new_transaction_found': 'Found {count} new transactions!',
+    'no_new_transaction': 'No new transactions found.',
+    'add_menu_title': 'What would you like to add?',
+    'add_menu_transaction': 'New Transaction',
+    'add_menu_transaction_sub': 'Manually add an expense or income',
+    'add_menu_pattern': 'Manage SMS Patterns',
+    'add_menu_pattern_sub': 'Go to Settings to train patterns',
+    'create_goal_title': 'New Savings Goal',
+    'create_goal_name': 'Goal Name (e.g. Vacation)',
+    'create_goal_amount': 'Target Amount',
+    'create_goal_btn': 'Create Goal',
+    'budget_editor_title': 'Budget for {month}',
+    'budget_total_label': 'Total Monthly Goal',
+    'budget_sublimits_label': 'Category Sub-limits (Optional)',
+    'spent_label': 'Spent: ',
+    'remaining_label': 'Remaining: ',
+    'limit_label': 'Limit: ',
+    'reset_tooltip': 'Reset to Current Month',
+  };
+
+  static const Map<String, dynamic> settings = {
+    'app_bar_title': 'Settings',
+    'general_tab': 'General',
+    'patterns_tab': 'Patterns',
+    'general_settings_header': 'General Settings',
+    'monthly_budget': 'Monthly Budget',
+    'monthly_budget_subtitle': 'Amount (₹)',
+    'monthly_budget_not_set': 'Not Set',
+    'subscriptions_title': 'Subscriptions & Recurring Bills',
+    'subscriptions_subtitle': 'Manage recurring payments',
+    'archived_goals_title': 'Archived Goals',
+    'archived_goals_subtitle': 'View and restore hidden goals',
+    'categories_header': 'Categories',
+    'add_category': 'Add New',
+    'no_categories': 'No categories found.',
+    'budget_prefix': 'Budget: ',
+    'no_limit': 'No Limit',
+    'reset_limit_tooltip': 'Reset Limit',
+    'delete_category_title': 'Delete Category?',
+    'delete_category_content':
+        "Are you sure you want to delete this category?\n\nAll its transactions will be moved to 'Uncategorized'.",
+    'cannot_delete_default':
+        "Cannot delete the default 'Uncategorized' category.",
+    'add_pattern_title': 'Add New Regex Pattern',
+    'add_pattern_subtitle': 'Scan SMS to train a new bank format',
+    'no_patterns': 'No patterns saved.',
+    'delete_pattern_title': 'Delete Pattern?',
+    'delete_pattern_content':
+        'Do you want to delete the transactions associated with this pattern as well?',
+    'keep_transactions': 'Keep Transactions',
+    'delete_all': 'Delete All',
+    'edit_budget_dialog_title': 'Set Monthly Budget',
+    'category_name_label': 'Category Name',
+    'category_name_hint': 'e.g. Travel',
+    'category_limit_label': 'Monthly Limit (Optional)',
+    'category_limit_hint': 'e.g. 5000',
+    'pick_color': 'Pick a Color:',
+    'new_category_title': 'New Category',
+    'edit_category_title': 'Edit Category',
+    'auto_budget_update':
+        'Monthly Budget updated automatically to match category limits.',
+
+    'delete_all_btn': 'Delete All',
+    'keep_transactions_btn': 'Keep Transactions',
+    'restored_msg': "'{goalName}' restored to Home Screen",
+    'no_archived_goals': 'No archived goals.',
+    'no_sms_title': 'No SMS Found',
+  };
+
+  static const Map<String, dynamic> goals = {
+    'goal_unarchived': 'Goal unarchived',
+    'goal_archived': 'Goal archived',
+    'delete_goal_title': 'Delete Goal?',
+    'delete_goal_content':
+        'This will delete the goal. The transactions will be kept but unlinked.',
+    'link_transaction_title': "Link Transaction to '{goalName}'",
+    'no_unlinked_transactions': 'No recent unlinked transactions found.',
+    'select_impact_title': 'Select Impact',
+    'select_impact_content':
+        "Does this transaction ADD to or SUBTRACT from '{goalName}'?",
+    'subtract_action': 'Subtract',
+    'add_action': 'Add (Deposit)',
+    'transaction_linked': 'Transaction linked to {goalName}',
+    'add_funds_title': 'Add Funds',
+    'new_deposit_title': 'New Deposit',
+    'new_deposit_subtitle': 'Create a new transaction',
+    'link_existing_title': 'Link Existing',
+    'link_existing_subtitle': 'Select from past transactions',
+    'current_balance': 'Current Balance',
+    'goal_target': 'Goal Target: ',
+    'no_history': 'No transactions yet.\nAdd funds to start saving!',
+    'archive_action': 'Archive',
+    'unarchive_action': 'Unarchive',
+    'motivation_complete': "Congratulations! You've reached your goal! 🎉",
+    'motivation_almost': "Almost there! Just a little more push! 🚀",
+    'motivation_halfway': "Halfway done! Keep the momentum going! 🔥",
+    'motivation_started': "Great start! Consistent savings win the race. 🐢",
+    'motivation_beginning': "Every journey begins with a small step. 🌱",
+    'remaining_suffix': ' remaining',
+  };
+
+  static const Map<String, dynamic> transaction = {
+    'edit_title': 'Edit Transaction',
+    'add_title': 'Add Transaction',
+    'amount_label': 'Amount',
+    'amount_error_empty': 'Please enter an amount',
+    'amount_error_invalid': 'Please enter a valid amount',
+    'date_label': 'Date',
+    'note_label': 'Note / Payee',
+    'note_hint': 'e.g. Cash, Lunch, Taxi',
+    'category_label': 'Category',
+    'save_btn': 'Save Transaction',
+    'update_btn': 'Update Transaction',
+    'impact_title': 'Impact on Goal',
+    'impact_add': 'Add (Deposit)',
+    'impact_subtract': 'Subtract (Withdraw)',
+    'flow_label': 'Actual Money Flow:',
+    'flow_expense': 'Paid Out (Expense)',
+    'flow_income': 'Received (Income)',
+    'type_expense': 'Expense (Debit)',
+    'type_income': 'Income (Credit)',
+    'default_goal_contribution': 'Goal Contribution',
+    'default_manual_entry': 'Manual Entry',
+    'default_manual_body': 'Manually added transaction',
+    'error_saving': 'Error saving: ',
+    'details_title': 'Details',
+    'delete_dialog_title': 'Delete Transaction',
+    'delete_dialog_content':
+        'Are you sure you want to delete this transaction? This action cannot be undone.',
+    'invalid_amount': 'Invalid Amount',
+    'category_updated': 'Category updated',
+    'transaction_updated': 'Transaction Updated',
+    'create_category': 'Create New Category',
+    'select_goal_title': 'Select Savings Goal',
+    'impact_dialog_title': "Impact on '{goalName}'?",
+    'impact_dialog_content':
+        'Is this money adding to the goal or being withdrawn from it?',
+    'link_goal_label': 'Link to Goal',
+    'select_goal_label': 'Select Goal',
+    'original_message_label': 'Original Message / Note',
+    'sender_label': 'Sender',
+    'create_assign_btn': 'Create & Assign',
+  };
+
+  static const Map<String, dynamic> analytics = {
+    'title': 'Spending Analytics',
+    'manual_transactions': 'Manual Transactions',
+    'expenses_label': 'Expenses',
+    'income_label': 'Income',
+    'insights_title': 'Insights',
+    'total_label': 'Total',
+    'recent_transactions': 'Recent Transactions',
+    'no_transactions': 'No transactions found for this period',
+    'no_expenses_title': 'No expenses yet! 🎉',
+    'no_income_title': 'No income found for this period. 💸',
+    'try_different_date': 'Try a different date range',
+    'time_day': 'Day',
+    'time_week': 'Week',
+    'time_month': 'Month',
+    'vs_last': ' vs last ',
+  };
+
+  static const Map<String, dynamic> smsParsing = {
+    'title': 'Train Parser',
+    'step_1_title': '1. Select Bank Name:',
+    'step_2_title': '2. Select AMOUNT (Green) and ANCHOR TEXT (Blue):',
+    'step_2_subtitle':
+        'Tap amount first, then tap words before/after it to lock the pattern.',
+    'step_3_title': '3. Details',
+    'debit_label': 'Debit',
+    'credit_label': 'Credit',
+    'pattern_name_label': 'Pattern Name',
+    'pattern_name_helper': "e.g., 'Axis Credit Card'",
+    'default_category_label': 'Default Category',
+    'save_pattern_btn': 'Save Pattern',
+    'error_incomplete':
+        'Please select Bank Name, Amount, and at least one Anchor text.',
+    'success_message': 'Pattern updated & history refreshed.',
+    'new_category_title': 'New Category',
+    'category_hint': 'Category Name (e.g. Groceries)',
+    'regex_preview': 'Regex: ',
+  };
+
+  static const Map<String, dynamic> calendar = {
+    'title': 'Calendar Heat Map',
+    'sort_title': 'Sort Transactions',
+    'sort_newest': 'Newest First (Default)',
+    'sort_oldest': 'Oldest First',
+    'sort_amount_high': 'Amount: High to Low',
+    'sort_amount_low': 'Amount: Low to High',
+    'reset_sort': 'Reset Sort',
+    'filter_title': 'Filter Transactions',
+    'reset_all': 'Reset All',
+    'categories_header': 'Categories',
+    'senders_header': 'Payment Methods / Senders',
+    'no_transactions_month': 'No transactions found in this month.',
+    'reset_date': 'Reset Date',
+    'filter_btn': 'Filter',
+    'filters_btn': 'Filters ({count})',
+  };
+
+  static const Map<String, dynamic> setup = {
+    'welcome': 'Welcome!',
+    'ask_name': 'To get started, what should we call you?',
+    'name_label': 'Your Name',
+    'name_error': 'Please enter your name',
+    'next_step': 'Next Step',
+  };
+
+  static const Map<String, dynamic> main = {
+    'nav_home': 'Home',
+    'nav_analytics': 'Analytics',
+    'nav_calendar': 'Calendar',
+    'nav_settings': 'Settings',
+  };
+
+  static const Map<String, dynamic> smsList = {
+    'title': 'Select Transaction',
+    'search_hint': 'Search sender or message...',
+  };
+
+  static const Map<String, dynamic> smsSetup = {
+    'title': 'Setup Tracking',
+    'scan_title': 'Scan for Transactions',
+    'scan_subtitle':
+        'We will scan your inbox to find bank messages. Select how far back we should look.',
+    'start_from': 'Start from: ',
+    'scan_btn': 'Scan Inbox',
+    'permission_required': 'SMS permission is required to find transactions.',
+    'no_messages': 'No messages found after ',
+    'error_prefix': 'Error: ',
+    'perm_denied_title': 'Permission Required',
+    'perm_denied_content':
+        'SMS permission is permanently denied. Please enable it in app settings to use this feature.',
+    'open_settings': 'Open Settings',
+  };
+
+  static const Map<String, dynamic> subscriptions = {
+    'title': 'Subscriptions',
+    'scan_tooltip': 'Scan for Subscriptions',
+    'no_subscriptions': 'No subscriptions yet.',
+    'scan_history_btn': 'Scan Transaction History',
+    'detected_title': 'Detected Subscriptions',
+    'avg_per_month': 'Avg: ₹{amount} / mo',
+    'close': 'Close',
+    'add_title': 'Add Subscription',
+    'name_label': 'Name (e.g. Netflix)',
+    'amount_label': 'Amount',
+    'next_bill_label': 'Next Bill: ',
+    'add_btn': 'Add',
+    'no_patterns_found': 'No recurring patterns found.',
+    'days_left_suffix': ' days)',
+    'next_due_label': 'Next: ',
+  };
+}

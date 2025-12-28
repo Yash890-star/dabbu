@@ -7,7 +7,7 @@ plugins {
 
 android {
     namespace = "com.example.dabbu"
-    compileSdk = 35
+    compileSdk = 36
     ndkVersion = "27.0.12077973"
 
     compileOptions {
@@ -24,10 +24,16 @@ android {
         applicationId = "com.example.dabbu"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
-        minSdk = 23
-        targetSdk = 31
+        minSdk = flutter.minSdkVersion
+        targetSdk = 35
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+
+        ndk {
+            abiFilters.add("arm64-v8a")
+            abiFilters.add("armeabi-v7a")
+            abiFilters.add("x86_64")
+        }
     }
 
     buildTypes {
