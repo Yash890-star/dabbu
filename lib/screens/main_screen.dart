@@ -45,11 +45,8 @@ class _MainScreenState extends State<MainScreen> {
     }
 
     // Animate to the page when tab is tapped
-    _pageController.animateToPage(
-      index,
-      duration: const Duration(milliseconds: 300),
-      curve: Curves.easeInOut,
-    );
+    // Jump to the page to prevent "flickering" of intermediate tabs
+    _pageController.jumpToPage(index);
 
     setState(() {
       _selectedIndex = index;
