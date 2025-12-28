@@ -91,8 +91,9 @@ class SmsParsingViewModel extends ChangeNotifier {
       // ANCHOR MODE
       if (selectedAmountIndex == null) return; // Need amount first
 
-      if (index == selectedAmountIndex)
+      if (index == selectedAmountIndex) {
         return; // Cannot be anchor if it is amount
+      }
 
       if (selectedAnchorIndices.contains(index)) {
         selectedAnchorIndices.remove(index);

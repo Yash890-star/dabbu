@@ -3,16 +3,35 @@ import 'package:intl/intl.dart';
 import '../utils/app_colors.dart';
 import 'transaction_detail_screen.dart';
 
-class AllTransactionsScreen extends StatelessWidget {
+class AllTransactionsScreen extends StatefulWidget {
+  final String? title;
   final List<Map<String, dynamic>> transactions;
 
-  const AllTransactionsScreen({super.key, required this.transactions});
+  const AllTransactionsScreen({
+    super.key,
+    required this.transactions,
+    this.title,
+  });
+
+  @override
+  State<AllTransactionsScreen> createState() => _AllTransactionsScreenState();
+}
+
+class _AllTransactionsScreenState extends State<AllTransactionsScreen> {
+  late List<Map<String, dynamic>> _transactions;
+
+  @override
+  void initState() {
+    super.initState();
+    // Create a mutable copy of the list
+    _transactions = List.from(widget.transactions);
+  }
 
   @override
   Widget build(BuildContext context) {
-    if (transactions.isEmpty) {
+    if (_transactions.isEmpty) {
       return Scaffold(
-        appBar: AppBar(title: const Text("All Transactions")),
+        appBar: AppBar(title: Text(widget.title ?? "All Transactions")),
         body: Center(
           child: Text(
             "No transactions yet",
@@ -26,7 +45,7 @@ class AllTransactionsScreen extends StatelessWidget {
 
     // Group transactions by Date
     final Map<String, List<Map<String, dynamic>>> grouped = {};
-    for (var tx in transactions) {
+    for (var tx in _transactions) {
       final date = DateTime.fromMillisecondsSinceEpoch(tx['date']);
       final key = _getDateKey(date);
       if (!grouped.containsKey(key)) {
@@ -38,7 +57,7 @@ class AllTransactionsScreen extends StatelessWidget {
     final keys = grouped.keys.toList();
 
     return Scaffold(
-      appBar: AppBar(title: const Text("All Transactions")),
+      appBar: AppBar(title: Text(widget.title ?? "All Transactions")),
       body: ListView.builder(
         itemCount: keys.length,
         itemBuilder: (context, sectionIndex) {
@@ -99,8 +118,8 @@ class AllTransactionsScreen extends StatelessWidget {
                       color: isDebit ? AppColors.expense : AppColors.income,
                     ),
                   ),
-                  onTap: () {
-                    Navigator.push(
+                  onTap: () async {
+                    final result = await Navigator.push(
                       context,
                       MaterialPageRoute(
                         builder:
@@ -108,6 +127,34 @@ class AllTransactionsScreen extends StatelessWidget {
                                 TransactionDetailScreen(transaction: tx),
                       ),
                     );
+
+                    if (result != null && result is Map) {
+                      final action = result['action'];
+                      if (action == 'delete') {
+                        setState(() {
+                          _transactions.removeWhere(
+                            (t) => t['id'] == result['id'],
+                          );
+                        });
+                      } else if (action == 'update') {
+                        final updatedTx = result['transaction'];
+                        setState(() {
+                          final index = _transactions.indexWhere(
+                            (t) => t['id'] == updatedTx['id'],
+                          );
+                          if (index != -1) {
+                            _transactions[index] = updatedTx;
+                            // Re-sort if date changed?
+                            // Assuming list was sorted by date desc
+                            _transactions.sort(
+                              (a, b) => (b['date'] as int).compareTo(
+                                a['date'] as int,
+                              ),
+                            );
+                          }
+                        });
+                      }
+                    }
                   },
                 );
               }),

@@ -109,7 +109,10 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen> {
     if (confirmed == true) {
       await _viewModel.deleteTransaction();
       if (mounted) {
-        Navigator.pop(context, true); // Return true to refresh details
+        Navigator.pop(context, {
+          'action': 'delete',
+          'id': _viewModel.transaction['id'],
+        });
       }
     }
   }
@@ -398,74 +401,110 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: _viewModel,
-      builder: (context, child) {
-        final isCredit = _viewModel.transaction['type'] == 'credit';
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        Navigator.pop(context, {
+          'action': 'update',
+          'transaction': _viewModel.transaction,
+        });
+      },
+      child: AnimatedBuilder(
+        animation: _viewModel,
+        builder: (context, child) {
+          final isCredit = _viewModel.transaction['type'] == 'credit';
 
-        return Scaffold(
-          appBar: AppBar(
-            title: Text(CMS.transaction['details_title']!),
-            actions:
-                _viewModel.isManual
-                    ? [
-                      if (!_isEditing)
-                        IconButton(
-                          icon: const Icon(Icons.delete, color: Colors.red),
-                          onPressed: _confirmDelete,
-                        ),
-                      IconButton(
-                        icon: Icon(_isEditing ? Icons.save : Icons.edit),
-                        onPressed: () {
-                          if (_isEditing) {
-                            _saveChanges();
-                          } else {
-                            setState(() => _isEditing = true);
-                          }
-                        },
-                      ),
-                    ]
-                    : null,
-          ),
-          body: Center(
-            child: TicketModal(
-              backgroundColor: Theme.of(context).cardColor,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  // Header: Amount & Icon
-                  Center(
-                    child: Column(
-                      children: [
-                        CircleAvatar(
-                          radius: 30,
-                          backgroundColor:
-                              isCredit
-                                  ? AppColors.incomeBackground
-                                  : AppColors.expenseBackground,
-                          child: Icon(
-                            isCredit
-                                ? Icons.arrow_downward
-                                : Icons.arrow_upward,
-                            color:
-                                isCredit ? AppColors.income : AppColors.expense,
-                            size: 30,
+          return Scaffold(
+            appBar: AppBar(
+              leading: IconButton(
+                icon: const Icon(Icons.arrow_back),
+                onPressed: () {
+                  Navigator.pop(context, {
+                    'action': 'update',
+                    'transaction': _viewModel.transaction,
+                  });
+                },
+              ),
+              title: Text(CMS.transaction['details_title']!),
+              actions:
+                  _viewModel.isManual
+                      ? [
+                        if (!_isEditing)
+                          IconButton(
+                            icon: const Icon(Icons.delete, color: Colors.red),
+                            onPressed: _confirmDelete,
                           ),
+                        IconButton(
+                          icon: Icon(_isEditing ? Icons.save : Icons.edit),
+                          onPressed: () {
+                            if (_isEditing) {
+                              _saveChanges();
+                            } else {
+                              setState(() => _isEditing = true);
+                            }
+                          },
                         ),
-                        const SizedBox(height: 16),
+                      ]
+                      : null,
+            ),
+            body: Center(
+              child: TicketModal(
+                backgroundColor: Theme.of(context).cardColor,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    // Header: Amount & Icon
+                    Center(
+                      child: Column(
+                        children: [
+                          CircleAvatar(
+                            radius: 30,
+                            backgroundColor:
+                                isCredit
+                                    ? AppColors.incomeBackground
+                                    : AppColors.expenseBackground,
+                            child: Icon(
+                              isCredit
+                                  ? Icons.arrow_downward
+                                  : Icons.arrow_upward,
+                              color:
+                                  isCredit
+                                      ? AppColors.income
+                                      : AppColors.expense,
+                              size: 30,
+                            ),
+                          ),
+                          const SizedBox(height: 16),
 
-                        // EDITABLE AMOUNT
-                        _isEditing
-                            ? SizedBox(
-                              width: 200,
-                              child: TextField(
-                                controller: _amountController,
-                                keyboardType:
-                                    const TextInputType.numberWithOptions(
-                                      decimal: true,
-                                    ),
-                                textAlign: TextAlign.center,
+                          // EDITABLE AMOUNT
+                          _isEditing
+                              ? SizedBox(
+                                width: 200,
+                                child: TextField(
+                                  controller: _amountController,
+                                  keyboardType:
+                                      const TextInputType.numberWithOptions(
+                                        decimal: true,
+                                      ),
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(
+                                    fontSize: 36,
+                                    fontWeight: FontWeight.w900,
+                                    color:
+                                        isCredit
+                                            ? AppColors.income
+                                            : AppColors.expense,
+                                  ),
+                                  decoration: const InputDecoration(
+                                    border: UnderlineInputBorder(),
+                                    prefixText: '₹ ',
+                                  ),
+                                ),
+                              )
+                              : Text(
+                                "₹${_viewModel.transaction['amount']}",
                                 style: TextStyle(
                                   fontSize: 36,
                                   fontWeight: FontWeight.w900,
@@ -474,150 +513,81 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen> {
                                           ? AppColors.income
                                           : AppColors.expense,
                                 ),
-                                decoration: const InputDecoration(
-                                  border: UnderlineInputBorder(),
-                                  prefixText: '₹ ',
-                                ),
                               ),
-                            )
-                            : Text(
-                              "₹${_viewModel.transaction['amount']}",
-                              style: TextStyle(
-                                fontSize: 36,
-                                fontWeight: FontWeight.w900,
-                                color:
-                                    isCredit
-                                        ? AppColors.income
-                                        : AppColors.expense,
-                              ),
-                            ),
 
-                        const SizedBox(height: 8),
+                          const SizedBox(height: 8),
 
-                        // Date
-                        InkWell(
-                          onTap: _isEditing ? _pickDate : null,
-                          borderRadius: BorderRadius.circular(4),
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 4,
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Text(
-                                  DateFormat.yMMMMEEEEd().add_jm().format(
-                                    _selectedDate,
-                                  ),
-                                  style: TextStyle(
-                                    color:
-                                        Theme.of(
-                                          context,
-                                        ).colorScheme.onSurfaceVariant,
-                                    fontSize: 14,
-                                  ),
-                                ),
-                                if (_isEditing)
-                                  Icon(
-                                    Icons.edit,
-                                    size: 14,
-                                    color:
-                                        Theme.of(context).colorScheme.primary,
-                                  ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-
-                  const SizedBox(height: 32),
-                  const Divider(
-                    thickness: 1,
-                    color: Colors.grey,
-                  ), // Dashed divider would be better for receipt
-                  const SizedBox(height: 24),
-
-                  // Details
-                  if (_isEditing)
-                    TextField(
-                      controller: _noteController,
-                      decoration: InputDecoration(
-                        labelText: CMS.transaction['note_label']!,
-                        border: const UnderlineInputBorder(),
-                      ),
-                    )
-                  else
-                    _detailRow(
-                      CMS.transaction['sender_label']!,
-                      _viewModel.transaction['sender'],
-                    ),
-
-                  const SizedBox(height: 20),
-
-                  // Category Row
-                  InkWell(
-                    onTap: _showCategoryPicker,
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          CMS.transaction['category_label']!,
-                          style: TextStyle(
-                            fontSize: 16,
-                            color:
-                                Theme.of(context).colorScheme.onSurfaceVariant,
-                          ),
-                        ),
-                        Row(
-                          children: [
-                            Container(
+                          // Date
+                          InkWell(
+                            onTap: _isEditing ? _pickDate : null,
+                            borderRadius: BorderRadius.circular(4),
+                            child: Padding(
                               padding: const EdgeInsets.symmetric(
-                                horizontal: 10,
+                                horizontal: 8,
                                 vertical: 4,
                               ),
-                              decoration: BoxDecoration(
-                                color:
-                                    Theme.of(
-                                      context,
-                                    ).colorScheme.surfaceContainerHighest,
-                                borderRadius: BorderRadius.circular(4),
-                              ),
-                              child: Text(
-                                _viewModel.categoryName,
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.w600,
-                                ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(
+                                    DateFormat.yMMMMEEEEd().add_jm().format(
+                                      _selectedDate,
+                                    ),
+                                    style: TextStyle(
+                                      color:
+                                          Theme.of(
+                                            context,
+                                          ).colorScheme.onSurfaceVariant,
+                                      fontSize: 14,
+                                    ),
+                                  ),
+                                  if (_isEditing)
+                                    Icon(
+                                      Icons.edit,
+                                      size: 14,
+                                      color:
+                                          Theme.of(context).colorScheme.primary,
+                                    ),
+                                ],
                               ),
                             ),
-                            const SizedBox(width: 8),
-                            Icon(
-                              Icons.edit,
-                              size: 16,
-                              color:
-                                  Theme.of(
-                                    context,
-                                  ).colorScheme.onSurfaceVariant,
-                            ),
-                          ],
-                        ),
-                      ],
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
 
-                  const SizedBox(height: 20),
+                    const SizedBox(height: 32),
+                    const Divider(
+                      thickness: 1,
+                      color: Colors.grey,
+                    ), // Dashed divider would be better for receipt
+                    const SizedBox(height: 24),
 
-                  // Goal Link Row
-                  if (_viewModel.allGoals.isNotEmpty) ...[
+                    // Details
+                    if (_isEditing)
+                      TextField(
+                        controller: _noteController,
+                        decoration: InputDecoration(
+                          labelText: CMS.transaction['note_label']!,
+                          border: const UnderlineInputBorder(),
+                        ),
+                      )
+                    else
+                      _detailRow(
+                        CMS.transaction['sender_label']!,
+                        _viewModel.transaction['sender'],
+                      ),
+
+                    const SizedBox(height: 20),
+
+                    // Category Row
                     InkWell(
-                      onTap: _showGoalPicker,
+                      onTap: _showCategoryPicker,
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           Text(
-                            CMS.transaction['link_goal_label']!,
+                            CMS.transaction['category_label']!,
                             style: TextStyle(
                               fontSize: 16,
                               color:
@@ -628,58 +598,28 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen> {
                           ),
                           Row(
                             children: [
-                              _viewModel.goalName != null
-                                  ? Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 8,
-                                      vertical: 4,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color:
-                                          Theme.of(
-                                            context,
-                                          ).colorScheme.tertiaryContainer,
-                                      borderRadius: BorderRadius.circular(4),
-                                    ),
-                                    child: Row(
-                                      children: [
-                                        Icon(
-                                          Icons.savings,
-                                          size: 14,
-                                          color:
-                                              Theme.of(
-                                                context,
-                                              ).colorScheme.onTertiaryContainer,
-                                        ),
-                                        const SizedBox(width: 4),
-                                        Text(
-                                          "${_viewModel.goalName!} (${(_viewModel.transaction['is_goal_addition'] ?? 1) == 1 ? '+' : '-'})",
-                                          style: TextStyle(
-                                            fontSize: 12,
-                                            color:
-                                                Theme.of(context)
-                                                    .colorScheme
-                                                    .onTertiaryContainer,
-                                            fontWeight: FontWeight.bold,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  )
-                                  : Text(
-                                    CMS.transaction['select_goal_label']!,
-                                    style: TextStyle(
-                                      color:
-                                          Theme.of(context).colorScheme.primary,
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 14,
-                                    ),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                  vertical: 4,
+                                ),
+                                decoration: BoxDecoration(
+                                  color:
+                                      Theme.of(
+                                        context,
+                                      ).colorScheme.surfaceContainerHighest,
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: Text(
+                                  _viewModel.categoryName,
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w600,
                                   ),
+                                ),
+                              ),
                               const SizedBox(width: 8),
                               Icon(
-                                _viewModel.goalName != null
-                                    ? Icons.close
-                                    : Icons.edit,
+                                Icons.edit,
                                 size: 16,
                                 color:
                                     Theme.of(
@@ -691,33 +631,121 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen> {
                         ],
                       ),
                     ),
-                    const SizedBox(height: 20),
-                  ],
 
-                  if (!_isEditing &&
-                      (_viewModel.transaction['body'] ?? "") != "") ...[
-                    Text(
-                      CMS.transaction['original_message_label']!,
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    const SizedBox(height: 20),
+
+                    // Goal Link Row
+                    if (_viewModel.allGoals.isNotEmpty) ...[
+                      InkWell(
+                        onTap: _showGoalPicker,
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              CMS.transaction['link_goal_label']!,
+                              style: TextStyle(
+                                fontSize: 16,
+                                color:
+                                    Theme.of(
+                                      context,
+                                    ).colorScheme.onSurfaceVariant,
+                              ),
+                            ),
+                            Row(
+                              children: [
+                                _viewModel.goalName != null
+                                    ? Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 8,
+                                        vertical: 4,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color:
+                                            Theme.of(
+                                              context,
+                                            ).colorScheme.tertiaryContainer,
+                                        borderRadius: BorderRadius.circular(4),
+                                      ),
+                                      child: Row(
+                                        children: [
+                                          Icon(
+                                            Icons.savings,
+                                            size: 14,
+                                            color:
+                                                Theme.of(context)
+                                                    .colorScheme
+                                                    .onTertiaryContainer,
+                                          ),
+                                          const SizedBox(width: 4),
+                                          Text(
+                                            "${_viewModel.goalName!} (${(_viewModel.transaction['is_goal_addition'] ?? 1) == 1 ? '+' : '-'})",
+                                            style: TextStyle(
+                                              fontSize: 12,
+                                              color:
+                                                  Theme.of(context)
+                                                      .colorScheme
+                                                      .onTertiaryContainer,
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    )
+                                    : Text(
+                                      CMS.transaction['select_goal_label']!,
+                                      style: TextStyle(
+                                        color:
+                                            Theme.of(
+                                              context,
+                                            ).colorScheme.primary,
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 14,
+                                      ),
+                                    ),
+                                const SizedBox(width: 8),
+                                Icon(
+                                  _viewModel.goalName != null
+                                      ? Icons.close
+                                      : Icons.edit,
+                                  size: 16,
+                                  color:
+                                      Theme.of(
+                                        context,
+                                      ).colorScheme.onSurfaceVariant,
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      _viewModel.transaction['body'],
-                      style: const TextStyle(
-                        fontFamily: 'Monospace',
-                        fontSize: 13,
+                      const SizedBox(height: 20),
+                    ],
+
+                    if (!_isEditing &&
+                        (_viewModel.transaction['body'] ?? "") != "") ...[
+                      Text(
+                        CMS.transaction['original_message_label']!,
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
                       ),
-                    ),
+                      const SizedBox(height: 8),
+                      Text(
+                        _viewModel.transaction['body'],
+                        style: const TextStyle(
+                          fontFamily: 'Monospace',
+                          fontSize: 13,
+                        ),
+                      ),
+                    ],
                   ],
-                ],
+                ),
               ),
             ),
-          ),
-        );
-      },
+          );
+        },
+      ),
     );
   }
 

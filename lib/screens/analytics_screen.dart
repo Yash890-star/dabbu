@@ -4,6 +4,7 @@ import '../utils/cms.dart';
 import '../utils/app_colors.dart';
 import '../viewmodels/analytics_view_model.dart';
 import 'transaction_detail_screen.dart';
+import 'all_transactions_screen.dart';
 import '../widgets/bento_grid.dart';
 import '../widgets/analytics/period_selector.dart';
 import '../widgets/analytics/insight_block.dart';
@@ -150,9 +151,32 @@ class _AnalyticsScreenState extends State<AnalyticsScreen>
                                     ).format(item.amount),
                                     percentage: item.percentage / 100,
                                     color: item.color,
-                                    icon:
-                                        Icons
-                                            .pie_chart, // Using generic as icons aren't in VM yet
+                                    icon: Icons.pie_chart,
+                                    onTap: () {
+                                      // Filter transactions by category name
+                                      final filteredTxs =
+                                          _viewModel.transactions
+                                              .where(
+                                                (tx) =>
+                                                    tx['categoryName'] ==
+                                                    item.name,
+                                              )
+                                              .toList();
+
+                                      Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder:
+                                              (
+                                                context,
+                                              ) => AllTransactionsScreen(
+                                                transactions: filteredTxs,
+                                                title:
+                                                    "${item.name} Transactions",
+                                              ),
+                                        ),
+                                      );
+                                    },
                                   );
                                 }).toList(),
                           ),
