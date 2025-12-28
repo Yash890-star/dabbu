@@ -4,14 +4,14 @@ import '../utils/cms.dart';
 import '../utils/app_colors.dart';
 import '../viewmodels/analytics_view_model.dart';
 import 'transaction_detail_screen.dart';
-import 'all_transactions_screen.dart';
-import '../widgets/bento_grid.dart';
-import '../widgets/analytics/period_selector.dart';
+
 import '../widgets/analytics/insight_block.dart';
 import '../widgets/analytics/chart_block.dart';
 import '../widgets/analytics/category_bento.dart';
+import '../widgets/calendar/heatmap_block.dart';
 import '../widgets/shimmer_loading.dart';
 import '../widgets/fade_in_entry.dart';
+import '../widgets/app_card.dart';
 
 class AnalyticsScreen extends StatefulWidget {
   const AnalyticsScreen({super.key});
@@ -39,17 +39,14 @@ class _AnalyticsScreenState extends State<AnalyticsScreen>
     super.dispose();
   }
 
+  // --- UI Helpers ---
+
   @override
   Widget build(BuildContext context) {
     super.build(context);
     return AnimatedBuilder(
       animation: _viewModel,
       builder: (context, child) {
-        double displayedTotal = _viewModel.categorySummaries.fold(
-          0.0,
-          (sum, i) => sum + i.amount,
-        );
-
         return Scaffold(
           appBar: AppBar(
             title: Text(
@@ -57,6 +54,26 @@ class _AnalyticsScreenState extends State<AnalyticsScreen>
               style: const TextStyle(fontWeight: FontWeight.w600),
             ),
             elevation: 0,
+            actions: [
+              IconButton(
+                icon: Icon(
+                  _viewModel.transactionType == 'credit'
+                      ? Icons.arrow_downward
+                      : Icons.arrow_upward,
+                  color:
+                      _viewModel.transactionType == 'credit'
+                          ? AppColors.income
+                          : AppColors.expense,
+                ),
+                onPressed: () {
+                  _viewModel.setTransactionType(
+                    _viewModel.transactionType == 'debit' ? 'credit' : 'debit',
+                  );
+                },
+                tooltip: "Toggle Income/Expense",
+              ),
+              const SizedBox(width: 8),
+            ],
           ),
           body: RefreshIndicator(
             onRefresh: _viewModel.refreshAll,
@@ -66,70 +83,212 @@ class _AnalyticsScreenState extends State<AnalyticsScreen>
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  // 1. Controls Row (Period + Type)
-                  _buildControls(),
+                  // 1. Controls (Time Frame Presets)
+                  // 1. Controls (Transaction Type Filter)
+                  Center(
+                    child: Container(
+                      padding: const EdgeInsets.all(4),
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).cardColor,
+                        borderRadius: BorderRadius.circular(24),
+                        border: Border.all(
+                          color: Theme.of(
+                            context,
+                          ).dividerColor.withOpacity(0.1),
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children:
+                            ['Income', 'All', 'Expense'].map((label) {
+                              String type = 'all';
+                              if (label == 'Income') type = 'credit';
+                              if (label == 'Expense') type = 'debit';
+
+                              final isSelected =
+                                  _viewModel.transactionType == type;
+                              return GestureDetector(
+                                onTap:
+                                    () => _viewModel.setTransactionType(type),
+                                child: AnimatedContainer(
+                                  duration: const Duration(milliseconds: 200),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 24,
+                                    vertical: 8,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color:
+                                        isSelected
+                                            ? Theme.of(
+                                              context,
+                                            ).colorScheme.primary
+                                            : Colors.transparent,
+                                    borderRadius: BorderRadius.circular(20),
+                                  ),
+                                  child: Text(
+                                    label,
+                                    style: TextStyle(
+                                      color:
+                                          isSelected
+                                              ? Theme.of(
+                                                context,
+                                              ).colorScheme.onPrimary
+                                              : Theme.of(
+                                                context,
+                                              ).colorScheme.onSurface,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ),
+                              );
+                            }).toList(),
+                      ),
+                    ),
+                  ),
                   const SizedBox(height: 16),
 
-                  // 2. Insight Block (2x1)
-                  // 2. Insight Block (2x1)
-                  if (_viewModel.isLoading)
-                    const FadeInEntry(
-                      child: ShimmerLoading(
-                        width: double.infinity,
-                        height: 120,
+                  // 2. Month Navigation & Heatmap
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.chevron_left),
+                        onPressed: () => _viewModel.changeDate(-1),
                       ),
+                      GestureDetector(
+                        onTap: () => _viewModel.selectFullMonth(),
+                        child: Text(
+                          DateFormat.yMMMM().format(_viewModel.focusedDate),
+                          style: const TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.chevron_right),
+                        onPressed: () => _viewModel.changeDate(1),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+
+                  if (_viewModel.isLoading)
+                    LayoutBuilder(
+                      builder: (context, constraints) {
+                        // Calculate HeatMapBlock Height
+                        // 1. Available width inside the AppCard = constraints.maxWidth - 32 (padding)
+                        // 2. Grid Item Width = (innerW - 48 (6 gaps)) / 7
+                        // 3. Grid Height = (ItemW * 6 rows) + 40 (5 gaps)
+                        // 4. Total = 32 (padding) + 15 (header) + 12 (gap) + GridH
+                        final innerWidth = constraints.maxWidth - 32;
+                        final itemWidth = (innerWidth - 48) / 7;
+                        final gridHeight = (itemWidth * 6) + 40;
+                        final totalHeight = 32 + 15 + 12 + gridHeight;
+
+                        return ShimmerLoading(
+                          width: double.infinity,
+                          height: totalHeight,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(24),
+                          ),
+                        );
+                      },
                     )
-                  else if (_viewModel.insights.isNotEmpty) ...[
+                  else
+                    FadeInEntry(
+                      child: GestureDetector(
+                        onHorizontalDragEnd: (details) {
+                          if (details.primaryVelocity! < 0) {
+                            _viewModel.changeDate(1);
+                          } else if (details.primaryVelocity! > 0) {
+                            _viewModel.changeDate(-1);
+                          }
+                        },
+                        child: HeatMapBlock(
+                          focusedDate: _viewModel.focusedDate,
+                          dailyNet: _viewModel.dailyNet,
+                          maxNet: _viewModel.maxNet,
+                          rangeStart: _viewModel.rangeStart,
+                          rangeEnd: _viewModel.rangeEnd,
+                          onDaySelected: _viewModel.onDaySelected,
+                        ),
+                      ),
+                    ),
+
+                  const SizedBox(height: 16),
+
+                  // 3. Category Breakdown (Collapsible Pie Chart)
+                  AppCard(
+                    padding: EdgeInsets.zero,
+                    child: ExpansionTile(
+                      shape: const Border(),
+                      collapsedShape: const Border(),
+                      title: const Text(
+                        "Category Breakdown",
+                        style: TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                      subtitle:
+                          _viewModel.isPieChartExpanded
+                              ? null
+                              : Text(
+                                _viewModel.categorySummaries.isEmpty
+                                    ? "No Data"
+                                    : "Tap to view details",
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color:
+                                      Theme.of(
+                                        context,
+                                      ).colorScheme.onSurfaceVariant,
+                                ),
+                              ),
+                      initiallyExpanded: _viewModel.isPieChartExpanded,
+                      onExpansionChanged: (val) => _viewModel.togglePieChart(),
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.all(16),
+                          child:
+                              _viewModel.categorySummaries.isEmpty
+                                  ? const Center(
+                                    child: Text(
+                                      "No transactions in selected range",
+                                    ),
+                                  )
+                                  : ChartBlock(
+                                    sections:
+                                        _viewModel.categorySummaries
+                                            .map(
+                                              (s) => ChartSectionData(
+                                                color: s.color,
+                                                value: s.amount,
+                                                percentage: s.percentage,
+                                                title: s.name,
+                                              ),
+                                            )
+                                            .toList(),
+                                    totalAmount: _viewModel.categorySummaries
+                                        .fold(0, (sum, i) => sum + i.amount),
+                                  ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  const SizedBox(height: 16),
+
+                  // 4. Insight Block
+                  if (_viewModel.insights.isNotEmpty) ...[
                     FadeInEntry(child: _buildInsightBlock()),
                     const SizedBox(height: 16),
                   ],
 
-                  // 3. Chart Block (2x2)
-                  // 3. Chart Block (2x2)
-                  _viewModel.isLoading
-                      ? const ShimmerLoading(
-                        width: double.infinity,
-                        height: 250,
-                      )
-                      : FadeInEntry(
-                        delay: 100,
-                        child: ChartBlock(
-                          sections:
-                              _viewModel.categorySummaries
-                                  .map(
-                                    (s) => ChartSectionData(
-                                      color: s.color,
-                                      value: s.amount,
-                                      percentage: s.percentage / 100,
-                                      title: s.name,
-                                    ),
-                                  )
-                                  .toList(),
-                          totalAmount: displayedTotal,
-                          isEmpty: displayedTotal == 0,
-                          centerLabel:
-                              "Total ${_viewModel.transactionType == 'debit' ? 'Spent' : 'Income'}",
-                        ),
-                      ),
-                  const SizedBox(height: 16),
-
-                  // 4. Categories Grid (1x1 Bento)
-                  // 4. Categories Grid (1x1 Bento)
-                  if (_viewModel.isLoading)
-                    const Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        ShimmerLoading(width: 150, height: 24),
-                        SizedBox(height: 12),
-                        ShimmerLoading(width: double.infinity, height: 200),
-                        SizedBox(height: 24),
-                      ],
-                    )
-                  else if (_viewModel.categorySummaries.isNotEmpty) ...[
-                    FadeInEntry(
-                      delay: 200,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                  // 5. Top Categories (Horizontal List)
+                  if (_viewModel.categorySummaries.isNotEmpty) ...[
+                    SizedBox(
+                      height: 48,
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           const Text(
                             "Top Categories",
@@ -138,167 +297,79 @@ class _AnalyticsScreenState extends State<AnalyticsScreen>
                               fontWeight: FontWeight.bold,
                             ),
                           ),
-                          const SizedBox(height: 12),
-                          BentoGrid(
-                            children:
-                                _viewModel.categorySummaries.take(4).map((
-                                  item,
-                                ) {
-                                  return CategoryBento(
-                                    categoryName: item.name,
-                                    amount: NumberFormat.compactCurrency(
-                                      symbol: '₹',
-                                    ).format(item.amount),
-                                    percentage: item.percentage / 100,
-                                    color: item.color,
-                                    icon: Icons.pie_chart,
-                                    onTap: () {
-                                      // Filter transactions by category name
-                                      final filteredTxs =
-                                          _viewModel.transactions
-                                              .where(
-                                                (tx) =>
-                                                    tx['categoryName'] ==
-                                                    item.name,
-                                              )
-                                              .toList();
-
-                                      Navigator.push(
-                                        context,
-                                        MaterialPageRoute(
-                                          builder:
-                                              (
-                                                context,
-                                              ) => AllTransactionsScreen(
-                                                transactions: filteredTxs,
-                                                title:
-                                                    "${item.name} Transactions",
-                                              ),
-                                        ),
-                                      );
-                                    },
-                                  );
-                                }).toList(),
-                          ),
+                          if (_viewModel.selectedCategoryIds.isNotEmpty)
+                            TextButton(
+                              onPressed: _viewModel.resetCategoryFilters,
+                              child: const Text("Reset Filter"),
+                            ),
                         ],
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    SizedBox(
+                      height: 140, // Height for CategoryBento
+                      child: ListView.separated(
+                        scrollDirection: Axis.horizontal,
+                        itemCount: _viewModel.categorySummaries.length,
+                        separatorBuilder: (_, __) => const SizedBox(width: 12),
+                        itemBuilder: (context, index) {
+                          final item = _viewModel.categorySummaries[index];
+                          return SizedBox(
+                            width: 160,
+                            child: GestureDetector(
+                              onTap: () {
+                                _viewModel.toggleCategoryFilter(item.id);
+                              },
+                              child: CategoryBento(
+                                categoryName: item.name,
+                                amount: NumberFormat.compactCurrency(
+                                  symbol: '₹',
+                                ).format(item.amount),
+                                percentage: item.percentage / 100,
+                                color: item.color,
+                                icon: Icons.pie_chart, // Placeholder icon
+                                isSelected: _viewModel.selectedCategoryIds
+                                    .contains(item.id),
+                              ),
+                            ),
+                          );
+                        },
                       ),
                     ),
                     const SizedBox(height: 24),
                   ],
 
-                  // 5. Recent Transactions
-                  // 5. Recent Transactions
-                  if (_viewModel.isLoading)
-                    const Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        ShimmerLoading(width: 200, height: 24),
-                        SizedBox(height: 12),
-                        ShimmerLoading(width: double.infinity, height: 60),
-                        SizedBox(height: 8),
-                        ShimmerLoading(width: double.infinity, height: 60),
-                      ],
-                    )
-                  else if (_viewModel.transactions.isNotEmpty) ...[
-                    FadeInEntry(
-                      delay: 300,
-                      child: Text(
-                        CMS.analytics['recent_transactions']!,
+                  // 6. Transaction List Header & List
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        "Transactions", // Or "The Ledger"
                         style: const TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
-                    ),
-                    const SizedBox(height: 12),
-                    ListView.builder(
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      itemCount: _viewModel.transactions.length,
-                      itemBuilder: (context, index) {
-                        // Reusing existing logic manually or we could reuse RecentTransactionsBlock logic
-                        // For now, implementing simple list item consistent with design
-                        final tx = _viewModel.transactions[index];
-                        final isCredit = tx['type'] == 'credit';
-                        return Card(
-                          margin: const EdgeInsets.only(bottom: 8),
-                          elevation: 0,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            side: BorderSide(
-                              color: Theme.of(
-                                context,
-                              ).dividerColor.withValues(alpha: 0.1),
-                            ),
+                      if (_viewModel.rangeStart != null)
+                        Text(
+                          _viewModel.getDateLabel(),
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Theme.of(context).colorScheme.primary,
+                            fontWeight: FontWeight.bold,
                           ),
-                          child: ListTile(
-                            dense: true,
-                            leading: Container(
-                              padding: const EdgeInsets.all(8),
-                              decoration: BoxDecoration(
-                                color:
-                                    isCredit
-                                        ? AppColors.incomeBackground
-                                        : AppColors.expenseBackground,
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: Icon(
-                                isCredit
-                                    ? Icons.arrow_downward
-                                    : Icons.arrow_upward,
-                                size: 18,
-                                color:
-                                    isCredit
-                                        ? AppColors.income
-                                        : AppColors.expense,
-                              ),
-                            ),
-                            title: Text(
-                              tx['patternName'] ?? tx['sender'] ?? "Unknown",
-                              style: const TextStyle(
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                            subtitle: Text(
-                              "${DateFormat.MMMd().format(DateTime.fromMillisecondsSinceEpoch(tx['date']))} • ${tx['categoryName'] ?? 'Uncategorized'}",
-                              style: TextStyle(
-                                fontSize: 12,
-                                color:
-                                    Theme.of(
-                                      context,
-                                    ).colorScheme.onSurfaceVariant,
-                              ),
-                            ),
-                            trailing: Text(
-                              "${tx['amount']}",
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 15,
-                                color:
-                                    isCredit
-                                        ? AppColors.income
-                                        : AppColors.expense,
-                              ),
-                            ),
-                            onTap: () async {
-                              await Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder:
-                                      (context) => TransactionDetailScreen(
-                                        transaction: tx,
-                                      ),
-                                ),
-                              );
-                              if (context.mounted) {
-                                _viewModel.refreshAll();
-                              }
-                            },
-                          ),
-                        );
-                      },
-                    ),
-                  ],
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+
+                  _buildTransactionList(
+                    _viewModel.transactions,
+                    shouldLimit:
+                        _viewModel.selectedCategoryIds.isEmpty &&
+                        _viewModel.transactionType == 'all',
+                  ), // Pass showAll logic
+
                   const SizedBox(height: 80),
                 ],
               ),
@@ -309,109 +380,165 @@ class _AnalyticsScreenState extends State<AnalyticsScreen>
     );
   }
 
-  Widget _buildControls() {
-    return Column(
-      children: [
-        PeriodSelector(
-          selectedPeriod: _viewModel.timeFrame,
-          periods: const ['Day', 'Week', 'Month'],
-          onChanged: (val) => _viewModel.setTimeFrame(val),
-        ),
-        const SizedBox(height: 16),
-        // Date Navigation
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-          decoration: BoxDecoration(
-            color: Theme.of(
-              context,
-            ).colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
-            borderRadius: BorderRadius.circular(50),
-            border: Border.all(
-              color: Theme.of(context).dividerColor.withValues(alpha: 0.1),
-            ),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              IconButton(
-                icon: const Icon(Icons.chevron_left),
-                onPressed: () => _viewModel.changeDate(-1),
-                tooltip: "Previous",
-              ),
-              Container(
-                constraints: const BoxConstraints(minWidth: 100),
-                alignment: Alignment.center,
-                child: Text(
-                  _viewModel.getDateLabel(),
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 14,
-                  ),
+  Widget _buildInsightBlock() {
+    final insights = _viewModel.insights.take(2).toList();
+    if (insights.isEmpty) return const SizedBox.shrink();
+
+    return Row(
+      children:
+          insights.map((insight) {
+            final isPositive = insight.percentageChange > 0;
+            return Expanded(
+              child: Padding(
+                padding: const EdgeInsets.only(right: 8.0),
+                child: InsightBlock(
+                  title: insight.categoryName,
+                  amount: NumberFormat.compactCurrency(
+                    symbol: '₹',
+                  ).format(insight.currentAmount),
+                  subtitle:
+                      "${isPositive ? '+' : ''}${insight.percentageChange.toStringAsFixed(1)}% vs prev",
+                  isPositive: isPositive,
+                  isGood: !isPositive, // Expense: Down is Good
                 ),
               ),
-              IconButton(
-                icon: const Icon(Icons.chevron_right),
-                onPressed: () => _viewModel.changeDate(1),
-                tooltip: "Next",
+            );
+          }).toList(),
+    );
+  }
+
+  bool _showAllTransactions = false;
+
+  Widget _buildTransactionList(
+    List<Map<String, dynamic>> txs, {
+    bool shouldLimit = false,
+  }) {
+    if (txs.isEmpty) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(32.0),
+          child: Column(
+            children: [
+              Icon(
+                Icons.receipt_long_outlined,
+                size: 48,
+                color: Theme.of(context).disabledColor,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                "No transactions found for this period",
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
               ),
             ],
           ),
         ),
-        const SizedBox(height: 16),
-        SegmentedButton<String>(
-          segments: [
-            ButtonSegment<String>(
-              value: 'debit',
-              label: Text(CMS.analytics['expenses_label']!),
-              icon: const Icon(Icons.arrow_upward),
-            ),
-            ButtonSegment<String>(
-              value: 'credit',
-              label: Text(CMS.analytics['income_label']!),
-              icon: const Icon(Icons.arrow_downward),
-            ),
-          ],
-          selected: {_viewModel.transactionType},
-          onSelectionChanged: (Set<String> newSelection) {
-            _viewModel.setTransactionType(newSelection.first);
+      );
+    }
+
+    final limit = 5;
+    final doLimit = shouldLimit && !_showAllTransactions;
+    final displayTxs = doLimit ? txs.take(limit).toList() : txs;
+
+    return Column(
+      children: [
+        ListView.separated(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          itemCount: displayTxs.length,
+          separatorBuilder: (_, __) => const SizedBox(height: 8),
+          itemBuilder: (context, index) {
+            final tx = displayTxs[index];
+            final isCredit = tx['type'] == 'credit';
+            final date = DateTime.fromMillisecondsSinceEpoch(tx['date']);
+            final formattedDate = DateFormat('MMM d, h:mm a').format(date);
+
+            return Card(
+              margin: EdgeInsets.zero,
+              elevation: 0,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+                side: BorderSide(
+                  color: Theme.of(context).dividerColor.withValues(alpha: 0.1),
+                ),
+              ),
+              child: ListTile(
+                dense: true,
+                leading: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color:
+                        isCredit
+                            ? AppColors.incomeBackground
+                            : AppColors.expenseBackground,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Icon(
+                    isCredit ? Icons.arrow_downward : Icons.arrow_upward,
+                    size: 18,
+                    color: isCredit ? AppColors.income : AppColors.expense,
+                  ),
+                ),
+                title: Text(
+                  tx['patternName'] ?? tx['sender'] ?? "Unknown",
+                  style: const TextStyle(fontWeight: FontWeight.w600),
+                ),
+                subtitle: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(tx['categoryName'] ?? 'Uncategorized'),
+                    const SizedBox(height: 2),
+                    Text(
+                      formattedDate,
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+                trailing: Text(
+                  "${tx['amount']}",
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 15,
+                    color: isCredit ? AppColors.income : AppColors.expense,
+                  ),
+                ),
+                onTap: () async {
+                  final result = await Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder:
+                          (context) => TransactionDetailScreen(transaction: tx),
+                    ),
+                  );
+
+                  // Handle Instant Updates using the result logic we added earlier
+                  if (result != null && mounted) {
+                    // If update/delete occurred, refresh everything.
+                    // Because standard fetch is fast enough, we can just trigger a refresh.
+                    _viewModel.refreshAll();
+                  }
+                },
+              ),
+            );
           },
-          showSelectedIcon: false,
-          style: ButtonStyle(
-            visualDensity: VisualDensity.compact,
-            backgroundColor: WidgetStateProperty.resolveWith<Color?>((states) {
-              if (states.contains(WidgetState.selected)) {
-                return _viewModel.transactionType == 'debit'
-                    ? AppColors.expenseBackground
-                    : AppColors.incomeBackground;
-              }
-              return null;
-            }),
-            foregroundColor: WidgetStateProperty.resolveWith<Color?>((states) {
-              if (states.contains(WidgetState.selected)) {
-                return Theme.of(context).colorScheme.onSurface;
-              }
-              return Theme.of(context).colorScheme.onSurfaceVariant;
-            }),
-          ),
         ),
+        if (doLimit && txs.length > limit)
+          Padding(
+            padding: const EdgeInsets.only(top: 16),
+            child: TextButton(
+              onPressed: () {
+                setState(() {
+                  _showAllTransactions = true;
+                });
+              },
+              child: const Text("Show All"),
+            ),
+          ),
       ],
-    );
-  }
-
-  Widget _buildInsightBlock() {
-    final insight = _viewModel.insights.first; // Main insight
-    final isPositive = insight.percentageChange > 0;
-    final isExpense = _viewModel.transactionType == 'debit';
-    final isGood = isExpense ? !isPositive : isPositive;
-
-    return InsightBlock(
-      title: insight.categoryName,
-      amount:
-          "${isPositive ? '+' : ''}${insight.percentageChange.toStringAsFixed(0)}% vs last ${_viewModel.timeFrame.toLowerCase()}",
-      subtitle:
-          "${NumberFormat.compactCurrency(symbol: '₹').format(insight.diffAmount)} (${NumberFormat.compactCurrency(symbol: '₹').format(insight.currentAmount)})",
-      isPositive: isPositive,
-      isGood: isGood,
     );
   }
 }

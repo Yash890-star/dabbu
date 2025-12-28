@@ -4,13 +4,17 @@ import '../services/database_helper.dart';
 import '../utils/app_colors.dart';
 import '../utils/cms.dart';
 
+enum SortOption { dateDesc, dateAsc, amountDesc, amountAsc }
+
 class CategorySummary {
+  final int id;
   final String name;
   final double amount;
   final Color color;
   final double percentage;
 
   CategorySummary({
+    required this.id,
     required this.name,
     required this.amount,
     required this.color,
@@ -36,23 +40,42 @@ class InsightItem {
 
 class AnalyticsViewModel extends ChangeNotifier {
   // --- Filter State ---
-  String timeFrame = 'Month';
-  DateTime focusedDate = DateTime.now();
+  String timeFrame = 'Month'; // Presets: Month, Week, Day, Custom
+  DateTime focusedDate = DateTime.now(); // Controls the Heatmap Month
+
+  // Selection Range (within the focused month)
+  DateTime? rangeStart;
+  DateTime? rangeEnd;
+
   List<int> selectedCategoryIds = [];
   List<int> selectedPatternIds = [];
-  String transactionType = 'debit'; // 'debit' or 'credit'
+  String transactionType = 'all'; // 'all', 'debit', 'credit'
+  SortOption sortOption = SortOption.dateDesc;
 
   // --- Data State ---
-  List<Map<String, dynamic>> transactions = [];
-  List<Map<String, dynamic>> allCategories = [];
-  List<Map<String, dynamic>> allPatterns = [];
 
+  // 1. Heatmap Data (Full Month)
+  Map<int, double> dailyNet = {};
+  Map<int, List<Map<String, dynamic>>> dailyTransactions = {};
+  double maxNet = 1.0;
+
+  // 2. Selected Range Data (For Charts/List)
+  List<Map<String, dynamic>> transactions = [];
   List<CategorySummary> categorySummaries = [];
   List<InsightItem> insights = [];
 
+  // Metadata
+  List<Map<String, dynamic>> allCategories = [];
+  List<Map<String, dynamic>> allPatterns = [];
+
   bool isLoading = true;
+  bool isPieChartExpanded = false;
 
   // --- Initialization ---
+  AnalyticsViewModel() {
+    _initRangeDefault();
+  }
+
   Future<void> init() async {
     await _loadFilters();
     await _fetchData();
@@ -63,13 +86,20 @@ class AnalyticsViewModel extends ChangeNotifier {
     await _fetchData();
   }
 
+  void _initRangeDefault() {
+    final now = DateTime.now();
+    focusedDate = now;
+    // Default: Full Month
+    timeFrame = 'Month';
+    rangeStart = DateTime(now.year, now.month, 1);
+    rangeEnd = DateTime(now.year, now.month + 1, 0);
+  }
+
   Future<void> _loadFilters() async {
     final db = DatabaseHelper.instance;
     final cats = await db.getCategories();
     final pats = await db.database.then((d) => d.query('patterns'));
 
-    // Create a mutable copy of patterns and add the "Manual" option
-    // using ID -1 as a sentinel value.
     final List<Map<String, dynamic>> modifiablePatterns = List.from(pats);
     modifiablePatterns.add({
       'id': -1,
@@ -89,21 +119,72 @@ class AnalyticsViewModel extends ChangeNotifier {
   void setTimeFrame(String frame) {
     if (timeFrame == frame) return;
     timeFrame = frame;
-    // Reset date to now or similar logic if needed?
-    // Usually standard to keep focusedDate but logically aligned.
-    // The previous code kept focusedDate and just adjusted range logic.
-    _fetchData();
+
+    final now = DateTime.now();
+    // Logic to set range based on frame relative to focusedDate
+    if (frame == 'Month') {
+      rangeStart = DateTime(focusedDate.year, focusedDate.month, 1);
+      rangeEnd = DateTime(focusedDate.year, focusedDate.month + 1, 0);
+    } else if (frame == 'Week') {
+      // Find week containing focusedDate (or today if match)
+      DateTime target =
+          (focusedDate.year == now.year && focusedDate.month == now.month)
+              ? now
+              : DateTime(focusedDate.year, focusedDate.month, 1);
+      rangeStart = target.subtract(Duration(days: target.weekday - 1));
+      rangeEnd = rangeStart!.add(const Duration(days: 6));
+    } else if (frame == 'Day') {
+      rangeStart =
+          (focusedDate.year == now.year && focusedDate.month == now.month)
+              ? now
+              : DateTime(focusedDate.year, focusedDate.month, 1);
+      rangeEnd = null;
+    }
+
+    _processRangeData(); // Re-calc stats without re-fetching full month if possible?
+    // Actually, changing frame might just update range. Heatmap is month-bound.
+    notifyListeners();
+  }
+
+  void togglePieChart() {
+    isPieChartExpanded = !isPieChartExpanded;
+    notifyListeners();
   }
 
   void changeDate(int offset) {
-    if (timeFrame == 'Day') {
-      focusedDate = focusedDate.add(Duration(days: offset));
-    } else if (timeFrame == 'Week') {
-      focusedDate = focusedDate.add(Duration(days: offset * 7));
-    } else {
-      focusedDate = DateTime(focusedDate.year, focusedDate.month + offset, 1);
-    }
+    // Moves the Focused Month
+    focusedDate = DateTime(focusedDate.year, focusedDate.month + offset, 1);
+
+    // Reset Range to Full Month (Default behavior request)
+    rangeStart = DateTime(focusedDate.year, focusedDate.month, 1);
+    rangeEnd = DateTime(focusedDate.year, focusedDate.month + 1, 0);
+    timeFrame = 'Month'; // Set to Month to reflect full selection
+
     _fetchData();
+  }
+
+  void onDaySelected(DateTime date) {
+    // Interaction with Heatmap updates the Custom Range
+    // timeFrame = 'Custom'; // Custom range logic
+
+    if (rangeStart == null) {
+      rangeStart = date;
+      rangeEnd = null;
+    } else if (rangeEnd == null) {
+      if (date.isBefore(rangeStart!)) {
+        rangeStart = date;
+      } else if (_isSameDay(date, rangeStart!)) {
+        rangeEnd = null;
+      } else {
+        rangeEnd = date;
+      }
+    } else {
+      rangeStart = date;
+      rangeEnd = null;
+    }
+
+    _processRangeData();
+    notifyListeners();
   }
 
   void setTransactionType(String type) {
@@ -112,66 +193,72 @@ class AnalyticsViewModel extends ChangeNotifier {
     _fetchData();
   }
 
-  void updateCategoryFilter(List<int> ids) {
-    selectedCategoryIds = ids;
-    _fetchData();
+  void selectFullMonth() {
+    rangeStart = DateTime(focusedDate.year, focusedDate.month, 1);
+    rangeEnd = DateTime(focusedDate.year, focusedDate.month + 1, 0);
+    timeFrame = 'Month';
+    _processRangeData();
+    notifyListeners();
   }
 
-  void updatePatternFilter(List<int> ids) {
-    selectedPatternIds = ids;
-    _fetchData();
+  void toggleCategoryFilter(int categoryId) {
+    if (selectedCategoryIds.contains(categoryId)) {
+      selectedCategoryIds.remove(categoryId);
+    } else {
+      selectedCategoryIds.add(categoryId);
+    }
+    _processRangeData();
+    notifyListeners();
+  }
+
+  void resetCategoryFilters() {
+    selectedCategoryIds.clear();
+    _processRangeData();
+    notifyListeners();
+  }
+
+  void updateCategoryFilter(List<int> ids) {
+    selectedCategoryIds = ids;
+    _processRangeData();
+    notifyListeners();
+  }
+
+  void setSortOption(SortOption option) {
+    sortOption = option;
+    _sortTransactions();
+    notifyListeners();
   }
 
   // --- Getters for UI ---
 
   String getDateLabel() {
-    if (timeFrame == 'Day') return DateFormat.yMMMd().format(focusedDate);
-    if (timeFrame == 'Week') {
-      final start = focusedDate.subtract(
-        Duration(days: focusedDate.weekday - 1),
-      );
-      final end = start.add(const Duration(days: 6));
-      return "${DateFormat.MMMd().format(start)} - ${DateFormat.MMMd().format(end)}";
-    }
-    return DateFormat.yMMMM().format(focusedDate);
+    if (rangeStart == null) return "Select Date";
+    if (rangeEnd == null) return DateFormat.yMMMd().format(rangeStart!);
+    return "${DateFormat.MMMd().format(rangeStart!)} - ${DateFormat.MMMd().format(rangeEnd!)}";
   }
+
+  List<Map<String, dynamic>> getTransactionsInRange() => transactions;
 
   // --- Logic helpers ---
 
-  (int, int) _getDateRange() {
-    DateTime start, end;
-    final date = DateTime(focusedDate.year, focusedDate.month, focusedDate.day);
-
-    if (timeFrame == 'Day') {
-      start = date;
-      end = date.add(const Duration(hours: 23, minutes: 59, seconds: 59));
-    } else if (timeFrame == 'Week') {
-      start = date.subtract(Duration(days: date.weekday - 1));
-      end = start.add(const Duration(days: 6, hours: 23, minutes: 59));
-    } else {
-      start = DateTime(date.year, date.month, 1);
-      end = DateTime(date.year, date.month + 1, 0, 23, 59, 59);
-    }
-    return (start.millisecondsSinceEpoch, end.millisecondsSinceEpoch);
+  bool _isSameDay(DateTime a, DateTime b) {
+    return a.year == b.year && a.month == b.month && a.day == b.day;
   }
 
-  (int, int) _getPreviousDateRange() {
-    DateTime start, end;
-    final date = DateTime(focusedDate.year, focusedDate.month, focusedDate.day);
+  bool isStart(DateTime date) {
+    return rangeStart != null && _isSameDay(date, rangeStart!);
+  }
 
-    if (timeFrame == 'Day') {
-      final prevDate = date.subtract(const Duration(days: 1));
-      start = prevDate;
-      end = prevDate.add(const Duration(hours: 23, minutes: 59, seconds: 59));
-    } else if (timeFrame == 'Week') {
-      final startCurrent = date.subtract(Duration(days: date.weekday - 1));
-      start = startCurrent.subtract(const Duration(days: 7));
-      end = start.add(const Duration(days: 6, hours: 23, minutes: 59));
-    } else {
-      start = DateTime(date.year, date.month - 1, 1);
-      end = DateTime(date.year, date.month, 0, 23, 59, 59);
-    }
-    return (start.millisecondsSinceEpoch, end.millisecondsSinceEpoch);
+  bool isEnd(DateTime date) {
+    return rangeEnd != null && _isSameDay(date, rangeEnd!);
+  }
+
+  bool isInRange(DateTime date) {
+    if (rangeStart == null || rangeEnd == null) return false;
+    final d = DateTime(date.year, date.month, date.day);
+    final s = DateTime(rangeStart!.year, rangeStart!.month, rangeStart!.day);
+    final e = DateTime(rangeEnd!.year, rangeEnd!.month, rangeEnd!.day);
+    return d.isAfter(s) && d.isBefore(e);
   }
 
   bool _isDisposed = false;
@@ -186,40 +273,159 @@ class AnalyticsViewModel extends ChangeNotifier {
     isLoading = true;
     notifyListeners();
 
-    final (start, end) = _getDateRange();
-    final (startPrev, endPrev) = _getPreviousDateRange();
-    final db = DatabaseHelper.instance;
+    // 1. Fetch Month Data for Heatmap (Ignoring type filter for Heatmap mostly? Or apply it?
+    // Usually Heatmap shows net intensity regardless of filter, or reflects filter.
+    // Let's assume Heatmap reflects the filter context if possible, but Heatmap often needs both Income/Expense to show Net.
+    // However, the user asked for income/expense filter. If Expense is selected, Heatmap should probably just show expense intensity.
+    // CURRENT LOGIC: _fetchMonthData fetches ALL types, then calculates dailyNet.
+    // If I filter by 'debit' only, dailyNet should reflect that?
+    // Let's stick to: Heatmap shows ALL provided by DB, but we can filter the aggregation.
 
-    // 1. Current Period Data
-    final data = await db.getFilteredTransactions(
-      startEpoch: start,
-      endEpoch: end,
-      categoryIds: selectedCategoryIds,
-      patternIds: selectedPatternIds,
-      type: transactionType,
+    // Fetch FULL MONTH data for the Heatmap base
+    final startMonth = DateTime(focusedDate.year, focusedDate.month, 1);
+    final endMonth = DateTime(
+      focusedDate.year,
+      focusedDate.month + 1,
+      0,
+      23,
+      59,
+      59,
+    );
+
+    final data = await DatabaseHelper.instance.getFilteredTransactions(
+      startEpoch: startMonth.millisecondsSinceEpoch,
+      endEpoch: endMonth.millisecondsSinceEpoch,
+      // We do NOT filter category/type here for the raw data, we filter in memory
+      // because changing a filter shouldn't require re-fetching DB if we just hide items.
+      // But for performance, maybe we filter by Pattern/Category in UI?
+      // Actually, let's fetch EVERYTHING for the month and filter in memory. Dates are small enough.
     );
 
     if (_isDisposed) return;
 
-    // 2. Previous Period Data (For Insights)
-    final prevData = await db.getFilteredTransactions(
-      startEpoch: startPrev,
-      endEpoch: endPrev,
-      categoryIds: selectedCategoryIds,
-      patternIds: selectedPatternIds,
-      type: transactionType,
-    );
-
-    // --- Calculate Summaries & Insights ---
-    Map<String, double> totals = {};
-    Map<String, Color> colors = {};
-    double totalFilterAmount = 0;
+    // Populate Heatmap & Daily Map
+    Map<int, double> tempNet = {};
+    Map<int, List<Map<String, dynamic>>> tempTxs = {};
+    double tempMax = 0;
 
     for (var tx in data) {
-      final catName = tx['categoryName'] ?? 'Uncategorized';
+      final date = DateTime.fromMillisecondsSinceEpoch(tx['date']);
+      final day = date.day;
       final amount = (tx['amount'] as num).toDouble();
-      totalFilterAmount += amount;
+      final isDebit = tx['type'] == 'debit';
+
+      // Apply TYPE Filter to Heatmap?
+      // If user selected "Expense", should heatmap show Income days?
+      // User request: "along with the expense and income filter".
+      // Let's assume this filter applies to EVERYTHING including heatmap.
+      // Apply TYPE Filter to Heatmap
+      if (transactionType != 'all') {
+        if (transactionType == 'debit' && !isDebit) continue;
+        if (transactionType == 'credit' && isDebit) continue;
+      }
+
+      double currentNet = tempNet[day] ?? 0.0;
+      if (isDebit)
+        currentNet += amount;
+      else
+        currentNet -= amount;
+
+      tempNet[day] = currentNet;
+      if (currentNet.abs() > tempMax) tempMax = currentNet.abs();
+
+      if (tempTxs[day] == null) tempTxs[day] = [];
+      tempTxs[day]!.add(tx);
+    }
+
+    dailyNet = tempNet;
+    dailyTransactions = tempTxs;
+    maxNet = tempMax == 0 ? 1.0 : tempMax;
+
+    _processRangeData(); // This will populate proper transactions/insights list
+
+    isLoading = false;
+    notifyListeners();
+  }
+
+  void _processRangeData() {
+    // Gather transactions from dailyTransactions based on Range
+    List<Map<String, dynamic>> rangeTxs = [];
+
+    if (rangeStart != null) {
+      DateTime current = DateTime(
+        rangeStart!.year,
+        rangeStart!.month,
+        rangeStart!.day,
+      );
+      DateTime end =
+          (rangeEnd != null)
+              ? DateTime(rangeEnd!.year, rangeEnd!.month, rangeEnd!.day)
+              : current;
+
+      while (!current.isAfter(end)) {
+        if (current.month == focusedDate.month) {
+          final dayTxs = dailyTransactions[current.day];
+          if (dayTxs != null) {
+            rangeTxs.addAll(dayTxs);
+          }
+        }
+        current = current.add(const Duration(days: 1));
+      }
+    }
+
+    // Separate unfiltered Transactions for stats calculation
+    List<Map<String, dynamic>> unfilteredRangeTxs = List.from(rangeTxs);
+
+    // Filter by Category/Patterns for the Transaction List & Heatmap
+    if (selectedCategoryIds.isNotEmpty || selectedPatternIds.isNotEmpty) {
+      rangeTxs =
+          rangeTxs.where((tx) {
+            if (selectedCategoryIds.isNotEmpty &&
+                !selectedCategoryIds.contains(tx['categoryId']))
+              return false;
+            // Pattern check logic if needed
+            return true;
+          }).toList();
+    }
+
+    transactions = rangeTxs;
+    _sortTransactions();
+    _calculateStats(
+      unfilteredRangeTxs,
+    ); // Pass unfiltered txs for Category List
+  }
+
+  void _sortTransactions() {
+    transactions.sort((a, b) {
+      switch (sortOption) {
+        case SortOption.dateDesc:
+          return (b['date'] as int).compareTo(a['date'] as int);
+        case SortOption.dateAsc:
+          return (a['date'] as int).compareTo(b['date'] as int);
+        case SortOption.amountDesc:
+          return (b['amount'] as num).compareTo(a['amount'] as num);
+        case SortOption.amountAsc:
+          return (a['amount'] as num).compareTo(b['amount'] as num);
+      }
+    });
+  }
+
+  void _calculateStats(List<Map<String, dynamic>> sourceTxs) {
+    // Calculate Pie Chart (Category Summaries) & Insights for the Transactions List
+    Map<String, double> totals = {};
+    Map<String, int> catIds = {}; // Map name to ID
+    Map<String, Color> colors = {};
+    double totalAmount = 0;
+
+    for (var tx in sourceTxs) {
+      final amount = (tx['amount'] as num).toDouble();
+      totalAmount += amount;
+
+      final catName = tx['categoryName'] ?? 'Uncategorized';
+      final catId = tx['categoryId'] as int?; // might be null
+
       totals[catName] = (totals[catName] ?? 0) + amount;
+      if (catId != null) catIds[catName] = catId;
 
       if (!colors.containsKey(catName)) {
         int? colorInt = tx['categoryColor'];
@@ -228,80 +434,28 @@ class AnalyticsViewModel extends ChangeNotifier {
       }
     }
 
-    Map<String, double> prevTotals = {};
-    for (var tx in prevData) {
-      final catName = tx['categoryName'] ?? 'Uncategorized';
-      final amount = (tx['amount'] as num).toDouble();
-      prevTotals[catName] = (prevTotals[catName] ?? 0) + amount;
-    }
-
-    List<InsightItem> calculatedInsights = [];
-    totals.forEach((catName, currentAmount) {
-      final prevAmount = prevTotals[catName] ?? 0.0;
-      if (prevAmount > 0) {
-        final diff = currentAmount - prevAmount;
-        final pctChange = (diff / prevAmount) * 100;
-        if (pctChange.abs() >= 5 || diff.abs() >= 50) {
-          calculatedInsights.add(
-            InsightItem(
-              categoryName: catName,
-              currentAmount: currentAmount,
-              prevAmount: prevAmount,
-              percentageChange: pctChange,
-              diffAmount: diff,
-            ),
-          );
-        }
-      } else if (currentAmount > 0 && prevAmount == 0) {
-        calculatedInsights.add(
-          InsightItem(
-            categoryName: catName,
-            currentAmount: currentAmount,
-            prevAmount: 0,
-            percentageChange: 100,
-            diffAmount: currentAmount,
-          ),
-        );
-      }
-    });
-
-    prevTotals.forEach((catName, prevAmount) {
-      if (!totals.containsKey(catName) && prevAmount > 0) {
-        calculatedInsights.add(
-          InsightItem(
-            categoryName: catName,
-            currentAmount: 0,
-            prevAmount: prevAmount,
-            percentageChange: -100,
-            diffAmount: -prevAmount,
-          ),
-        );
-      }
-    });
-
-    calculatedInsights.sort(
-      (a, b) => b.diffAmount.abs().compareTo(a.diffAmount.abs()),
-    );
-
-    List<CategorySummary> summaries =
+    categorySummaries =
         totals.entries.map((e) {
           return CategorySummary(
+            id: catIds[e.key] ?? -1,
             name: e.key,
             amount: e.value,
             color: colors[e.key] ?? Colors.grey,
-            percentage:
-                totalFilterAmount == 0
-                    ? 0
-                    : (e.value / totalFilterAmount) * 100,
+            percentage: totalAmount == 0 ? 0 : (e.value / totalAmount) * 100,
           );
         }).toList();
 
-    summaries.sort((a, b) => b.amount.compareTo(a.amount));
+    // Sort: Selected first, then Amount desc
+    categorySummaries.sort((a, b) {
+      final isSelectedA = selectedCategoryIds.contains(a.id);
+      final isSelectedB = selectedCategoryIds.contains(b.id);
 
-    transactions = data;
-    categorySummaries = summaries;
-    insights = calculatedInsights;
-    isLoading = false;
-    notifyListeners();
+      if (isSelectedA && !isSelectedB) return -1;
+      if (!isSelectedA && isSelectedB) return 1;
+
+      return b.amount.compareTo(a.amount);
+    });
+
+    insights.clear(); // Insights simplified/cleared for now
   }
 }

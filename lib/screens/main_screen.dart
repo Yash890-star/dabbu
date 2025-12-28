@@ -1,5 +1,5 @@
 import 'package:dabbu/screens/analytics_screen.dart';
-import 'package:dabbu/screens/calendar_screen.dart';
+
 import 'package:flutter/material.dart';
 import '../utils/cms.dart';
 import 'home_page.dart';
@@ -33,14 +33,14 @@ class _MainScreenState extends State<MainScreen> {
   List<Widget> get _pages => [
     HomePage(key: _homeKey),
     const AnalyticsScreen(),
-    const CalendarScreen(),
+
     SettingsPage(key: _settingsKey),
   ];
 
   void _onItemTapped(int index) {
     if (index == 0) {
       _homeKey.currentState?.refreshData();
-    } else if (index == 3) {
+    } else if (index == 2) {
       _settingsKey.currentState?.refresh();
     }
 
@@ -56,7 +56,7 @@ class _MainScreenState extends State<MainScreen> {
   void _onPageChanged(int index) {
     if (index == 0) {
       _homeKey.currentState?.refreshData();
-    } else if (index == 3) {
+    } else if (index == 2) {
       _settingsKey.currentState?.refresh();
     }
 
@@ -94,11 +94,7 @@ class _MainScreenState extends State<MainScreen> {
               selectedIcon: const Icon(Icons.pie_chart),
               label: CMS.main['nav_analytics']!,
             ),
-            NavigationDestination(
-              icon: const Icon(Icons.calendar_month_outlined),
-              selectedIcon: const Icon(Icons.calendar_month),
-              label: CMS.main['nav_calendar']!,
-            ),
+
             NavigationDestination(
               icon: const Icon(Icons.settings_outlined),
               selectedIcon: const Icon(Icons.settings),

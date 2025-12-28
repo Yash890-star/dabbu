@@ -59,7 +59,7 @@ class HeatMapBlock extends StatelessWidget {
           GridView.builder(
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
-            itemCount: daysInMonth + weekdayOffset,
+            itemCount: 42, // Force 6 weeks * 7 days to keep height constant
             gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
               crossAxisCount: 7,
               childAspectRatio: 1.0,
@@ -67,7 +67,8 @@ class HeatMapBlock extends StatelessWidget {
               mainAxisSpacing: 8,
             ),
             itemBuilder: (context, index) {
-              if (index < weekdayOffset) {
+              if (index < weekdayOffset ||
+                  index >= daysInMonth + weekdayOffset) {
                 return const SizedBox.shrink();
               }
 
