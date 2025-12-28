@@ -5,11 +5,13 @@ import '../app_card.dart';
 
 class DaySummaryBlock extends StatelessWidget {
   final DateTime selectedDate;
+  final DateTime? endDate;
   final List<Map<String, dynamic>> transactions;
 
   const DaySummaryBlock({
     super.key,
     required this.selectedDate,
+    this.endDate,
     required this.transactions,
   });
 
@@ -27,6 +29,12 @@ class DaySummaryBlock extends StatelessWidget {
       }
     }
 
+    String dateText = DateFormat.MMMEd().format(selectedDate);
+    if (endDate != null) {
+      dateText =
+          "${DateFormat.MMMd().format(selectedDate)} - ${DateFormat.MMMd().format(endDate!)}";
+    }
+
     return AppCard(
       padding: const EdgeInsets.all(16),
       child: Column(
@@ -36,7 +44,7 @@ class DaySummaryBlock extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                DateFormat.MMMEd().format(selectedDate),
+                dateText,
                 style: const TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.bold,

@@ -45,6 +45,18 @@ class CalendarViewModel extends ChangeNotifier {
 
   void changeMonth(int offset) {
     focusedDate = DateTime(focusedDate.year, focusedDate.month + offset, 1);
+
+    // Reset Selection Logic
+    final now = DateTime.now();
+    if (focusedDate.year == now.year && focusedDate.month == now.month) {
+      // Current Month -> Default to Today
+      rangeStart = now;
+    } else {
+      // Other Month -> Default to 1st
+      rangeStart = DateTime(focusedDate.year, focusedDate.month, 1);
+    }
+    rangeEnd = null; // Always reset range
+
     fetchMonthData(); // Will notify listeners
   }
 
@@ -163,6 +175,17 @@ class CalendarViewModel extends ChangeNotifier {
   void resetFilters() {
     selectedCategoryIds.clear();
     selectedSenders.clear();
+    sortOption = SortOption.dateDesc; // Reset sort
+
+    // Reset Date Logic (Default to Today or 1st based on month, same as changeMonth)
+    final now = DateTime.now();
+    if (focusedDate.year == now.year && focusedDate.month == now.month) {
+      rangeStart = now;
+    } else {
+      rangeStart = DateTime(focusedDate.year, focusedDate.month, 1);
+    }
+    rangeEnd = null;
+
     notifyListeners();
   }
 

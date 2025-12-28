@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../utils/cms.dart';
 import '../utils/app_colors.dart';
+import '../utils/theme_controller.dart';
 
 import 'sms_parsing_screen.dart';
 import 'sms_setup_screen.dart';
@@ -13,15 +14,19 @@ class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key, this.initialIndex = 0});
 
   @override
-  State<SettingsPage> createState() => _SettingsPageState();
+  State<SettingsPage> createState() => SettingsPageState();
 }
 
-class _SettingsPageState extends State<SettingsPage> {
+class SettingsPageState extends State<SettingsPage> {
   final SettingsViewModel _viewModel = SettingsViewModel();
 
   @override
   void initState() {
     super.initState();
+    _viewModel.loadData();
+  }
+
+  void refresh() {
     _viewModel.loadData();
   }
 
@@ -233,41 +238,6 @@ class _SettingsPageState extends State<SettingsPage> {
     );
   }
 
-  Future<void> _deleteCategory(int id) async {
-    // 1. Prevent deleting Default Category
-    if (id == 1) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(CMS.settings['cannot_delete_default']!)),
-      );
-      return;
-    }
-
-    // 2. Confirm Deletion
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder:
-          (ctx) => AlertDialog(
-            title: Text(CMS.settings['delete_category_title']!),
-            content: Text(CMS.settings['delete_category_content']!),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(ctx, false),
-                child: Text(CMS.common['cancel']!),
-              ),
-              TextButton(
-                onPressed: () => Navigator.pop(ctx, true),
-                style: TextButton.styleFrom(foregroundColor: AppColors.delete),
-                child: Text(CMS.common['delete']!),
-              ),
-            ],
-          ),
-    );
-
-    if (confirm == true) {
-      await _viewModel.deleteCategory(id);
-    }
-  }
-
   Future<void> _showArchivedGoals() async {
     final archived =
         _viewModel.goals.where((g) => (g['isArchived'] ?? 0) == 1).toList();
@@ -444,6 +414,31 @@ class _SettingsPageState extends State<SettingsPage> {
                   title: CMS.settings['general_settings_header']!,
                   icon: Icons.tune,
                   children: [
+                    // Theme Switcher
+                    ValueListenableBuilder<ThemeMode>(
+                      valueListenable: ThemeController(),
+                      builder: (context, mode, child) {
+                        final isDark =
+                            mode == ThemeMode.dark ||
+                            (mode == ThemeMode.system &&
+                                MediaQuery.of(context).platformBrightness ==
+                                    Brightness.dark);
+                        return SwitchListTile(
+                          secondary: Icon(
+                            isDark
+                                ? Icons.dark_mode_outlined
+                                : Icons.light_mode_outlined,
+                            color: isDark ? Colors.purpleAccent : Colors.orange,
+                          ),
+                          title: Text(isDark ? "Dark Mode" : "Light Mode"),
+                          value: isDark,
+                          onChanged: (val) {
+                            ThemeController().toggleTheme(val);
+                          },
+                        );
+                      },
+                    ),
+                    const Divider(height: 1, indent: 56),
                     ListTile(
                       leading: const Icon(
                         Icons.account_balance_wallet_outlined,

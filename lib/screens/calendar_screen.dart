@@ -265,13 +265,6 @@ class _CalendarScreenState extends State<CalendarScreen> {
             ),
             elevation: 0,
             centerTitle: true,
-            actions: [
-              IconButton(
-                icon: const Icon(Icons.refresh),
-                onPressed:
-                    _viewModel.isLoading ? null : _viewModel.fetchMonthData,
-              ),
-            ],
           ),
           body: RefreshIndicator(
             onRefresh: _viewModel.fetchMonthData,
@@ -311,24 +304,76 @@ class _CalendarScreenState extends State<CalendarScreen> {
                       child: Center(child: CircularProgressIndicator()),
                     )
                   else
-                    HeatMapBlock(
-                      focusedDate: _viewModel.focusedDate,
-                      dailyNet: _viewModel.dailyNet,
-                      maxNet: _viewModel.maxNet,
-                      selectedDate:
-                          _viewModel
-                              .rangeStart, // Using rangeStart as selected for single day selection visual
-                      onDaySelected: (date) {
-                        _viewModel.onDaySelected(date);
+                    GestureDetector(
+                      onHorizontalDragEnd: (details) {
+                        if (details.primaryVelocity! < 0) {
+                          // Swipe Left -> Next Month
+                          _viewModel.changeMonth(1);
+                        } else if (details.primaryVelocity! > 0) {
+                          // Swipe Right -> Prev Month
+                          _viewModel.changeMonth(-1);
+                        }
                       },
+                      child: HeatMapBlock(
+                        focusedDate: _viewModel.focusedDate,
+                        dailyNet: _viewModel.dailyNet,
+                        maxNet: _viewModel.maxNet,
+                        rangeStart: _viewModel.rangeStart,
+                        rangeEnd: _viewModel.rangeEnd,
+                        onDaySelected: (date) {
+                          _viewModel.onDaySelected(date);
+                        },
+                      ),
                     ),
 
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 16),
 
-                  // 3. Day Summary
+                  // 3. Filter & Sort Options (Moved below Heatmap)
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.start,
+                      children: [
+                        ActionChip(
+                          avatar: const Icon(Icons.filter_list, size: 16),
+                          label: Text("Filter"),
+                          onPressed: _showFilterOptions,
+                          backgroundColor:
+                              _viewModel.selectedCategoryIds.isNotEmpty ||
+                                      _viewModel.selectedSenders.isNotEmpty
+                                  ? Theme.of(
+                                    context,
+                                  ).colorScheme.primaryContainer
+                                  : null,
+                        ),
+                        const SizedBox(width: 8),
+                        ActionChip(
+                          avatar: const Icon(Icons.sort, size: 16),
+                          label: Text(_getSortLabel()),
+                          onPressed: _showSortOptions,
+                        ),
+                        if (_viewModel.selectedCategoryIds.isNotEmpty ||
+                            _viewModel.selectedSenders.isNotEmpty ||
+                            _viewModel.rangeStart != null) ...[
+                          const SizedBox(width: 8),
+                          TextButton(
+                            onPressed: () {
+                              _viewModel.resetFilters();
+                            },
+                            child: Text("Reset"), // Renamed from Reset Filters
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+
+                  const SizedBox(height: 16),
+
+                  // 4. Day/Range Summary
                   if (_viewModel.rangeStart != null) ...[
                     DaySummaryBlock(
                       selectedDate: _viewModel.rangeStart!,
+                      endDate: _viewModel.rangeEnd,
                       transactions: _viewModel.getTransactionsInRange(),
                     ),
                     const SizedBox(height: 16),
@@ -380,7 +425,8 @@ class _CalendarScreenState extends State<CalendarScreen> {
       itemBuilder: (context, index) {
         final tx = txs[index];
         final isCredit = tx['type'] == 'credit';
-        // final date = DateTime.fromMillisecondsSinceEpoch(tx['date']); // Already showing date in summary
+        final date = DateTime.fromMillisecondsSinceEpoch(tx['date']);
+        final formattedDate = DateFormat('MMM d, h:mm a').format(date);
 
         return Card(
           margin: EdgeInsets.zero,
@@ -412,7 +458,20 @@ class _CalendarScreenState extends State<CalendarScreen> {
               tx['patternName'] ?? tx['sender'] ?? "Unknown",
               style: const TextStyle(fontWeight: FontWeight.w600),
             ),
-            subtitle: Text(tx['categoryName'] ?? 'Uncategorized'),
+            subtitle: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(tx['categoryName'] ?? 'Uncategorized'),
+                const SizedBox(height: 2),
+                Text(
+                  formattedDate,
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ),
             trailing: Text(
               "${tx['amount']}",
               style: TextStyle(

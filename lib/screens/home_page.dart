@@ -228,10 +228,23 @@ class HomePageState extends State<HomePage> {
                     const SizedBox(height: 16),
 
                     // --- 2. Financial Health (Budget Gauge) ---
-                    BudgetGaugeBlock(
-                      totalBudget: _viewModel.monthlyBudget,
-                      totalSpent: expense,
-                      currencySymbol: CMS.common['currency_symbol']!,
+                    GestureDetector(
+                      onHorizontalDragEnd: (details) {
+                        if (details.primaryVelocity! > 0) {
+                          // Swipe Right -> Previous Month
+                          _viewModel.changeSummaryMonth(-1);
+                        } else if (details.primaryVelocity! < 0) {
+                          // Swipe Left -> Next Month
+                          if (_viewModel.canGoNext) {
+                            _viewModel.changeSummaryMonth(1);
+                          }
+                        }
+                      },
+                      child: BudgetGaugeBlock(
+                        totalBudget: _viewModel.monthlyBudget,
+                        totalSpent: expense,
+                        currencySymbol: CMS.common['currency_symbol']!,
+                      ),
                     ),
                     const SizedBox(height: 16),
 

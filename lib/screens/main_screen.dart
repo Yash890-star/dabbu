@@ -15,18 +15,54 @@ class MainScreen extends StatefulWidget {
 class _MainScreenState extends State<MainScreen> {
   int _selectedIndex = 0;
   final GlobalKey<HomePageState> _homeKey = GlobalKey();
+  final GlobalKey<SettingsPageState> _settingsKey = GlobalKey();
+  late final PageController _pageController;
+
+  @override
+  void initState() {
+    super.initState();
+    _pageController = PageController(initialPage: _selectedIndex);
+  }
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
 
   List<Widget> get _pages => [
     HomePage(key: _homeKey),
     const AnalyticsScreen(),
     const CalendarScreen(),
-    const SettingsPage(),
+    SettingsPage(key: _settingsKey),
   ];
 
   void _onItemTapped(int index) {
     if (index == 0) {
       _homeKey.currentState?.refreshData();
+    } else if (index == 3) {
+      _settingsKey.currentState?.refresh();
     }
+
+    // Animate to the page when tab is tapped
+    _pageController.animateToPage(
+      index,
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeInOut,
+    );
+
+    setState(() {
+      _selectedIndex = index;
+    });
+  }
+
+  void _onPageChanged(int index) {
+    if (index == 0) {
+      _homeKey.currentState?.refreshData();
+    } else if (index == 3) {
+      _settingsKey.currentState?.refresh();
+    }
+
     setState(() {
       _selectedIndex = index;
     });
@@ -41,9 +77,10 @@ class _MainScreenState extends State<MainScreen> {
         _onItemTapped(0);
       },
       child: Scaffold(
-        body: IndexedStack(
-          // Keeps state alive when switching tabs
-          index: _selectedIndex,
+        body: PageView(
+          controller: _pageController,
+          onPageChanged: _onPageChanged,
+          physics: const BouncingScrollPhysics(), // Nice bounce effect
           children: _pages,
         ),
         bottomNavigationBar: NavigationBar(

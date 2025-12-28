@@ -2,11 +2,14 @@ import 'package:flutter/material.dart';
 
 import '../../utils/app_colors.dart';
 
+import '../app_card.dart';
+
 class HeatMapBlock extends StatelessWidget {
   final DateTime focusedDate;
   final Map<int, double> dailyNet;
   final double maxNet;
-  final DateTime? selectedDate;
+  final DateTime? rangeStart;
+  final DateTime? rangeEnd;
   final Function(DateTime) onDaySelected;
 
   const HeatMapBlock({
@@ -14,7 +17,8 @@ class HeatMapBlock extends StatelessWidget {
     required this.focusedDate,
     required this.dailyNet,
     required this.maxNet,
-    this.selectedDate,
+    this.rangeStart,
+    this.rangeEnd,
     required this.onDaySelected,
   });
 
@@ -25,60 +29,79 @@ class HeatMapBlock extends StatelessWidget {
     final firstDayOfMonth = DateTime(focusedDate.year, focusedDate.month, 1);
     final weekdayOffset = firstDayOfMonth.weekday % 7;
 
-    return Column(
-      children: [
-        // Weekday Headers
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children:
-              ["S", "M", "T", "W", "T", "F", "S"]
-                  .map(
-                    (d) => Expanded(
-                      child: Text(
-                        d,
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          color: Theme.of(context).colorScheme.onSurfaceVariant,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 12,
+    return AppCard(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        children: [
+          // Weekday Headers
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children:
+                ["S", "M", "T", "W", "T", "F", "S"]
+                    .map(
+                      (d) => Expanded(
+                        child: Text(
+                          d,
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            color:
+                                Theme.of(context).colorScheme.onSurfaceVariant,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 12,
+                          ),
                         ),
                       ),
-                    ),
-                  )
-                  .toList(),
-        ),
-        const SizedBox(height: 12),
-        // Grid
-        GridView.builder(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          itemCount: daysInMonth + weekdayOffset,
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 7,
-            childAspectRatio: 1.0,
-            crossAxisSpacing: 8,
-            mainAxisSpacing: 8,
+                    )
+                    .toList(),
           ),
-          itemBuilder: (context, index) {
-            if (index < weekdayOffset) {
-              return const SizedBox.shrink();
-            }
+          const SizedBox(height: 12),
+          // Grid
+          GridView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: daysInMonth + weekdayOffset,
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 7,
+              childAspectRatio: 1.0,
+              crossAxisSpacing: 8,
+              mainAxisSpacing: 8,
+            ),
+            itemBuilder: (context, index) {
+              if (index < weekdayOffset) {
+                return const SizedBox.shrink();
+              }
 
-            final day = index - weekdayOffset + 1;
-            final date = DateTime(focusedDate.year, focusedDate.month, day);
+              final day = index - weekdayOffset + 1;
+              final date = DateTime(focusedDate.year, focusedDate.month, day);
 
-            final isSelected =
-                selectedDate != null &&
-                date.year == selectedDate!.year &&
-                date.month == selectedDate!.month &&
-                date.day == selectedDate!.day;
+              // Range Logic
+              bool isStart =
+                  rangeStart != null && _isSameDay(date, rangeStart!);
+              bool isEnd = rangeEnd != null && _isSameDay(date, rangeEnd!);
+              bool isInRange =
+                  rangeStart != null &&
+                  rangeEnd != null &&
+                  date.isAfter(rangeStart!) &&
+                  date.isBefore(rangeEnd!) &&
+                  true;
 
-            final isToday = _isSameDay(date, DateTime.now());
+              bool isSelected = isStart || isEnd || isInRange;
+              final isToday = _isSameDay(date, DateTime.now());
 
-            return _buildDayCell(context, day, date, isSelected, isToday);
-          },
-        ),
-      ],
+              return _buildDayCell(
+                context,
+                day,
+                date,
+                isSelected,
+                isStart,
+                isEnd,
+                isInRange,
+                isToday,
+              );
+            },
+          ),
+        ],
+      ),
     );
   }
 
@@ -87,39 +110,58 @@ class HeatMapBlock extends StatelessWidget {
     int day,
     DateTime date,
     bool isSelected,
+    bool isStart,
+    bool isEnd,
+    bool isInRange,
     bool isToday,
   ) {
     Color? bgColor;
     Color textColor = Theme.of(context).colorScheme.onSurface;
+    BoxBorder? border;
 
+    // Base Heatmap Color
     if (dailyNet.containsKey(day)) {
       final net = dailyNet[day]!;
+      // Boost min intensity to 0.3 for better visibility on dark backgrounds
       double intensity = (net.abs() / (maxNet == 0 ? 1 : maxNet)).clamp(
-        0.2,
+        0.3,
         1.0,
       );
 
-      if (net < 0) {
+      if (net > 0) {
         // Expense -> Red/Coral
         bgColor = AppColors.expense.withValues(alpha: intensity);
-        // If intensity is high, use white text
         if (intensity > 0.5) textColor = Colors.white;
-      } else if (net > 0) {
+      } else if (net < 0) {
         // Income -> Green/Emerald
         bgColor = AppColors.income.withValues(alpha: intensity);
         if (intensity > 0.5) textColor = Colors.black;
       }
     } else {
       // Empty day
+      // Use a subtle fill that contrasts with the Card background
       bgColor = Theme.of(
         context,
-      ).colorScheme.surfaceContainerHighest.withValues(alpha: 0.3);
+      ).colorScheme.surfaceContainerHighest.withValues(alpha: 0.15);
     }
 
+    // Selection Logic: High Contrast Outline ONLY (No Overlay, No Shadow)
     if (isSelected) {
-      // Highlight selected
-      bgColor = Theme.of(context).colorScheme.primary;
-      textColor = Theme.of(context).colorScheme.onPrimary;
+      final isDark = Theme.of(context).brightness == Brightness.dark;
+
+      // Apply border to ALL selected dates (Start, End, and Range)
+      border = Border.all(
+        color: isDark ? Colors.white : Colors.black,
+        width: 2.5,
+      );
+    }
+
+    // Today Indicator (Secondary priority)
+    if (isToday && border == null) {
+      border = Border.all(
+        color: Theme.of(context).colorScheme.primary,
+        width: 2,
+      );
     }
 
     return GestureDetector(
@@ -128,25 +170,7 @@ class HeatMapBlock extends StatelessWidget {
         decoration: BoxDecoration(
           color: bgColor,
           borderRadius: BorderRadius.circular(12),
-          border:
-              isToday
-                  ? Border.all(
-                    color: Theme.of(context).colorScheme.primary,
-                    width: 2,
-                  )
-                  : null,
-          boxShadow:
-              isSelected
-                  ? [
-                    BoxShadow(
-                      color: Theme.of(
-                        context,
-                      ).colorScheme.primary.withValues(alpha: 0.3),
-                      blurRadius: 8,
-                      offset: const Offset(0, 4),
-                    ),
-                  ]
-                  : null,
+          border: border,
         ),
         alignment: Alignment.center,
         child: Text(

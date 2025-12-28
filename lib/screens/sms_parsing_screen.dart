@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:another_telephony/telephony.dart';
+import '../utils/app_colors.dart';
 import '../utils/cms.dart';
 import '../viewmodels/sms_parsing_view_model.dart';
 import '../widgets/sms/sms_code_block.dart';
@@ -253,12 +254,19 @@ class _SmsParsingScreenState extends State<SmsParsingScreen> {
                         ChoiceChip(
                           label: Text(CMS.smsParsing['debit_label']!),
                           selected: _viewModel.transactionType == 'debit',
-                          selectedColor: Colors.red.shade100,
+                          selectedColor: AppColors.expense.withValues(
+                            alpha: 0.2,
+                          ),
+                          checkmarkColor: AppColors.expense,
                           labelStyle: TextStyle(
                             color:
                                 _viewModel.transactionType == 'debit'
-                                    ? Colors.red
-                                    : Colors.black,
+                                    ? AppColors.expense
+                                    : Theme.of(context).colorScheme.onSurface,
+                            fontWeight:
+                                _viewModel.transactionType == 'debit'
+                                    ? FontWeight.bold
+                                    : FontWeight.normal,
                           ),
                           onSelected: (bool selected) {
                             if (selected) {
@@ -270,12 +278,19 @@ class _SmsParsingScreenState extends State<SmsParsingScreen> {
                         ChoiceChip(
                           label: Text(CMS.smsParsing['credit_label']!),
                           selected: _viewModel.transactionType == 'credit',
-                          selectedColor: Colors.green.shade100,
+                          selectedColor: AppColors.income.withValues(
+                            alpha: 0.2,
+                          ),
+                          checkmarkColor: AppColors.income,
                           labelStyle: TextStyle(
                             color:
                                 _viewModel.transactionType == 'credit'
-                                    ? Colors.green
-                                    : Colors.black,
+                                    ? AppColors.income
+                                    : Theme.of(context).colorScheme.onSurface,
+                            fontWeight:
+                                _viewModel.transactionType == 'credit'
+                                    ? FontWeight.bold
+                                    : FontWeight.normal,
                           ),
                           onSelected: (bool selected) {
                             if (selected) {

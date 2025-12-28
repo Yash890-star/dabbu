@@ -49,12 +49,6 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
               style: const TextStyle(fontWeight: FontWeight.w600),
             ),
             elevation: 0,
-            actions: [
-              IconButton(
-                icon: const Icon(Icons.refresh),
-                onPressed: _viewModel.isLoading ? null : _viewModel.refreshAll,
-              ),
-            ],
           ),
           body: RefreshIndicator(
             onRefresh: _viewModel.refreshAll,

@@ -140,6 +140,40 @@ class SmsParsingViewModel extends ChangeNotifier {
       }
     }
 
+    // --- AUTO-CATEGORIZATION LOGIC ---
+    // Check if the selected token (current index) matches known keywords
+    if (selectionMode == SelectionMode.anchor) {
+      final token = bodyTokens[index].toLowerCase().replaceAll(
+        RegExp(r'[^a-z]'),
+        '',
+      );
+
+      const debitKeywords = [
+        'debit',
+        'debited',
+        'spent',
+        'paid',
+        'withdrawn',
+        'sent',
+        'transferred',
+      ];
+      const creditKeywords = [
+        'credit',
+        'credited',
+        'received',
+        'added',
+        'deposited',
+        'refund',
+        'refunded',
+      ];
+
+      if (debitKeywords.contains(token)) {
+        setTransactionType('debit');
+      } else if (creditKeywords.contains(token)) {
+        setTransactionType('credit');
+      }
+    }
+
     _generateRegex();
     notifyListeners();
   }
