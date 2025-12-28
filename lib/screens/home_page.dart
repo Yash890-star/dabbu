@@ -15,6 +15,8 @@ import '../widgets/home/recent_transactions_block.dart';
 import '../widgets/home/sublimit_block.dart';
 import '../widgets/add_goal_dialog.dart';
 import 'all_transactions_screen.dart';
+import '../widgets/shimmer_loading.dart';
+import '../widgets/fade_in_entry.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -232,120 +234,168 @@ class HomePageState extends State<HomePage> with AutomaticKeepAliveClientMixin {
                     const SizedBox(height: 16),
 
                     // --- 2. Financial Health (Budget Gauge) ---
-                    GestureDetector(
-                      onHorizontalDragEnd: (details) {
-                        if (details.primaryVelocity! > 0) {
-                          // Swipe Right -> Previous Month
-                          _viewModel.changeSummaryMonth(-1);
-                        } else if (details.primaryVelocity! < 0) {
-                          // Swipe Left -> Next Month
-                          if (_viewModel.canGoNext) {
-                            _viewModel.changeSummaryMonth(1);
-                          }
-                        }
-                      },
-                      child: BudgetGaugeBlock(
-                        totalBudget: _viewModel.monthlyBudget,
-                        totalSpent: expense,
-                        currencySymbol: CMS.common['currency_symbol']!,
+                    // --- 2. Financial Health (Budget Gauge) ---
+                    _viewModel.isLoading
+                        ? const ShimmerLoading(
+                          width: double.infinity,
+                          height: 220,
+                        )
+                        : FadeInEntry(
+                          delay: 200,
+                          child: GestureDetector(
+                            onHorizontalDragEnd: (details) {
+                              if (details.primaryVelocity! > 0) {
+                                // Swipe Right -> Previous Month
+                                _viewModel.changeSummaryMonth(-1);
+                              } else if (details.primaryVelocity! < 0) {
+                                // Swipe Left -> Next Month
+                                if (_viewModel.canGoNext) {
+                                  _viewModel.changeSummaryMonth(1);
+                                }
+                              }
+                            },
+                            child: BudgetGaugeBlock(
+                              totalBudget: _viewModel.monthlyBudget,
+                              totalSpent: expense,
+                              currencySymbol: CMS.common['currency_symbol']!,
+                            ),
+                          ),
+                        ),
+                    const SizedBox(height: 16),
+
+                    // --- 3. Quick Stats (Income / Expense) ---
+                    // --- 3. Quick Stats (Income / Expense) ---
+                    FadeInEntry(
+                      delay: 300,
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child:
+                                _viewModel.isLoading
+                                    ? const ShimmerLoading(
+                                      width: double.infinity,
+                                      height: 100,
+                                    )
+                                    : StatCard(
+                                      title: CMS.home['credits_label']!,
+                                      amount: NumberFormat.compactCurrency(
+                                        symbol: CMS.common['currency_symbol']!,
+                                      ).format(income),
+                                      icon: Icons.arrow_downward,
+                                      color: AppColors.income,
+                                      backgroundColor: statCardBg,
+                                    ),
+                          ),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child:
+                                _viewModel.isLoading
+                                    ? const ShimmerLoading(
+                                      width: double.infinity,
+                                      height: 100,
+                                    )
+                                    : StatCard(
+                                      title: CMS.home['spends_label']!,
+                                      amount: NumberFormat.compactCurrency(
+                                        symbol: CMS.common['currency_symbol']!,
+                                      ).format(expense),
+                                      icon: Icons.arrow_upward,
+                                      color: AppColors.expense,
+                                      backgroundColor: statCardBg,
+                                    ),
+                          ),
+                        ],
                       ),
                     ),
                     const SizedBox(height: 16),
 
-                    // --- 3. Quick Stats (Income / Expense) ---
-                    Row(
-                      children: [
-                        Expanded(
-                          child: StatCard(
-                            title: CMS.home['credits_label']!,
-                            amount: NumberFormat.compactCurrency(
-                              symbol: CMS.common['currency_symbol']!,
-                            ).format(income),
-                            icon: Icons.arrow_downward,
-                            color: AppColors.income,
-                            backgroundColor: statCardBg,
-                          ),
-                        ),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          child: StatCard(
-                            title: CMS.home['spends_label']!,
-                            amount: NumberFormat.compactCurrency(
-                              symbol: CMS.common['currency_symbol']!,
-                            ).format(expense),
-                            icon: Icons.arrow_upward,
-                            color: AppColors.expense,
-                            backgroundColor: statCardBg,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 16),
-
                     // --- 4. Actions ---
-                    ActionStrip(
-                      onAddTransaction: () => _showAddMenu(context),
-                      // onScanSms: _syncMessages, // Removed from here
-                      onManageGoals: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
+                    // --- 4. Actions ---
+                    FadeInEntry(
+                      delay: 400,
+                      child: ActionStrip(
+                        onAddTransaction: () => _showAddMenu(context),
+                        // onScanSms: _syncMessages, // Removed from here
+                        onManageGoals: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder:
+                                  (context) => GoalsListScreen(
+                                    goals: _viewModel.goals,
+                                    onRefresh: _viewModel.refreshData,
+                                  ),
+                            ),
+                          ).then((_) => _viewModel.refreshData());
+                        },
+                        onAddGoal: () async {
+                          // Quick add goal popup without redirect
+                          await showDialog(
+                            context: context,
                             builder:
-                                (context) => GoalsListScreen(
-                                  goals: _viewModel.goals,
-                                  onRefresh: _viewModel.refreshData,
+                                (context) => AddGoalDialog(
+                                  onGoalAdded: _viewModel.refreshData,
                                 ),
-                          ),
-                        ).then((_) => _viewModel.refreshData());
-                      },
-                      onAddGoal: () async {
-                        // Quick add goal popup without redirect
-                        await showDialog(
-                          context: context,
-                          builder:
-                              (context) => AddGoalDialog(
-                                onGoalAdded: _viewModel.refreshData,
-                              ),
-                        );
-                      },
+                          );
+                        },
+                      ),
                     ),
                     const SizedBox(height: 16),
 
                     // --- 4.5 Sublimits ---
-                    SublimitBlock(
-                      categories: _viewModel.categories,
-                      categorySpending: _viewModel.categorySpending,
-                      currencySymbol: CMS.common['currency_symbol']!,
-                    ),
+                    // --- 4.5 Sublimits ---
+                    _viewModel.isLoading
+                        ? const ShimmerLoading(
+                          width: double.infinity,
+                          height: 150,
+                        )
+                        : FadeInEntry(
+                          delay: 500,
+                          child: SublimitBlock(
+                            categories: _viewModel.categories,
+                            categorySpending: _viewModel.categorySpending,
+                            currencySymbol: CMS.common['currency_symbol']!,
+                          ),
+                        ),
                     const SizedBox(height: 16),
                     const SizedBox(height: 16),
 
                     // --- 5. Recent Transactions ---
-                    RecentTransactionsBlock(
-                      transactions: _viewModel.transactions,
-                      onViewAll: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder:
-                                (context) => AllTransactionsScreen(
-                                  transactions: _viewModel.transactions,
+                    // --- 5. Recent Transactions ---
+                    _viewModel.isLoading
+                        ? const ShimmerLoading(
+                          width: double.infinity,
+                          height: 300,
+                        )
+                        : FadeInEntry(
+                          delay: 600,
+                          child: RecentTransactionsBlock(
+                            transactions: _viewModel.transactions,
+                            onViewAll: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder:
+                                      (context) => AllTransactionsScreen(
+                                        transactions: _viewModel.transactions,
+                                      ),
                                 ),
+                              );
+                            },
+                            onTransactionTap: (tx) async {
+                              await Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder:
+                                      (context) => TransactionDetailScreen(
+                                        transaction: tx,
+                                      ),
+                                ),
+                              );
+                              _viewModel.refreshData();
+                            },
                           ),
-                        );
-                      },
-                      onTransactionTap: (tx) async {
-                        await Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder:
-                                (context) =>
-                                    TransactionDetailScreen(transaction: tx),
-                          ),
-                        );
-                        _viewModel.refreshData();
-                      },
-                    ),
+                        ),
 
                     const SizedBox(height: 80), // Bottom padding for FAB/Nav
                   ],

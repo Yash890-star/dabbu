@@ -146,13 +146,13 @@ class _GoalHistoryScreenState extends State<GoalHistoryScreen> {
       context: context,
       isScrollControlled: true,
       builder:
-          (context) => DraggableScrollableSheet(
+          (sheetContext) => DraggableScrollableSheet(
             initialChildSize: 0.7,
             maxChildSize: 0.9,
             minChildSize: 0.5,
             expand: false,
             builder:
-                (context, scrollController) => Column(
+                (sheetContext, scrollController) => Column(
                   children: [
                     Padding(
                       padding: const EdgeInsets.all(16.0),
@@ -222,7 +222,7 @@ class _GoalHistoryScreenState extends State<GoalHistoryScreen> {
                                   ),
                                 ),
                                 onTap: () async {
-                                  Navigator.pop(context); // Close picker
+                                  Navigator.pop(sheetContext); // Close picker
                                   _confirmLinkTransaction(tx);
                                 },
                               );
@@ -243,7 +243,7 @@ class _GoalHistoryScreenState extends State<GoalHistoryScreen> {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      builder: (context) {
+      builder: (sheetContext) {
         return Container(
           padding: const EdgeInsets.all(16),
           child: Column(
@@ -265,7 +265,8 @@ class _GoalHistoryScreenState extends State<GoalHistoryScreen> {
                 title: Text(CMS.goals['new_deposit_title']!),
                 subtitle: Text(CMS.goals['new_deposit_subtitle']!),
                 onTap: () async {
-                  Navigator.pop(context);
+                  Navigator.pop(sheetContext);
+                  if (!mounted) return;
                   final success = await Navigator.push(
                     context,
                     MaterialPageRoute(

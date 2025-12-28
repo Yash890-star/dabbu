@@ -16,10 +16,15 @@ class HomeViewModel extends ChangeNotifier {
   Map<DateTime, double> dailyTotals = {};
   double monthlyBudget = 0.0;
   bool isSyncing = false;
+  bool isLoading = true;
 
   Future<void> init() async {
+    isLoading = true;
+    notifyListeners(); // Notify start loading
     await DatabaseHelper.instance.seedDefaultCategories();
     await refreshData();
+    isLoading = false;
+    notifyListeners(); // Notify finished loading
   }
 
   Future<void> refreshData() async {

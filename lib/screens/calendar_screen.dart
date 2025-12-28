@@ -6,6 +6,8 @@ import '../viewmodels/calendar_view_model.dart';
 import 'transaction_detail_screen.dart';
 import '../widgets/calendar/heatmap_block.dart';
 import '../widgets/calendar/day_summary_block.dart';
+import '../widgets/shimmer_loading.dart';
+import '../widgets/fade_in_entry.dart';
 
 class CalendarScreen extends StatefulWidget {
   const CalendarScreen({super.key});
@@ -303,31 +305,31 @@ class _CalendarScreenState extends State<CalendarScreen>
                   const SizedBox(height: 16),
 
                   // 2. HeatMap Block
+                  // 2. HeatMap Block
                   if (_viewModel.isLoading)
-                    const SizedBox(
-                      height: 300,
-                      child: Center(child: CircularProgressIndicator()),
-                    )
+                    const ShimmerLoading(width: double.infinity, height: 320)
                   else
-                    GestureDetector(
-                      onHorizontalDragEnd: (details) {
-                        if (details.primaryVelocity! < 0) {
-                          // Swipe Left -> Next Month
-                          _viewModel.changeMonth(1);
-                        } else if (details.primaryVelocity! > 0) {
-                          // Swipe Right -> Prev Month
-                          _viewModel.changeMonth(-1);
-                        }
-                      },
-                      child: HeatMapBlock(
-                        focusedDate: _viewModel.focusedDate,
-                        dailyNet: _viewModel.dailyNet,
-                        maxNet: _viewModel.maxNet,
-                        rangeStart: _viewModel.rangeStart,
-                        rangeEnd: _viewModel.rangeEnd,
-                        onDaySelected: (date) {
-                          _viewModel.onDaySelected(date);
+                    FadeInEntry(
+                      child: GestureDetector(
+                        onHorizontalDragEnd: (details) {
+                          if (details.primaryVelocity! < 0) {
+                            // Swipe Left -> Next Month
+                            _viewModel.changeMonth(1);
+                          } else if (details.primaryVelocity! > 0) {
+                            // Swipe Right -> Prev Month
+                            _viewModel.changeMonth(-1);
+                          }
                         },
+                        child: HeatMapBlock(
+                          focusedDate: _viewModel.focusedDate,
+                          dailyNet: _viewModel.dailyNet,
+                          maxNet: _viewModel.maxNet,
+                          rangeStart: _viewModel.rangeStart,
+                          rangeEnd: _viewModel.rangeEnd,
+                          onDaySelected: (date) {
+                            _viewModel.onDaySelected(date);
+                          },
+                        ),
                       ),
                     ),
 

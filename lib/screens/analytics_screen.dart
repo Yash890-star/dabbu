@@ -9,6 +9,8 @@ import '../widgets/analytics/period_selector.dart';
 import '../widgets/analytics/insight_block.dart';
 import '../widgets/analytics/chart_block.dart';
 import '../widgets/analytics/category_bento.dart';
+import '../widgets/shimmer_loading.dart';
+import '../widgets/fade_in_entry.dart';
 
 class AnalyticsScreen extends StatefulWidget {
   const AnalyticsScreen({super.key});
@@ -68,68 +70,120 @@ class _AnalyticsScreenState extends State<AnalyticsScreen>
                   const SizedBox(height: 16),
 
                   // 2. Insight Block (2x1)
-                  if (!_viewModel.isLoading &&
-                      _viewModel.insights.isNotEmpty) ...[
-                    _buildInsightBlock(),
+                  // 2. Insight Block (2x1)
+                  if (_viewModel.isLoading)
+                    const FadeInEntry(
+                      child: ShimmerLoading(
+                        width: double.infinity,
+                        height: 120,
+                      ),
+                    )
+                  else if (_viewModel.insights.isNotEmpty) ...[
+                    FadeInEntry(child: _buildInsightBlock()),
                     const SizedBox(height: 16),
                   ],
 
                   // 3. Chart Block (2x2)
-                  ChartBlock(
-                    sections:
-                        _viewModel.categorySummaries
-                            .map(
-                              (s) => ChartSectionData(
-                                color: s.color,
-                                value: s.amount,
-                                percentage: s.percentage / 100,
-                                title: s.name,
-                              ),
-                            )
-                            .toList(),
-                    totalAmount: displayedTotal,
-                    isEmpty: !_viewModel.isLoading && displayedTotal == 0,
-                    centerLabel:
-                        "Total ${_viewModel.transactionType == 'debit' ? 'Spent' : 'Income'}",
-                  ),
+                  // 3. Chart Block (2x2)
+                  _viewModel.isLoading
+                      ? const ShimmerLoading(
+                        width: double.infinity,
+                        height: 250,
+                      )
+                      : FadeInEntry(
+                        delay: 100,
+                        child: ChartBlock(
+                          sections:
+                              _viewModel.categorySummaries
+                                  .map(
+                                    (s) => ChartSectionData(
+                                      color: s.color,
+                                      value: s.amount,
+                                      percentage: s.percentage / 100,
+                                      title: s.name,
+                                    ),
+                                  )
+                                  .toList(),
+                          totalAmount: displayedTotal,
+                          isEmpty: displayedTotal == 0,
+                          centerLabel:
+                              "Total ${_viewModel.transactionType == 'debit' ? 'Spent' : 'Income'}",
+                        ),
+                      ),
                   const SizedBox(height: 16),
 
                   // 4. Categories Grid (1x1 Bento)
-                  if (_viewModel.categorySummaries.isNotEmpty) ...[
-                    const Text(
-                      "Top Categories",
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
+                  // 4. Categories Grid (1x1 Bento)
+                  if (_viewModel.isLoading)
+                    const Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        ShimmerLoading(width: 150, height: 24),
+                        SizedBox(height: 12),
+                        ShimmerLoading(width: double.infinity, height: 200),
+                        SizedBox(height: 24),
+                      ],
+                    )
+                  else if (_viewModel.categorySummaries.isNotEmpty) ...[
+                    FadeInEntry(
+                      delay: 200,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            "Top Categories",
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          BentoGrid(
+                            children:
+                                _viewModel.categorySummaries.take(4).map((
+                                  item,
+                                ) {
+                                  return CategoryBento(
+                                    categoryName: item.name,
+                                    amount: NumberFormat.compactCurrency(
+                                      symbol: '₹',
+                                    ).format(item.amount),
+                                    percentage: item.percentage / 100,
+                                    color: item.color,
+                                    icon:
+                                        Icons
+                                            .pie_chart, // Using generic as icons aren't in VM yet
+                                  );
+                                }).toList(),
+                          ),
+                        ],
                       ),
-                    ),
-                    const SizedBox(height: 12),
-                    BentoGrid(
-                      children:
-                          _viewModel.categorySummaries.take(4).map((item) {
-                            return CategoryBento(
-                              categoryName: item.name,
-                              amount: NumberFormat.compactCurrency(
-                                symbol: '₹',
-                              ).format(item.amount),
-                              percentage: item.percentage / 100,
-                              color: item.color,
-                              icon:
-                                  Icons
-                                      .pie_chart, // Using generic as icons aren't in VM yet
-                            );
-                          }).toList(),
                     ),
                     const SizedBox(height: 24),
                   ],
 
                   // 5. Recent Transactions
-                  if (_viewModel.transactions.isNotEmpty) ...[
-                    Text(
-                      CMS.analytics['recent_transactions']!,
-                      style: const TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
+                  // 5. Recent Transactions
+                  if (_viewModel.isLoading)
+                    const Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        ShimmerLoading(width: 200, height: 24),
+                        SizedBox(height: 12),
+                        ShimmerLoading(width: double.infinity, height: 60),
+                        SizedBox(height: 8),
+                        ShimmerLoading(width: double.infinity, height: 60),
+                      ],
+                    )
+                  else if (_viewModel.transactions.isNotEmpty) ...[
+                    FadeInEntry(
+                      delay: 300,
+                      child: Text(
+                        CMS.analytics['recent_transactions']!,
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                     ),
                     const SizedBox(height: 12),

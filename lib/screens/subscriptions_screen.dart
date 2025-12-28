@@ -157,14 +157,6 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> {
       builder:
           (ctx) => StatefulBuilder(
             builder: (context, setState) {
-              void updateDate() {
-                final val = int.tryParse(frequencyValueController.text) ?? 1;
-                // reset logic: projected from NOW or from a picked date?
-                // Let's say user picks a "Start Date" or "Next Bill Date" manually
-                // But for simplicity, let's keep the manual picker and just use frequency for future logic
-                // For the dialog, we just need to collect inputs.
-              }
-
               return AlertDialog(
                 title: Text(CMS.subscriptions['add_title']!),
                 content: SingleChildScrollView(

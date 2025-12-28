@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../utils/cms.dart';
 import '../viewmodels/initial_setup_view_model.dart';
 import 'sms_setup_screen.dart';
+import '../widgets/fade_in_entry.dart';
 
 class InitialSetupScreen extends StatefulWidget {
   const InitialSetupScreen({super.key});
@@ -76,74 +77,90 @@ class _InitialSetupScreenState extends State<InitialSetupScreen> {
               const SizedBox(height: 32),
 
               // Feature Grid (Bento Style)
-              IntrinsicHeight(
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Expanded(
-                      child: _buildFeatureCard(
-                        context,
-                        icon: Icons.auto_awesome,
-                        title: "Smart Tracking",
-                        subtitle: "Auto-detects bills & expenses.",
-                        color: Colors.purple.shade50,
-                        iconColor: Colors.purple,
+              FadeInEntry(
+                delay: 200,
+                child: IntrinsicHeight(
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Expanded(
+                        child: _buildFeatureCard(
+                          context,
+                          icon: Icons.auto_awesome,
+                          title: "Smart Tracking",
+                          subtitle: "Auto-detects bills & expenses.",
+                          color: Colors.purple.shade50,
+                          iconColor: Colors.purple,
+                        ),
                       ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: _buildFeatureCard(
-                        context,
-                        icon: Icons.pie_chart_rounded,
-                        title: "Visual Insights",
-                        subtitle: "Clear charts, no clutter.",
-                        color: Colors.blue.shade50,
-                        iconColor: Colors.blue,
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: _buildFeatureCard(
+                          context,
+                          icon: Icons.pie_chart_rounded,
+                          title: "Visual Insights",
+                          subtitle: "Clear charts, no clutter.",
+                          color: Colors.blue.shade50,
+                          iconColor: Colors.blue,
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
               const SizedBox(height: 12),
-              _buildFeatureCard(
-                context,
-                icon: Icons.shield_outlined,
-                title: "Privacy First",
-                subtitle: "Your data stays on your device. Always.",
-                color: Colors.green.shade50,
-                iconColor: Colors.green,
+              FadeInEntry(
+                delay: 300,
+                child: _buildFeatureCard(
+                  context,
+                  icon: Icons.shield_outlined,
+                  title: "Privacy First",
+                  subtitle: "Your data stays on your device. Always.",
+                  color: Colors.green.shade50,
+                  iconColor: Colors.green,
+                ),
               ),
 
               const SizedBox(height: 40),
 
               // Input Section
-              Text(
-                "Let's get you set up",
-                style: Theme.of(
-                  context,
-                ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 16),
+              FadeInEntry(
+                delay: 400,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Text(
+                      "Let's get you set up",
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
 
-              TextField(
-                controller: _nameController,
-                decoration: InputDecoration(
-                  labelText: CMS.setup['name_label']!,
-                  border: const OutlineInputBorder(),
-                  prefixIcon: const Icon(Icons.person_outline),
-                ),
-                textCapitalization: TextCapitalization.words,
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: _budgetController,
-                keyboardType: TextInputType.number,
-                decoration: InputDecoration(
-                  labelText: "Monthly Budget (Optional)",
-                  hintText: "e.g. 50000",
-                  border: const OutlineInputBorder(),
-                  prefixIcon: const Icon(Icons.account_balance_wallet_outlined),
-                  prefixText: CMS.common['currency_symbol'],
+                    TextField(
+                      controller: _nameController,
+                      decoration: InputDecoration(
+                        labelText: CMS.setup['name_label']!,
+                        border: const OutlineInputBorder(),
+                        prefixIcon: const Icon(Icons.person_outline),
+                      ),
+                      textCapitalization: TextCapitalization.words,
+                    ),
+                    const SizedBox(height: 16),
+                    TextField(
+                      controller: _budgetController,
+                      keyboardType: TextInputType.number,
+                      decoration: InputDecoration(
+                        labelText: "Monthly Budget (Optional)",
+                        hintText: "e.g. 50000",
+                        border: const OutlineInputBorder(),
+                        prefixIcon: const Icon(
+                          Icons.account_balance_wallet_outlined,
+                        ),
+                        prefixText: CMS.common['currency_symbol'],
+                      ),
+                    ),
+                  ],
                 ),
               ),
 

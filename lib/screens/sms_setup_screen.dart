@@ -5,6 +5,7 @@ import '../utils/cms.dart';
 import '../viewmodels/sms_setup_view_model.dart';
 import 'sms_list_screen.dart';
 import '../widgets/app_card.dart';
+import '../widgets/fade_in_entry.dart';
 
 class SmsSetupScreen extends StatefulWidget {
   const SmsSetupScreen({super.key});
@@ -130,89 +131,93 @@ class _SmsSetupScreenState extends State<SmsSetupScreen> {
               const SizedBox(height: 40),
 
               // Info Card using Bento Style
-              AppCard(
-                child: Column(
-                  children: [
-                    const Icon(
-                      Icons.sms_failed_outlined,
-                      size: 48,
-                      color: Colors.blue,
-                    ),
-                    const SizedBox(height: 16),
-                    Text(
-                      "Why scan SMS?",
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
+              FadeInEntry(
+                delay: 200,
+                child: AppCard(
+                  child: Column(
+                    children: [
+                      const Icon(
+                        Icons.sms_failed_outlined,
+                        size: 48,
+                        color: Colors.blue,
                       ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      "Dabbu analyzes bank SMS to clear the clutter and track expenses automatically. No manual entry needed.",
-                      textAlign: TextAlign.center,
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      const SizedBox(height: 16),
+                      Text(
+                        "Why scan SMS?",
+                        style: Theme.of(context).textTheme.titleMedium
+                            ?.copyWith(fontWeight: FontWeight.bold),
                       ),
-                    ),
-                  ],
+                      const SizedBox(height: 8),
+                      Text(
+                        "Dabbu analyzes bank SMS to clear the clutter and track expenses automatically. No manual entry needed.",
+                        textAlign: TextAlign.center,
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
 
               const SizedBox(height: 24),
 
               // Date Picker Bento Block
-              // Date Picker Bento Block
               AnimatedBuilder(
                 animation: _viewModel,
                 builder: (context, child) {
-                  return AppCard(
-                    onTap: _pickDate,
-                    child: Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: Colors.orange.shade50,
-                            borderRadius: BorderRadius.circular(12),
+                  return FadeInEntry(
+                    delay: 300,
+                    child: AppCard(
+                      onTap: _pickDate,
+                      child: Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: Colors.orange.shade50,
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: const Icon(
+                              Icons.calendar_today,
+                              color: Colors.orange,
+                            ),
                           ),
-                          child: const Icon(
-                            Icons.calendar_today,
-                            color: Colors.orange,
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  CMS.smsSetup['start_from']!,
+                                  style: Theme.of(
+                                    context,
+                                  ).textTheme.bodySmall?.copyWith(
+                                    color:
+                                        Theme.of(
+                                          context,
+                                        ).colorScheme.onSurfaceVariant,
+                                  ),
+                                ),
+                                Text(
+                                  DateFormat.yMMMd().format(
+                                    _viewModel.selectedDate,
+                                  ),
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 16,
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
-                        ),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                CMS.smsSetup['start_from']!,
-                                style: Theme.of(
-                                  context,
-                                ).textTheme.bodySmall?.copyWith(
-                                  color:
-                                      Theme.of(
-                                        context,
-                                      ).colorScheme.onSurfaceVariant,
-                                ),
-                              ),
-                              Text(
-                                DateFormat.yMMMd().format(
-                                  _viewModel.selectedDate,
-                                ),
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 16,
-                                ),
-                              ),
-                            ],
+                          const Icon(
+                            Icons.edit_outlined,
+                            size: 20,
+                            color: Colors.grey,
                           ),
-                        ),
-                        const Icon(
-                          Icons.edit_outlined,
-                          size: 20,
-                          color: Colors.grey,
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   );
                 },
@@ -223,25 +228,28 @@ class _SmsSetupScreenState extends State<SmsSetupScreen> {
               AnimatedBuilder(
                 animation: _viewModel,
                 builder: (context, child) {
-                  return FilledButton.icon(
-                    onPressed:
-                        _viewModel.isLoading ? null : _fetchSmsAndContinue,
-                    icon:
-                        _viewModel.isLoading
-                            ? const SizedBox(
-                              width: 20,
-                              height: 20,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: Colors.white,
-                              ),
-                            )
-                            : const Icon(Icons.search),
-                    label: Text(CMS.smsSetup['scan_btn']!),
-                    style: FilledButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
+                  return FadeInEntry(
+                    delay: 400,
+                    child: FilledButton.icon(
+                      onPressed:
+                          _viewModel.isLoading ? null : _fetchSmsAndContinue,
+                      icon:
+                          _viewModel.isLoading
+                              ? const SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: Colors.white,
+                                ),
+                              )
+                              : const Icon(Icons.search),
+                      label: Text(CMS.smsSetup['scan_btn']!),
+                      style: FilledButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
                       ),
                     ),
                   );
