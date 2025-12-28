@@ -65,7 +65,7 @@ class RecentTransactionsBlock extends StatelessWidget {
             final color = isDebit ? AppColors.expense : AppColors.income;
             final date = DateTime.fromMillisecondsSinceEpoch(tx['date']);
             final amount = tx['amount'];
-            final entity = tx['sender']; // or entity logic
+            final entity = tx['patternName'] ?? tx['sender'] ?? "Unknown";
 
             return Column(
               children: [
