@@ -215,10 +215,7 @@ class _SmsParsingScreenState extends State<SmsParsingScreen> {
                     tokens: _viewModel.bodyTokens,
                     onTokenTap: _viewModel.handleTokenTap,
                     selectedAmountIndex: _viewModel.selectedAmountIndex,
-                    prefixStart: _viewModel.prefixStart,
-                    prefixEnd: _viewModel.prefixEnd,
-                    suffixStart: _viewModel.suffixStart,
-                    suffixEnd: _viewModel.suffixEnd,
+                    selectedAnchorIndices: _viewModel.selectedAnchorIndices,
                   ),
 
                   const SizedBox(height: 8),

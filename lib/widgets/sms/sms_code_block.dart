@@ -4,20 +4,14 @@ class SmsCodeBlock extends StatelessWidget {
   final List<String> tokens;
   final Function(int) onTokenTap;
   final int? selectedAmountIndex;
-  final int? prefixStart;
-  final int? prefixEnd;
-  final int? suffixStart;
-  final int? suffixEnd;
+  final Set<int> selectedAnchorIndices;
 
   const SmsCodeBlock({
     super.key,
     required this.tokens,
     required this.onTokenTap,
     this.selectedAmountIndex,
-    this.prefixStart,
-    this.prefixEnd,
-    this.suffixStart,
-    this.suffixEnd,
+    this.selectedAnchorIndices = const {},
   });
 
   @override
@@ -49,33 +43,13 @@ class SmsCodeBlock extends StatelessWidget {
             textColor = Colors.white;
             fontWeight = FontWeight.bold;
             isSelected = true;
-          } else if (prefixStart != null &&
-              prefixEnd != null &&
-              index >= prefixStart! &&
-              index <= prefixEnd!) {
+          } else if (selectedAnchorIndices.contains(index)) {
             bgColor = Colors.blueAccent;
             textColor = Colors.white;
             fontWeight = FontWeight.bold;
             isSelected = true;
-          } else if (suffixStart != null &&
-              suffixEnd != null &&
-              index >= suffixStart! &&
-              index <= suffixEnd!) {
-            bgColor = Colors.blueAccent;
-            textColor = Colors.white;
-            fontWeight = FontWeight.bold;
-            isSelected = true;
-          } else if (prefixEnd != null &&
-              selectedAmountIndex != null &&
-              index > prefixEnd! &&
-              index < selectedAmountIndex!) {
-            // Gap between prefix and amount
-            textColor = Colors.white30;
-          } else if (suffixStart != null &&
-              selectedAmountIndex != null &&
-              index > selectedAmountIndex! &&
-              index < suffixStart!) {
-            // Gap between amount and suffix
+          } else {
+            // Unselected (Wildcard area) -> Dimmed
             textColor = Colors.white30;
           }
 

@@ -12,10 +12,7 @@ class SmsParsingViewModel extends ChangeNotifier {
   List<String> senderTokens = [];
 
   int? selectedAmountIndex;
-  int? prefixStart;
-  int? prefixEnd;
-  int? suffixStart;
-  int? suffixEnd;
+  Set<int> selectedAnchorIndices = {};
 
   String? selectedSenderToken;
   String generatedRegex = "";
@@ -84,59 +81,23 @@ class SmsParsingViewModel extends ChangeNotifier {
   void handleTokenTap(int index) {
     if (selectionMode == SelectionMode.amount) {
       if (selectedAmountIndex == index) {
-        // Deselect
         selectedAmountIndex = null;
-        // Reset anchors as they depend on amount position relative to them
-        prefixStart = null;
-        prefixEnd = null;
-        suffixStart = null;
-        suffixEnd = null;
       } else {
         selectedAmountIndex = index;
-        // Auto-switch to anchor mode for convenience? No, let's keep it explicit as per 'ChipSelector' requirement.
-        // Actually, clearing anchors is safer when amount moves.
-        prefixStart = null;
-        prefixEnd = null;
-        suffixStart = null;
-        suffixEnd = null;
+        // Remove this index from anchors if it was selected
+        selectedAnchorIndices.remove(index);
       }
     } else {
       // ANCHOR MODE
       if (selectedAmountIndex == null) return; // Need amount first
 
-      if (index < selectedAmountIndex!) {
-        // Prefix Logic
-        if (prefixStart == null) {
-          prefixStart = index;
-          prefixEnd = index;
-        } else {
-          // If tapping existing range, maybe clear it?
-          // Or just standard extend logic.
-          if (index < prefixStart!)
-            prefixStart = index;
-          else if (index > prefixEnd!)
-            prefixEnd = index;
-          else {
-            // Tapped inside. Maybe reset to just this token?
-            prefixStart = index;
-            prefixEnd = index;
-          }
-        }
-      } else if (index > selectedAmountIndex!) {
-        // Suffix Logic
-        if (suffixStart == null) {
-          suffixStart = index;
-          suffixEnd = index;
-        } else {
-          if (index < suffixStart!)
-            suffixStart = index;
-          else if (index > suffixEnd!)
-            suffixEnd = index;
-          else {
-            suffixStart = index;
-            suffixEnd = index;
-          }
-        }
+      if (index == selectedAmountIndex)
+        return; // Cannot be anchor if it is amount
+
+      if (selectedAnchorIndices.contains(index)) {
+        selectedAnchorIndices.remove(index);
+      } else {
+        selectedAnchorIndices.add(index);
       }
     }
 
@@ -184,40 +145,35 @@ class SmsParsingViewModel extends ChangeNotifier {
       return;
     }
 
+    // sort all indices (anchors + amount)
+    final allIndices = [...selectedAnchorIndices, selectedAmountIndex!]..sort();
+
     String regex = "";
 
-    // 1. PREFIX PART
-    if (prefixStart != null && prefixEnd != null) {
-      List<String> fixedParts = [];
-      for (int i = prefixStart!; i <= prefixEnd!; i++) {
-        fixedParts.add(RegExp.escape(bodyTokens[i]));
-      }
-      regex += fixedParts.join(r'\s+');
+    for (int i = 0; i < allIndices.length; i++) {
+      int currentIndex = allIndices[i];
+      bool isAmount = (currentIndex == selectedAmountIndex);
 
-      if (prefixEnd! < selectedAmountIndex! - 1) {
-        regex += r'\s+(?:.*?)\s+';
-        regex += RegExp.escape(bodyTokens[selectedAmountIndex! - 1]);
-        regex += r'\s+';
+      if (i > 0) {
+        int prevIndex = allIndices[i - 1];
+        int gap = currentIndex - prevIndex - 1;
+
+        if (gap > 0) {
+          // Gap exists -> Wildcard
+          regex += r'\s+(?:.*?)\s+';
+        } else {
+          // Adjacent -> Space
+          regex += r'\s+';
+        }
+      }
+
+      if (isAmount) {
+        // Capture Amount (handle dirty tokens like 'INR6000')
+        regex += r"(?:[^0-9\n]*)([0-9.,]+)";
       } else {
-        regex += r'\s+';
+        // Literal anchor
+        regex += RegExp.escape(bodyTokens[currentIndex]);
       }
-    }
-
-    // 2. AMOUNT PART
-    regex += r"(?:[^0-9\n]*)([0-9.,]+)";
-
-    // 3. SUFFIX PART
-    if (suffixStart != null && suffixEnd != null) {
-      regex += r"\s+";
-      if (suffixStart! > selectedAmountIndex! + 1) {
-        regex += r'(?:.*?)\s+';
-      }
-
-      List<String> suffixParts = [];
-      for (int i = suffixStart!; i <= suffixEnd!; i++) {
-        suffixParts.add(RegExp.escape(bodyTokens[i]));
-      }
-      regex += suffixParts.join(r'\s+');
     }
 
     generatedRegex = regex;
