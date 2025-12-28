@@ -81,7 +81,7 @@ class AnalyticsViewModel extends ChangeNotifier {
 
     allCategories = cats;
     allPatterns = modifiablePatterns;
-    notifyListeners();
+    if (!_isDisposed) notifyListeners();
   }
 
   // --- Actions ---
@@ -174,6 +174,14 @@ class AnalyticsViewModel extends ChangeNotifier {
     return (start.millisecondsSinceEpoch, end.millisecondsSinceEpoch);
   }
 
+  bool _isDisposed = false;
+
+  @override
+  void dispose() {
+    _isDisposed = true;
+    super.dispose();
+  }
+
   Future<void> _fetchData() async {
     isLoading = true;
     notifyListeners();
@@ -190,6 +198,8 @@ class AnalyticsViewModel extends ChangeNotifier {
       patternIds: selectedPatternIds,
       type: transactionType,
     );
+
+    if (_isDisposed) return;
 
     // 2. Previous Period Data (For Insights)
     final prevData = await db.getFilteredTransactions(

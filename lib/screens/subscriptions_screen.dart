@@ -69,6 +69,8 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> {
                           'amount': cand['amount'],
                           'sender': cand['sender'],
                           'period': 30,
+                          'frequencyType': 'MONTH',
+                          'frequencyValue': 1,
                           'nextBillDate': cand['nextBillDate'],
                           'isActive': 1,
                         });
@@ -91,20 +93,84 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> {
     );
   }
 
+  String _getFrequencyLabel(String? type, int? val) {
+    if (type == null) return "Monthly";
+    final v = val ?? 1;
+    if (v == 1) {
+      switch (type) {
+        case 'DAY':
+          return "Daily";
+        case 'WEEK':
+          return "Weekly";
+        case 'MONTH':
+          return "Monthly";
+        case 'YEAR':
+          return "Yearly";
+        default:
+          return "Monthly";
+      }
+    } else {
+      switch (type) {
+        case 'DAY':
+          return "Every $v Days";
+        case 'WEEK':
+          return "Every $v Weeks";
+        case 'MONTH':
+          return "Every $v Months";
+        case 'YEAR':
+          return "Every $v Years";
+        default:
+          return "Every $v Months";
+      }
+    }
+  }
+
   void _showAddDialog() {
     final nameController = TextEditingController();
     final amountController = TextEditingController();
-    DateTime selectedDate = DateTime.now().add(const Duration(days: 30));
+    final frequencyValueController = TextEditingController(text: '1');
+
+    String frequencyType = 'MONTH'; // Default
+    DateTime selectedDate = DateTime.now();
+
+    // Helper to update preview date based on frequency
+    DateTime calculateNextDate(DateTime start, String type, int val) {
+      switch (type) {
+        case 'DAY':
+          return start.add(Duration(days: val));
+        case 'WEEK':
+          return start.add(Duration(days: val * 7));
+        case 'MONTH':
+          return DateTime(start.year, start.month + val, start.day);
+        case 'YEAR':
+          return DateTime(start.year + val, start.month, start.day);
+        default:
+          return start.add(const Duration(days: 30));
+      }
+    }
+
+    // Set initial target date
+    selectedDate = calculateNextDate(DateTime.now(), frequencyType, 1);
 
     showDialog(
       context: context,
       builder:
           (ctx) => StatefulBuilder(
-            builder:
-                (context, setState) => AlertDialog(
-                  title: Text(CMS.subscriptions['add_title']!),
-                  content: Column(
+            builder: (context, setState) {
+              void updateDate() {
+                final val = int.tryParse(frequencyValueController.text) ?? 1;
+                // reset logic: projected from NOW or from a picked date?
+                // Let's say user picks a "Start Date" or "Next Bill Date" manually
+                // But for simplicity, let's keep the manual picker and just use frequency for future logic
+                // For the dialog, we just need to collect inputs.
+              }
+
+              return AlertDialog(
+                title: Text(CMS.subscriptions['add_title']!),
+                content: SingleChildScrollView(
+                  child: Column(
                     mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       TextField(
                         controller: nameController,
@@ -120,6 +186,58 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> {
                         keyboardType: TextInputType.number,
                       ),
                       const SizedBox(height: 16),
+                      const Text(
+                        "Repeats Every:",
+                        style: TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                      Row(
+                        children: [
+                          SizedBox(
+                            width: 60,
+                            child: TextField(
+                              controller: frequencyValueController,
+                              keyboardType: TextInputType.number,
+                              textAlign: TextAlign.center,
+                              decoration: const InputDecoration(
+                                contentPadding: EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                ),
+                              ),
+                              onChanged: (_) => setState(() {}),
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: DropdownButton<String>(
+                              value: frequencyType,
+                              isExpanded: true,
+                              items: const [
+                                DropdownMenuItem(
+                                  value: 'DAY',
+                                  child: Text("Days"),
+                                ),
+                                DropdownMenuItem(
+                                  value: 'WEEK',
+                                  child: Text("Weeks"),
+                                ),
+                                DropdownMenuItem(
+                                  value: 'MONTH',
+                                  child: Text("Months"),
+                                ),
+                                DropdownMenuItem(
+                                  value: 'YEAR',
+                                  child: Text("Years"),
+                                ),
+                              ],
+                              onChanged: (val) {
+                                if (val != null)
+                                  setState(() => frequencyType = val);
+                              },
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
                       Row(
                         children: [
                           Text(CMS.subscriptions['next_bill_label']!),
@@ -133,7 +251,7 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> {
                                 initialDate: selectedDate,
                                 firstDate: DateTime.now(),
                                 lastDate: DateTime.now().add(
-                                  const Duration(days: 365),
+                                  const Duration(days: 365 * 2),
                                 ),
                               );
                               if (picked != null) {
@@ -145,35 +263,40 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> {
                       ),
                     ],
                   ),
-                  actions: [
-                    TextButton(
-                      onPressed: () => Navigator.pop(ctx),
-                      child: Text(CMS.common['cancel']!),
-                    ),
-                    ElevatedButton(
-                      onPressed: () async {
-                        final amount =
-                            double.tryParse(amountController.text) ?? 0;
-                        if (nameController.text.isNotEmpty && amount > 0) {
-                          await _viewModel.createSubscription({
-                            'name': nameController.text,
-                            'amount': amount,
-                            'sender':
-                                nameController
-                                    .text, // Assume sender same as name for manual
-                            'period': 30,
-                            'nextBillDate': selectedDate.millisecondsSinceEpoch,
-                            'isActive': 1,
-                          });
-                          if (ctx.mounted) {
-                            Navigator.pop(ctx);
-                          }
-                        }
-                      },
-                      child: Text(CMS.subscriptions['add_btn']!),
-                    ),
-                  ],
                 ),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(ctx),
+                    child: Text(CMS.common['cancel']!),
+                  ),
+                  ElevatedButton(
+                    onPressed: () async {
+                      final amount =
+                          double.tryParse(amountController.text) ?? 0;
+                      final freqVal =
+                          int.tryParse(frequencyValueController.text) ?? 1;
+
+                      if (nameController.text.isNotEmpty && amount > 0) {
+                        await _viewModel.createSubscription({
+                          'name': nameController.text,
+                          'amount': amount,
+                          'sender': nameController.text,
+                          'period': 30, // Fallback/Legacy
+                          'frequencyType': frequencyType,
+                          'frequencyValue': freqVal,
+                          'nextBillDate': selectedDate.millisecondsSinceEpoch,
+                          'isActive': 1,
+                        });
+                        if (ctx.mounted) {
+                          Navigator.pop(ctx);
+                        }
+                      }
+                    },
+                    child: Text(CMS.subscriptions['add_btn']!),
+                  ),
+                ],
+              );
+            },
           ),
     );
   }
@@ -247,8 +370,20 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> {
                     sub['name'],
                     style: const TextStyle(fontWeight: FontWeight.bold),
                   ),
-                  subtitle: Text(
-                    "${CMS.subscriptions['next_due_label']!}${DateFormat.yMMMd().format(nextDate)} ($daysLeft${CMS.subscriptions['days_left_suffix']!})",
+                  subtitle: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        "${CMS.subscriptions['next_due_label']!}${DateFormat.yMMMd().format(nextDate)} ($daysLeft${CMS.subscriptions['days_left_suffix']!})",
+                      ),
+                      Text(
+                        _getFrequencyLabel(
+                          sub['frequencyType'],
+                          sub['frequencyValue'],
+                        ),
+                        style: TextStyle(color: Colors.grey[600], fontSize: 12),
+                      ),
+                    ],
                   ),
                   trailing: Row(
                     mainAxisSize: MainAxisSize.min,

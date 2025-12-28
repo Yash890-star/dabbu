@@ -60,6 +60,14 @@ class CalendarViewModel extends ChangeNotifier {
     fetchMonthData(); // Will notify listeners
   }
 
+  bool _isDisposed = false;
+
+  @override
+  void dispose() {
+    _isDisposed = true;
+    super.dispose();
+  }
+
   Future<void> fetchMonthData() async {
     isLoading = true;
     notifyListeners();
@@ -78,6 +86,8 @@ class CalendarViewModel extends ChangeNotifier {
       startEpoch: start.millisecondsSinceEpoch,
       endEpoch: end.millisecondsSinceEpoch,
     );
+
+    if (_isDisposed) return;
 
     // Process Data
     Map<int, double> tempNet = {};

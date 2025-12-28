@@ -19,7 +19,7 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 7,
+      version: 8,
       onCreate: _createDB,
       onUpgrade: _onUpgrade,
     );
@@ -110,6 +110,34 @@ class DatabaseHelper {
         )
       ''');
     }
+    if (oldVersion < 8) {
+      // 8. Subscription Frequency Details
+      try {
+        await db.execute(
+          'ALTER TABLE subscriptions ADD COLUMN frequencyType TEXT DEFAULT "MONTH"',
+        );
+        await db.execute(
+          'ALTER TABLE subscriptions ADD COLUMN frequencyValue INTEGER DEFAULT 1',
+        );
+
+        // Migrate existing data
+        // Assume period=30 is MONTHLY (1 Month)
+        // Assume anything else is DAYS
+        await db.execute('''
+          UPDATE subscriptions 
+          SET frequencyType = 'MONTH', frequencyValue = 1 
+          WHERE period = 30
+        ''');
+
+        await db.execute('''
+          UPDATE subscriptions 
+          SET frequencyType = 'DAY', frequencyValue = period 
+          WHERE period != 30
+        ''');
+      } catch (e) {
+        // Ignore if columns exist
+      }
+    }
   }
 
   Future<void> _createDB(Database db, int version) async {
@@ -176,7 +204,9 @@ class DatabaseHelper {
         name TEXT NOT NULL,
         amount REAL NOT NULL,
         sender TEXT,
-        period INTEGER DEFAULT 30, -- Days
+        period INTEGER DEFAULT 30, -- Legacy/Fallback
+        frequencyType TEXT DEFAULT 'MONTH', -- DAY, WEEK, MONTH, YEAR
+        frequencyValue INTEGER DEFAULT 1,
         nextBillDate INTEGER,
         patternId INTEGER,
         isActive INTEGER DEFAULT 1,

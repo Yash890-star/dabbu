@@ -14,8 +14,12 @@ class CalendarScreen extends StatefulWidget {
   State<CalendarScreen> createState() => _CalendarScreenState();
 }
 
-class _CalendarScreenState extends State<CalendarScreen> {
+class _CalendarScreenState extends State<CalendarScreen>
+    with AutomaticKeepAliveClientMixin {
   final CalendarViewModel _viewModel = CalendarViewModel();
+
+  @override
+  bool get wantKeepAlive => true;
 
   @override
   void initState() {
@@ -254,6 +258,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     return AnimatedBuilder(
       animation: _viewModel,
       builder: (context, child) {

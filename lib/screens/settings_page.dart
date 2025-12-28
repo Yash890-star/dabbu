@@ -17,8 +17,12 @@ class SettingsPage extends StatefulWidget {
   State<SettingsPage> createState() => SettingsPageState();
 }
 
-class SettingsPageState extends State<SettingsPage> {
+class SettingsPageState extends State<SettingsPage>
+    with AutomaticKeepAliveClientMixin {
   final SettingsViewModel _viewModel = SettingsViewModel();
+
+  @override
+  bool get wantKeepAlive => true;
 
   @override
   void initState() {
@@ -393,6 +397,7 @@ class SettingsPageState extends State<SettingsPage> {
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     return Scaffold(
       appBar: AppBar(
         title: Text(CMS.settings['app_bar_title']!),

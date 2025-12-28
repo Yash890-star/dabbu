@@ -23,8 +23,11 @@ class HomePage extends StatefulWidget {
   State<HomePage> createState() => HomePageState();
 }
 
-class HomePageState extends State<HomePage> {
+class HomePageState extends State<HomePage> with AutomaticKeepAliveClientMixin {
   final HomeViewModel _viewModel = HomeViewModel();
+
+  @override
+  bool get wantKeepAlive => true;
 
   @override
   void initState() {
@@ -151,6 +154,7 @@ class HomePageState extends State<HomePage> {
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     return AnimatedBuilder(
       animation: _viewModel,
       builder: (context, child) {

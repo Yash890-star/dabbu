@@ -7,6 +7,7 @@
     <application
         android:label="dabbu"
         android:name="${applicationName}"
+        android:enableOnBackInvokedCallback="true"
         android:extractNativeLibs="true"
         android:icon="@mipmap/ic_launcher">
         <activity
