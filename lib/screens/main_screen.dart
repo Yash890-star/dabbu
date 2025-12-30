@@ -87,18 +87,18 @@ class _MainScreenState extends State<MainScreen> {
             NavigationDestination(
               icon: const Icon(Icons.home_outlined),
               selectedIcon: const Icon(Icons.home),
-              label: CMS.main['nav_home']!,
+              label: CMS.main['nav_home'] ?? 'Home',
             ),
             NavigationDestination(
               icon: const Icon(Icons.pie_chart_outline),
               selectedIcon: const Icon(Icons.pie_chart),
-              label: CMS.main['nav_analytics']!,
+              label: CMS.main['nav_analytics'] ?? 'Analytics',
             ),
 
             NavigationDestination(
               icon: const Icon(Icons.settings_outlined),
               selectedIcon: const Icon(Icons.settings),
-              label: CMS.main['nav_settings']!,
+              label: CMS.main['nav_settings'] ?? 'Settings',
             ),
           ],
         ),

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../utils/cms.dart';
+import '../utils/app_spacing.dart';
 import 'transaction_detail_screen.dart';
 import 'add_transaction_screen.dart';
 import 'settings_page.dart';
@@ -62,7 +63,7 @@ class HomePageState extends State<HomePage> with AutomaticKeepAliveClientMixin {
                   '{count}',
                   '$newCount',
                 )
-                : CMS.home['no_new_transaction']!,
+                : CMS.home['no_new_transaction'] ?? 'No new transactions',
             style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
           ),
           backgroundColor: Colors.black87, // High contrast for visibility
@@ -89,7 +90,7 @@ class HomePageState extends State<HomePage> with AutomaticKeepAliveClientMixin {
             mainAxisSize: MainAxisSize.min,
             children: [
               Text(
-                CMS.home['add_menu_title']!,
+                CMS.home['add_menu_title'] ?? 'Add',
                 style: const TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
@@ -108,8 +109,10 @@ class HomePageState extends State<HomePage> with AutomaticKeepAliveClientMixin {
                     color: Theme.of(context).colorScheme.primary,
                   ),
                 ),
-                title: Text(CMS.home['add_menu_transaction']!),
-                subtitle: Text(CMS.home['add_menu_transaction_sub']!),
+                title: Text(CMS.home['add_menu_transaction'] ?? 'Transaction'),
+                subtitle: Text(
+                  CMS.home['add_menu_transaction_sub'] ?? 'Add manually',
+                ),
                 onTap: () async {
                   Navigator.pop(context); // Close sheet
                   await Navigator.push(
@@ -134,8 +137,10 @@ class HomePageState extends State<HomePage> with AutomaticKeepAliveClientMixin {
                     color: Theme.of(context).colorScheme.secondary,
                   ),
                 ),
-                title: Text(CMS.home['add_menu_pattern']!),
-                subtitle: Text(CMS.home['add_menu_pattern_sub']!),
+                title: Text(CMS.home['add_menu_pattern'] ?? 'Parsing Pattern'),
+                subtitle: Text(
+                  CMS.home['add_menu_pattern_sub'] ?? 'Teach Dabbu',
+                ),
                 onTap: () {
                   Navigator.pop(context); // Close sheet
                   Navigator.push(
@@ -177,7 +182,7 @@ class HomePageState extends State<HomePage> with AutomaticKeepAliveClientMixin {
               onRefresh: _syncMessages,
               child: SingleChildScrollView(
                 physics: const AlwaysScrollableScrollPhysics(),
-                padding: const EdgeInsets.all(16),
+                padding: const EdgeInsets.all(AppSpacing.md),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
@@ -257,7 +262,8 @@ class HomePageState extends State<HomePage> with AutomaticKeepAliveClientMixin {
                             child: BudgetGaugeBlock(
                               totalBudget: _viewModel.monthlyBudget,
                               totalSpent: expense,
-                              currencySymbol: CMS.common['currency_symbol']!,
+                              currencySymbol:
+                                  CMS.common['currency_symbol'] ?? '₹',
                             ),
                           ),
                         ),
@@ -277,7 +283,8 @@ class HomePageState extends State<HomePage> with AutomaticKeepAliveClientMixin {
                                       height: 100,
                                     )
                                     : StatCard(
-                                      title: CMS.home['credits_label']!,
+                                      title:
+                                          CMS.home['credits_label'] ?? 'Income',
                                       amount: NumberFormat.compactCurrency(
                                         symbol: CMS.common['currency_symbol']!,
                                       ).format(income),

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../utils/app_colors.dart';
+import '../../utils/app_spacing.dart';
 import '../app_card.dart';
 
 class WelcomeBlock extends StatelessWidget {
@@ -27,7 +28,16 @@ class WelcomeBlock extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return AppCard(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+      padding: const EdgeInsets.symmetric(
+        horizontal:
+            AppSpacing
+                .lg, // 20 -> ~24 (AppSpacing.lg) or create custom? Let's use 24 or 16
+        // User had 20. AppSpacing.md=16, AppSpacing.lg=24. Let's stick to 'md' for vertical=16.
+        // For horizontal 20, it's close to 16 or 24. Let's unify on 16 (md) for consistency or 24(lg).
+        // Let's use `AppSpacing.md` (16) to be consistent with Card defaults, unless 20 is special.
+        // Actually, let's keep it clean: symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.md)
+        vertical: AppSpacing.md,
+      ),
       child: Row(
         children: [
           CircleAvatar(
@@ -35,7 +45,7 @@ class WelcomeBlock extends StatelessWidget {
             backgroundColor: AppColors.primary.withValues(alpha: 0.1),
             child: const Icon(Icons.person, color: AppColors.primary),
           ),
-          const SizedBox(width: 16),
+          const SizedBox(width: AppSpacing.md),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
