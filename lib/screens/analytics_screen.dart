@@ -12,6 +12,8 @@ import '../widgets/calendar/heatmap_block.dart';
 import '../widgets/shimmer_loading.dart';
 import '../widgets/fade_in_entry.dart';
 import '../widgets/app_card.dart';
+import '../widgets/analytics/sender_filter_block.dart';
+import '../widgets/analytics/filtered_summary_block.dart';
 
 class AnalyticsScreen extends StatefulWidget {
   const AnalyticsScreen({super.key});
@@ -339,7 +341,86 @@ class _AnalyticsScreenState extends State<AnalyticsScreen>
                     const SizedBox(height: 24),
                   ],
 
-                  // 6. Transaction List Header & List
+                  // 6. Name Filter (Pattern/Sender)
+                  // 6. Controls Row (Filter, Sort, Reset) matched to mockup
+                  Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 4.0,
+                      vertical: 8.0,
+                    ),
+                    child: Row(
+                      children: [
+                        // Filter Button (Toggle visibility or open menu - for now toggle sender list visibility?)
+                        // User mock shows "Filter". Let's assume it expands the sender/category list.
+                        // Or maybe it simply scrolls to them.
+                        // For this iteration, let's make it show/hide the Sender Chips to be cleaner.
+
+                        // Sort Button
+                        OutlinedButton.icon(
+                          onPressed: _showSortMenu,
+                          icon: const Icon(Icons.sort, size: 16),
+                          label: Text(
+                            _getSortButtonLabel(_viewModel.sortOption),
+                          ),
+                          style: OutlinedButton.styleFrom(
+                            side: BorderSide(
+                              color: Theme.of(context).dividerColor,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            foregroundColor:
+                                Theme.of(context).colorScheme.onSurface,
+                          ),
+                        ),
+
+                        const Spacer(),
+
+                        // Reset Button
+                        TextButton(
+                          onPressed: _viewModel.resetAllFilters,
+                          child: Text(
+                            "Reset",
+                            style: TextStyle(
+                              color:
+                                  (_viewModel.selectedNames.isNotEmpty ||
+                                          _viewModel
+                                              .selectedCategoryIds
+                                              .isNotEmpty ||
+                                          _viewModel.sortOption !=
+                                              SortOption.dateDesc)
+                                      ? Theme.of(context).colorScheme.error
+                                      : Theme.of(context).disabledColor,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  // Sender Filter List (Keep visible for functional reasons, maybe animate later)
+                  if (_viewModel.availableNames.isNotEmpty)
+                    SenderFilterBlock(
+                      availableSenders: _viewModel.availableNames,
+                      selectedSenders: _viewModel.selectedNames,
+                      onSenderTap: _viewModel.toggleNameFilter,
+                    ),
+
+                  const SizedBox(height: 16),
+
+                  // 7. Filtered Summary Block (Updated Layout)
+                  if (_viewModel.transactions.isNotEmpty) ...[
+                    FilteredSummaryBlock(
+                      dateLabel: _viewModel.getDateLabel(), // Add this
+                      count: _viewModel.filteredCount,
+                      totalCredit: _viewModel.filteredTotalCredit,
+                      totalDebit: _viewModel.filteredTotalDebit,
+                      currencySymbol: CMS.common['currency_symbol'] ?? '₹',
+                    ),
+                    const SizedBox(height: 24),
+                  ],
+
+                  // 8. Transaction List Header & List
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
@@ -540,5 +621,94 @@ class _AnalyticsScreenState extends State<AnalyticsScreen>
           ),
       ],
     );
+  }
+
+  void _showSortMenu() {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (context) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Text(
+                  "Sort Transactions",
+                  style: Theme.of(
+                    context,
+                  ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+                ),
+              ),
+              ListTile(
+                leading: const Icon(Icons.calendar_today),
+                title: const Text("Date: Newest First"),
+                trailing:
+                    _viewModel.sortOption == SortOption.dateDesc
+                        ? const Icon(Icons.check, color: Colors.blue)
+                        : null,
+                onTap: () {
+                  _viewModel.setSortOption(SortOption.dateDesc);
+                  Navigator.pop(context);
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.history),
+                title: const Text("Date: Oldest First"),
+                trailing:
+                    _viewModel.sortOption == SortOption.dateAsc
+                        ? const Icon(Icons.check, color: Colors.blue)
+                        : null,
+                onTap: () {
+                  _viewModel.setSortOption(SortOption.dateAsc);
+                  Navigator.pop(context);
+                },
+              ),
+              const Divider(),
+              ListTile(
+                leading: const Icon(Icons.arrow_upward),
+                title: const Text("Amount: High to Low"),
+                trailing:
+                    _viewModel.sortOption == SortOption.amountDesc
+                        ? const Icon(Icons.check, color: Colors.blue)
+                        : null,
+                onTap: () {
+                  _viewModel.setSortOption(SortOption.amountDesc);
+                  Navigator.pop(context);
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.arrow_downward),
+                title: const Text("Amount: Low to High"),
+                trailing:
+                    _viewModel.sortOption == SortOption.amountAsc
+                        ? const Icon(Icons.check, color: Colors.blue)
+                        : null,
+                onTap: () {
+                  _viewModel.setSortOption(SortOption.amountAsc);
+                  Navigator.pop(context);
+                },
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  String _getSortButtonLabel(SortOption option) {
+    switch (option) {
+      case SortOption.dateDesc:
+        return "Newest First";
+      case SortOption.dateAsc:
+        return "Oldest First";
+      case SortOption.amountDesc:
+        return "Amount: High-Low";
+      case SortOption.amountAsc:
+        return "Amount: Low-High";
+    }
   }
 }

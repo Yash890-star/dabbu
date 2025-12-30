@@ -48,9 +48,16 @@ class AnalyticsViewModel extends ChangeNotifier {
   DateTime? rangeEnd;
 
   List<int> selectedCategoryIds = [];
+  List<String> selectedNames =
+      []; // Changed from attributes: Sender ID -> Name (Pattern/Sender)
   List<int> selectedPatternIds = [];
   String transactionType = 'all'; // 'all', 'debit', 'credit'
   SortOption sortOption = SortOption.dateDesc;
+
+  // Computed Stats for Summary Block
+  int filteredCount = 0;
+  double filteredTotalCredit = 0.0;
+  double filteredTotalDebit = 0.0;
 
   // --- Data State ---
 
@@ -67,6 +74,7 @@ class AnalyticsViewModel extends ChangeNotifier {
   // Metadata
   List<Map<String, dynamic>> allCategories = [];
   List<Map<String, dynamic>> allPatterns = [];
+  List<String> availableNames = []; // Changed from availableSenders
 
   bool isLoading = true;
   bool isPieChartExpanded = false;
@@ -223,6 +231,33 @@ class AnalyticsViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
+  void toggleNameFilter(String name) {
+    if (selectedNames.contains(name)) {
+      selectedNames.remove(name);
+    } else {
+      selectedNames.add(name);
+    }
+    _processRangeData();
+    notifyListeners();
+  }
+
+  void resetAllFilters() {
+    selectedCategoryIds.clear();
+    selectedNames.clear();
+    transactionType = 'all';
+    sortOption = SortOption.dateDesc;
+
+    // We also need to reset the date if 'Master Reset' implies everything?
+    // Usually 'Filters' implies the non-date stuff, but let's stick to filters within the view.
+    // The user requirement says "reset all the filters and sort options".
+    // It doesn't explicitly say "reset date", so we keep the date range as is.
+
+    _processRangeData();
+    // We might need to re-fetch if transactionType changed and we were relying on it for fetch (which we decided we aren't, mostly)
+    // But _fetchData does use transactionType for Heatmap generation.
+    _fetchData();
+  }
+
   void setSortOption(SortOption option) {
     sortOption = option;
     _sortTransactions();
@@ -376,23 +411,53 @@ class AnalyticsViewModel extends ChangeNotifier {
     // Separate unfiltered Transactions for stats calculation
     List<Map<String, dynamic>> unfilteredRangeTxs = List.from(rangeTxs);
 
-    // Filter by Category/Patterns for the Transaction List & Heatmap
-    if (selectedCategoryIds.isNotEmpty || selectedPatternIds.isNotEmpty) {
+    // Filter by Category/Patterns/Names for the Transaction List & Heatmap
+    if (selectedCategoryIds.isNotEmpty ||
+        selectedPatternIds.isNotEmpty ||
+        selectedNames.isNotEmpty) {
       rangeTxs =
           rangeTxs.where((tx) {
             if (selectedCategoryIds.isNotEmpty &&
                 !selectedCategoryIds.contains(tx['categoryId']))
               return false;
-            // Pattern check logic if needed
+
+            if (selectedNames.isNotEmpty) {
+              // Prefer Pattern Name, fallback to Sender
+              final name = tx['patternName'] ?? tx['sender'] ?? '';
+              if (!selectedNames.contains(name)) return false;
+            }
+
             return true;
           }).toList();
     }
 
     transactions = rangeTxs;
     _sortTransactions();
+
+    // Extract available names from UNFILTERED range txs
+    final uniqueNames =
+        unfilteredRangeTxs
+            .map((e) => (e['patternName'] ?? e['sender']) as String? ?? '')
+            .where((s) => s.isNotEmpty)
+            .toSet()
+            .toList();
+    uniqueNames.sort();
+    availableNames = uniqueNames;
+
     _calculateStats(
       unfilteredRangeTxs,
-    ); // Pass unfiltered txs for Category List
+    ); // Pass unfiltered txs for Category List Stats (usually Category breakdown shows overall usage?)
+    // modifying this: Usually Category Bento shows breakdown of CURRENT view?
+    // If I filter by "Amazon", I expect the Category Bento to show "Shopping: $X" (where X is Amazon only).
+    // BUT, the existing logic passes `unfilteredRangeTxs`.
+    // If I change this, I change existing behavior.
+    // User asked for "filters allowing the users to filter the data... these will affect the transactions as well".
+    // And "CategoryBento... implementation... these will affect the transactions".
+    // It seems the Category Bento is a FILTER controller, so it should probably show UNFILTERED data (or else if I select "Shopping", "Food" disappears?).
+    // Yes, usually filter lists show all options. So passing `unfilteredRangeTxs` to calculate Category Summaries is correct for the FILTER UI.
+
+    // However, we need to calculate the NEW Summary Row (Count, Credit, Debit) based on likely the FILTERED transactions.
+    _calculateFilteredSummary();
   }
 
   void _sortTransactions() {
@@ -457,5 +522,20 @@ class AnalyticsViewModel extends ChangeNotifier {
     });
 
     insights.clear(); // Insights simplified/cleared for now
+  }
+
+  void _calculateFilteredSummary() {
+    filteredCount = transactions.length;
+    filteredTotalCredit = 0;
+    filteredTotalDebit = 0;
+
+    for (var tx in transactions) {
+      final amount = (tx['amount'] as num).toDouble();
+      if (tx['type'] == 'debit') {
+        filteredTotalDebit += amount;
+      } else {
+        filteredTotalCredit += amount;
+      }
+    }
   }
 }
