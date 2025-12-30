@@ -104,12 +104,15 @@ class RecentTransactionsBlock extends StatelessWidget {
                       color: Theme.of(context).colorScheme.onSurfaceVariant,
                     ),
                   ),
-                  trailing: Text(
-                    "${isDebit ? '-' : '+'}₹${amount.toString()}",
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      color: color,
-                      fontSize: 14,
+                  trailing: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Text(
+                      "${isDebit ? '-' : '+'}₹${amount.toString()}",
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: color,
+                        fontSize: 14,
+                      ),
                     ),
                   ),
                   onTap: () => onTransactionTap?.call(tx),

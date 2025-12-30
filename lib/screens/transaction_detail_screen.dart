@@ -503,15 +503,18 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen> {
                                   ),
                                 ),
                               )
-                              : Text(
-                                "₹${_viewModel.transaction['amount']}",
-                                style: TextStyle(
-                                  fontSize: 36,
-                                  fontWeight: FontWeight.w900,
-                                  color:
-                                      isCredit
-                                          ? AppColors.income
-                                          : AppColors.expense,
+                              : FittedBox(
+                                fit: BoxFit.scaleDown,
+                                child: Text(
+                                  "₹${_viewModel.transaction['amount']}",
+                                  style: TextStyle(
+                                    fontSize: 36,
+                                    fontWeight: FontWeight.w900,
+                                    color:
+                                        isCredit
+                                            ? AppColors.income
+                                            : AppColors.expense,
+                                  ),
                                 ),
                               ),
 
@@ -610,10 +613,17 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen> {
                                       ).colorScheme.surfaceContainerHighest,
                                   borderRadius: BorderRadius.circular(4),
                                 ),
-                                child: Text(
-                                  _viewModel.categoryName,
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.w600,
+                                child: ConstrainedBox(
+                                  constraints: const BoxConstraints(
+                                    maxWidth: 150,
+                                  ),
+                                  child: Text(
+                                    _viewModel.categoryName,
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
                                   ),
                                 ),
                               ),

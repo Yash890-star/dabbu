@@ -57,6 +57,7 @@ class WelcomeBlock extends StatelessWidget {
                     fontWeight: FontWeight.bold,
                   ),
                   overflow: TextOverflow.ellipsis,
+                  maxLines: 1,
                 ),
               ],
             ),
