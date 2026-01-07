@@ -31,9 +31,8 @@ class _MainScreenState extends State<MainScreen> {
   }
 
   List<Widget> get _pages => [
-    HomePage(key: _homeKey),
+    HomePage(key: _homeKey, onSetBudgetTap: _navigateToSettingsAndEditBudget),
     const AnalyticsScreen(),
-
     SettingsPage(key: _settingsKey),
   ];
 
@@ -50,6 +49,16 @@ class _MainScreenState extends State<MainScreen> {
 
     setState(() {
       _selectedIndex = index;
+    });
+  }
+
+  void _navigateToSettingsAndEditBudget() {
+    // 1. Navigate to Settings Tab (Index 2)
+    _onItemTapped(2);
+
+    // 2. Trigger the dialog after a short frame delay to ensure UI is built
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _settingsKey.currentState?.openBudgetEditDialog();
     });
   }
 

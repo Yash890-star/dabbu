@@ -6,12 +6,14 @@ class BudgetGaugeBlock extends StatelessWidget {
   final double totalBudget;
   final double totalSpent;
   final String currencySymbol;
+  final VoidCallback? onTap;
 
   const BudgetGaugeBlock({
     super.key,
     required this.totalBudget,
     required this.totalSpent,
     this.currencySymbol = '₹',
+    this.onTap,
   });
 
   @override
@@ -33,11 +35,24 @@ class BudgetGaugeBlock extends StatelessWidget {
                   color: Colors.grey,
                 ),
                 const SizedBox(height: 8),
-                Text(
-                  "Set Monthly Budget",
-                  style: TextStyle(
-                    color: theme.colorScheme.onSurfaceVariant,
-                    fontWeight: FontWeight.bold,
+                Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    onTap: onTap,
+                    borderRadius: BorderRadius.circular(8),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12.0,
+                        vertical: 8.0,
+                      ),
+                      child: Text(
+                        "Set Monthly Budget",
+                        style: TextStyle(
+                          color: theme.colorScheme.primary,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
                   ),
                 ),
               ],

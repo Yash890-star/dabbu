@@ -20,7 +20,8 @@ import '../widgets/shimmer_loading.dart';
 import '../widgets/fade_in_entry.dart';
 
 class HomePage extends StatefulWidget {
-  const HomePage({super.key});
+  final VoidCallback? onSetBudgetTap;
+  const HomePage({super.key, this.onSetBudgetTap});
 
   @override
   State<HomePage> createState() => HomePageState();
@@ -264,6 +265,7 @@ class HomePageState extends State<HomePage> with AutomaticKeepAliveClientMixin {
                               totalSpent: expense,
                               currencySymbol:
                                   CMS.common['currency_symbol'] ?? '₹',
+                              onTap: widget.onSetBudgetTap,
                             ),
                           ),
                         ),

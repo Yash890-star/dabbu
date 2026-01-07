@@ -40,7 +40,7 @@ class SettingsPageState extends State<SettingsPage>
     super.dispose();
   }
 
-  Future<void> _editBudget() async {
+  Future<void> openBudgetEditDialog() async {
     final controller = TextEditingController(
       text:
           _viewModel.monthlyBudget > 0
@@ -456,7 +456,7 @@ class SettingsPageState extends State<SettingsPage>
                             : CMS.settings['monthly_budget_not_set']!,
                       ),
                       trailing: const Icon(Icons.edit_outlined, size: 20),
-                      onTap: _editBudget,
+                      onTap: openBudgetEditDialog,
                     ),
                     const Divider(height: 1, indent: 56),
                     ListTile(
