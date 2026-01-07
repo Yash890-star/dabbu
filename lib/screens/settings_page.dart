@@ -312,53 +312,98 @@ class SettingsPageState extends State<SettingsPage>
 
   // --- Pattern Logic ---
   Future<void> _editPattern(Map<String, dynamic> pattern) async {
-    // Show loading indicator
-    showDialog(
+    final nameController = TextEditingController(text: pattern['name']);
+    bool isLiquid = (pattern['isLiquid'] as int? ?? 1) == 1;
+
+    await showDialog(
       context: context,
-      barrierDismissible: false,
-      builder: (ctx) => const Center(child: CircularProgressIndicator()),
+      builder:
+          (ctx) => StatefulBuilder(
+            builder: (context, setDialogState) {
+              return AlertDialog(
+                title: Text(
+                  CMS.settings['edit_pattern_title'] ?? 'Edit Pattern',
+                ),
+                content: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    TextField(
+                      controller: nameController,
+                      decoration: InputDecoration(
+                        labelText:
+                            CMS.smsParsing['pattern_name_label'] ?? 'Name',
+                        border: const OutlineInputBorder(),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    SwitchListTile(
+                      title: const Text("Affects Bank Balance"),
+                      subtitle: const Text("Include in Tally calculations"),
+                      value: isLiquid,
+                      onChanged: (val) {
+                        setDialogState(() {
+                          isLiquid = val;
+                        });
+                      },
+                      contentPadding: EdgeInsets.zero,
+                    ),
+                    const SizedBox(height: 16),
+                    OutlinedButton.icon(
+                      icon: const Icon(Icons.build),
+                      label: const Text("Edit Extraction Logic"),
+                      onPressed: () async {
+                        // Navigate to logic editor
+                        final sms = await _viewModel.findLatestSms(
+                          pattern['senderId'],
+                        );
+                        if (sms != null && mounted) {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder:
+                                  (context) => SmsParsingScreen(
+                                    message: sms,
+                                    existingPatternId: pattern['id'],
+                                    initialPatternName: nameController.text,
+                                  ),
+                            ),
+                          ).then((_) {
+                            // Refresh parent? Logic editor saves directly.
+                            Navigator.pop(ctx);
+                            _viewModel.loadData();
+                          });
+                        } else if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text("No SMS found to edit logic"),
+                            ),
+                          );
+                        }
+                      },
+                    ),
+                  ],
+                ),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(ctx),
+                    child: Text(CMS.common['cancel']!),
+                  ),
+                  ElevatedButton(
+                    onPressed: () async {
+                      await _viewModel.updatePattern(
+                        pattern['id'],
+                        nameController.text,
+                        isLiquid,
+                      );
+                      if (mounted) Navigator.pop(ctx);
+                    },
+                    child: Text(CMS.common['save']!),
+                  ),
+                ],
+              );
+            },
+          ),
     );
-
-    final sms = await _viewModel.findLatestSms(pattern['senderId']);
-
-    if (!mounted) return;
-    Navigator.pop(context); // Dismiss loading
-
-    if (sms != null) {
-      // Open Visual Editor with the latest message
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder:
-              (context) => SmsParsingScreen(
-                message: sms,
-                existingPatternId: pattern['id'],
-                initialPatternName: pattern['name'],
-              ),
-        ),
-      ).then((_) => _viewModel.loadData());
-    } else {
-      // No SMS found
-      showDialog(
-        context: context,
-        builder:
-            (ctx) => AlertDialog(
-              title: Text(CMS.settings['no_sms_title']!),
-              content: Text(
-                (CMS.errors['no_sms_found'] as String).replaceFirst(
-                  '{senderId}',
-                  pattern['senderId'],
-                ),
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(ctx),
-                  child: Text(CMS.common['ok']!),
-                ),
-              ],
-            ),
-      );
-    }
   }
 
   Future<void> _deletePattern(int id) async {

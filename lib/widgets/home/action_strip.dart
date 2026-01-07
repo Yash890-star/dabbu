@@ -14,39 +14,59 @@ class ActionStrip extends StatelessWidget {
     // required this.onScanSms, // Removed
     required this.onManageGoals,
     required this.onAddGoal,
+    required this.onTally,
   });
+
+  final VoidCallback onTally;
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Expanded(
-          child: _ActionPill(
-            icon: Icons.add,
-            label: "Add", // Shortened from "Add Transaction"
-            color: AppColors.primary,
-            onTap: onAddTransaction,
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        children: [
+          SizedBox(
+            width:
+                100, // Fixed width for consistent look or let them be flexible
+            child: _ActionPill(
+              icon: Icons.add,
+              label: "Add",
+              color: AppColors.primary,
+              onTap: onAddTransaction,
+            ),
           ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: _ActionPill(
-            icon: Icons.flag_outlined,
-            label: "Goals",
-            color: AppColors.archiveIcon,
-            onTap: onManageGoals,
+          const SizedBox(width: 12),
+          SizedBox(
+            width: 100,
+            child: _ActionPill(
+              icon: Icons.check_circle_outline,
+              label: "Tally",
+              color: Colors.teal,
+              onTap: onTally,
+            ),
           ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: _ActionPill(
-            icon: Icons.add_task,
-            label: "Add Goal",
-            color: AppColors.success,
-            onTap: onAddGoal,
+          const SizedBox(width: 12),
+          SizedBox(
+            width: 100,
+            child: _ActionPill(
+              icon: Icons.flag_outlined,
+              label: "Goals",
+              color: AppColors.archiveIcon,
+              onTap: onManageGoals,
+            ),
           ),
-        ),
-      ],
+          const SizedBox(width: 12),
+          SizedBox(
+            width: 110,
+            child: _ActionPill(
+              icon: Icons.add_task,
+              label: "Add Goal",
+              color: AppColors.success,
+              onTap: onAddGoal,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

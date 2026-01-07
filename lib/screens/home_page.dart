@@ -16,6 +16,7 @@ import '../widgets/home/recent_transactions_block.dart';
 import '../widgets/home/sublimit_block.dart';
 import '../widgets/add_goal_dialog.dart';
 import 'all_transactions_screen.dart';
+import 'tally_screen.dart'; // Import TallyScreen
 import '../widgets/shimmer_loading.dart';
 import '../widgets/fade_in_entry.dart';
 
@@ -346,6 +347,16 @@ class HomePageState extends State<HomePage> with AutomaticKeepAliveClientMixin {
                                   onGoalAdded: _viewModel.refreshData,
                                 ),
                           );
+                        },
+                        onTally: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder:
+                                  (context) =>
+                                      TallyScreen(viewModel: _viewModel),
+                            ),
+                          ).then((_) => _viewModel.refreshData());
                         },
                       ),
                     ),

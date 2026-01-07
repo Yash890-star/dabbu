@@ -12,9 +12,15 @@ class HomeViewModel extends ChangeNotifier {
   List<Map<String, dynamic>> upcomingBills = [];
 
   DateTime summaryMonth = DateTime.now();
+  List<Map<String, dynamic>> checkpoints = [];
   Map<String, double> summaryData = {'expense': 0.0, 'income': 0.0};
   Map<DateTime, double> dailyTotals = {};
   double monthlyBudget = 0.0;
+
+  // Tally Feature
+  Map<String, dynamic>? lastCheckpoint;
+  double currentLiquidBalance = 0.0;
+
   bool isSyncing = false;
   bool isLoading = true;
 
@@ -106,7 +112,46 @@ class HomeViewModel extends ChangeNotifier {
     monthlyBudget = finalBudget;
     summaryData = summary;
 
+    // Calculate Tally Balance
+    await _calculateLiquidBalance();
+
     notifyListeners();
+  }
+
+  Future<void> _calculateLiquidBalance() async {
+    final checkpoint = await DatabaseHelper.instance.getLastCheckpoint();
+    final startEpoch =
+        (checkpoint?['date'] as int?) ?? 0; // 0 = Beginning of time
+
+    final db = await DatabaseHelper.instance.database;
+
+    // Sum Liquid Income
+    final incomeRes = await db.rawQuery(
+      '''
+      SELECT SUM(amount) as total FROM transactions 
+      WHERE date > ? AND isLiquid = 1 AND (isIgnored IS NULL OR isIgnored = 0) 
+      AND type IN ('credit', 'income')
+    ''',
+      [startEpoch],
+    );
+
+    // Sum Liquid Expense
+    final expenseRes = await db.rawQuery(
+      '''
+      SELECT SUM(amount) as total FROM transactions 
+      WHERE date > ? AND isLiquid = 1 AND (isIgnored IS NULL OR isIgnored = 0) 
+      AND type IN ('debit', 'expense')
+    ''',
+      [startEpoch],
+    );
+
+    final income = (incomeRes.first['total'] as num?)?.toDouble() ?? 0.0;
+    final expense = (expenseRes.first['total'] as num?)?.toDouble() ?? 0.0;
+    final baseBalance = (checkpoint?['balance'] as num?)?.toDouble() ?? 0.0;
+
+    lastCheckpoint = checkpoint;
+    checkpoints = await DatabaseHelper.instance.getCheckpoints();
+    currentLiquidBalance = baseBalance + income - expense;
   }
 
   // Helper to sum amounts per day and per category
@@ -225,5 +270,97 @@ class HomeViewModel extends ChangeNotifier {
     }
 
     await refreshData();
+  }
+
+  Future<double> addCheckpoint(
+    double actualBalance,
+    String note, {
+    DateTime? date,
+  }) async {
+    final checkpointDate = date ?? DateTime.now();
+    // Re-verify calculated balance at that specific moment for accurate diff
+    // The UI might have shown an estimated one, but let's be precise if we can.
+    // If date is now, use currentLiquidBalance. If past, use getLiquidBalanceAt.
+
+    double calculatedAtTime;
+    if (date == null || date.difference(DateTime.now()).inMinutes.abs() < 5) {
+      calculatedAtTime = currentLiquidBalance;
+    } else {
+      calculatedAtTime = await getLiquidBalanceAt(date);
+    }
+
+    final diff = actualBalance - calculatedAtTime;
+
+    await DatabaseHelper.instance.addCheckpoint({
+      'date': checkpointDate.millisecondsSinceEpoch,
+      'balance': actualBalance,
+      'calculatedBalance': calculatedAtTime,
+      'diff': diff,
+      'note': note,
+    });
+
+    await refreshData();
+    return diff;
+  }
+
+  Future<void> addAdjustmentTransaction(double amount, DateTime date) async {
+    // If amount is negative (Leak): We need to ADD an expense of ABS(amount).
+    // If amount is positive (Found): We need to ADD an income of amount.
+
+    final isExpense = amount < 0;
+    final absAmount = amount.abs();
+
+    await DatabaseHelper.instance.insertTransaction({
+      'amount': absAmount,
+      'type': isExpense ? 'debit' : 'credit',
+      'date': date.millisecondsSinceEpoch,
+      'sender': 'System Adjustment',
+      'body':
+          isExpense
+              ? 'Balance Correction (Leak)'
+              : 'Balance Correction (Found)',
+      'categoryId':
+          0, // Uncategorized or specific 'Adjustment' category? For now 0.
+      'isLiquid': 1,
+      'isIgnored': 0,
+    });
+
+    await refreshData();
+  }
+
+  Future<double> getLiquidBalanceAt(DateTime date) async {
+    final targetEpoch = date.millisecondsSinceEpoch;
+    final checkpoint = await DatabaseHelper.instance.getLastCheckpointBefore(
+      targetEpoch,
+    );
+    final startEpoch = (checkpoint?['date'] as int?) ?? 0;
+
+    final db = await DatabaseHelper.instance.database;
+
+    // Sum Liquid Income
+    final incomeRes = await db.rawQuery(
+      '''
+      SELECT SUM(amount) as total FROM transactions 
+      WHERE date > ? AND date <= ? AND isLiquid = 1 AND (isIgnored IS NULL OR isIgnored = 0) 
+      AND type IN ('credit', 'income')
+    ''',
+      [startEpoch, targetEpoch],
+    );
+
+    // Sum Liquid Expense
+    final expenseRes = await db.rawQuery(
+      '''
+      SELECT SUM(amount) as total FROM transactions 
+      WHERE date > ? AND date <= ? AND isLiquid = 1 AND (isIgnored IS NULL OR isIgnored = 0) 
+      AND type IN ('debit', 'expense')
+    ''',
+      [startEpoch, targetEpoch],
+    );
+
+    final income = (incomeRes.first['total'] as num?)?.toDouble() ?? 0.0;
+    final expense = (expenseRes.first['total'] as num?)?.toDouble() ?? 0.0;
+    final baseBalance = (checkpoint?['balance'] as num?)?.toDouble() ?? 0.0;
+
+    return baseBalance + income - expense;
   }
 }

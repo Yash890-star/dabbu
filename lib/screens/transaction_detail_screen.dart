@@ -752,6 +752,27 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen> {
                       },
                       contentPadding: EdgeInsets.zero,
                     ),
+                    SwitchListTile(
+                      title: Text(
+                        "Affects Bank Balance",
+                        style: TextStyle(
+                          fontSize: 16,
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                      subtitle: Text(
+                        "Include in Balance Tally calculations (Turn OFF for Credit Cards)",
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                      value: _viewModel.isLiquid,
+                      onChanged: (val) async {
+                        await _viewModel.updateIsLiquid(val);
+                      },
+                      contentPadding: EdgeInsets.zero,
+                    ),
                     const SizedBox(height: 20),
 
                     if (!_isEditing &&

@@ -19,7 +19,7 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 9,
+      version: 10,
       onCreate: _createDB,
       onUpgrade: _onUpgrade,
     );
@@ -149,6 +149,35 @@ class DatabaseHelper {
         // Ignore if column exists
       }
     }
+
+    if (oldVersion < 10) {
+      // 10. Tally Feature (Checkpoints & Liquid Assets)
+      try {
+        // Checkpoints Table
+        await db.execute('''
+          CREATE TABLE checkpoints (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            date INTEGER NOT NULL,
+            balance REAL NOT NULL,
+            calculatedBalance REAL,
+            diff REAL,
+            note TEXT
+          )
+        ''');
+
+        // isLiquid in patterns (Default True/1)
+        await db.execute(
+          'ALTER TABLE patterns ADD COLUMN isLiquid INTEGER DEFAULT 1',
+        );
+
+        // isLiquid in transactions (Default True/1)
+        await db.execute(
+          'ALTER TABLE transactions ADD COLUMN isLiquid INTEGER DEFAULT 1',
+        );
+      } catch (e) {
+        // Ignore
+      }
+    }
   }
 
   Future<void> _createDB(Database db, int version) async {
@@ -171,7 +200,8 @@ class DatabaseHelper {
         senderId TEXT NOT NULL,
         patternRegex TEXT NOT NULL,
         messageType TEXT NOT NULL,  -- "credit" or "debit"
-        extractionIndex INTEGER DEFAULT 1
+        extractionIndex INTEGER DEFAULT 1,
+        isLiquid INTEGER DEFAULT 1
       )
     ''');
 
@@ -188,7 +218,8 @@ class DatabaseHelper {
         patternId INTEGER,
         goalId INTEGER,
         is_goal_addition INTEGER DEFAULT 1,
-        isIgnored INTEGER DEFAULT 0, -- New column
+        isIgnored INTEGER DEFAULT 0,
+        isLiquid INTEGER DEFAULT 1, -- New column
         FOREIGN KEY (categoryId) REFERENCES categories (id),
         FOREIGN KEY (patternId) REFERENCES patterns (id),
         FOREIGN KEY (goalId) REFERENCES goals (id)
@@ -234,6 +265,18 @@ class DatabaseHelper {
         categoryId INTEGER, 
         amount REAL,
         PRIMARY KEY (month, year, categoryId)
+      )
+    ''');
+
+    // 7. Checkpoints Table
+    await db.execute('''
+      CREATE TABLE checkpoints (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        date INTEGER NOT NULL,
+        balance REAL NOT NULL,
+        calculatedBalance REAL,
+        diff REAL,
+        note TEXT
       )
     ''');
 
@@ -442,8 +485,10 @@ class DatabaseHelper {
       'patternId',
       'goalId',
       'goalId',
+      'goalId',
       'is_goal_addition',
       'isIgnored',
+      'isLiquid',
     ];
     final Map<String, dynamic> sanitized = {};
     for (var key in validColumns) {
@@ -484,10 +529,12 @@ class DatabaseHelper {
         t.goalId,
         t.is_goal_addition,
         t.isIgnored,
+        t.isLiquid,
         c.name as categoryName, 
         c.color as categoryColor, 
         c.icon as categoryIcon,
         p.name as patternName,
+        p.isLiquid as patternIsLiquid,
         g.name as goalName
       FROM transactions t
       LEFT JOIN categories c ON t.categoryId = c.id
@@ -746,11 +793,45 @@ class DatabaseHelper {
       final catId = row['categoryId'] as int;
       final amount = (row['amount'] as num).toDouble();
       if (catId == 0) {
-        budgets['total'] = amount;
+        if (amount > 0) {
+          budgets['total'] = amount;
+        }
       } else {
         budgets['cat_$catId'] = amount;
       }
     }
     return budgets;
+  }
+
+  // --- Checkpoints (Tally) ---
+
+  Future<Map<String, dynamic>?> getLastCheckpoint() async {
+    final db = await instance.database;
+    final res = await db.query('checkpoints', orderBy: 'date DESC', limit: 1);
+    if (res.isNotEmpty) return res.first;
+    return null;
+  }
+
+  Future<Map<String, dynamic>?> getLastCheckpointBefore(int timestamp) async {
+    final db = await instance.database;
+    final res = await db.query(
+      'checkpoints',
+      where: 'date <= ?',
+      whereArgs: [timestamp],
+      orderBy: 'date DESC',
+      limit: 1,
+    );
+    if (res.isNotEmpty) return res.first;
+    return null;
+  }
+
+  Future<List<Map<String, dynamic>>> getCheckpoints() async {
+    final db = await instance.database;
+    return await db.query('checkpoints', orderBy: 'date DESC');
+  }
+
+  Future<int> addCheckpoint(Map<String, dynamic> row) async {
+    final db = await instance.database;
+    return await db.insert('checkpoints', row);
   }
 }

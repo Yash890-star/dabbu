@@ -12,6 +12,7 @@ class TransactionDetailViewModel extends ChangeNotifier {
   String? goalName;
   bool isManual = false;
   bool isIgnored = false;
+  bool isLiquid = true;
 
   // Data
   List<Map<String, dynamic>> allCategories = [];
@@ -27,7 +28,9 @@ class TransactionDetailViewModel extends ChangeNotifier {
     categoryName = transaction['categoryName'] ?? "Uncategorized";
     selectedGoalId = transaction['goalId'];
     isManual = transaction['patternId'] == null;
+    isManual = transaction['patternId'] == null;
     isIgnored = (transaction['isIgnored'] as int? ?? 0) == 1;
+    isLiquid = (transaction['isLiquid'] as int? ?? 1) == 1;
 
     _loadData();
   }
@@ -106,8 +109,20 @@ class TransactionDetailViewModel extends ChangeNotifier {
       where: 'id = ?',
       whereArgs: [transaction['id']],
     );
-    isIgnored = val;
     transaction['isIgnored'] = val ? 1 : 0;
+    notifyListeners();
+  }
+
+  Future<void> updateIsLiquid(bool val) async {
+    final db = await DatabaseHelper.instance.database;
+    await db.update(
+      'transactions',
+      {'isLiquid': val ? 1 : 0},
+      where: 'id = ?',
+      whereArgs: [transaction['id']],
+    );
+    isLiquid = val;
+    transaction['isLiquid'] = val ? 1 : 0;
     notifyListeners();
   }
 

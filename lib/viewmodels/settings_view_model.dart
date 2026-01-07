@@ -98,6 +98,26 @@ class SettingsViewModel extends ChangeNotifier {
     await loadData();
   }
 
+  Future<void> updatePattern(int id, String name, bool isLiquid) async {
+    await DatabaseHelper.instance.updatePattern({
+      'id': id,
+      'name': name,
+      'isLiquid': isLiquid ? 1 : 0,
+    });
+
+    // Also update all existing transactions for this pattern
+    await DatabaseHelper.instance.database.then((db) async {
+      await db.update(
+        'transactions',
+        {'isLiquid': isLiquid ? 1 : 0},
+        where: 'patternId = ?',
+        whereArgs: [id],
+      );
+    });
+
+    await loadData();
+  }
+
   Future<void> restoreGoal(int id) async {
     await DatabaseHelper.instance.archiveGoal(id, false);
     await loadData();
