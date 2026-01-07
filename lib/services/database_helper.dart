@@ -19,7 +19,7 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 8,
+      version: 9,
       onCreate: _createDB,
       onUpgrade: _onUpgrade,
     );
@@ -138,6 +138,17 @@ class DatabaseHelper {
         // Ignore if columns exist
       }
     }
+
+    if (oldVersion < 9) {
+      // 9. Ignore Transaction Flag
+      try {
+        await db.execute(
+          'ALTER TABLE transactions ADD COLUMN isIgnored INTEGER DEFAULT 0',
+        );
+      } catch (e) {
+        // Ignore if column exists
+      }
+    }
   }
 
   Future<void> _createDB(Database db, int version) async {
@@ -176,7 +187,8 @@ class DatabaseHelper {
         categoryId INTEGER DEFAULT 1, -- Defaults to 'Uncategorized' (ID 1)
         patternId INTEGER,
         goalId INTEGER,
-        is_goal_addition INTEGER DEFAULT 1, -- New column
+        is_goal_addition INTEGER DEFAULT 1,
+        isIgnored INTEGER DEFAULT 0, -- New column
         FOREIGN KEY (categoryId) REFERENCES categories (id),
         FOREIGN KEY (patternId) REFERENCES patterns (id),
         FOREIGN KEY (goalId) REFERENCES goals (id)
@@ -429,7 +441,9 @@ class DatabaseHelper {
       'categoryId',
       'patternId',
       'goalId',
+      'goalId',
       'is_goal_addition',
+      'isIgnored',
     ];
     final Map<String, dynamic> sanitized = {};
     for (var key in validColumns) {
@@ -467,7 +481,9 @@ class DatabaseHelper {
         t.categoryId, 
         t.patternId,
         t.goalId,
+        t.goalId,
         t.is_goal_addition,
+        t.isIgnored,
         c.name as categoryName, 
         c.color as categoryColor, 
         c.icon as categoryIcon,
@@ -682,7 +698,7 @@ class DatabaseHelper {
         SUM(CASE WHEN type IN ('debit', 'expense') THEN amount ELSE 0 END) as expense,
         SUM(CASE WHEN type IN ('credit', 'income') THEN amount ELSE 0 END) as income
       FROM transactions 
-      WHERE date >= ? AND date < ?
+      WHERE date >= ? AND date < ? AND (isIgnored IS NULL OR isIgnored = 0)
     ''',
       [start, end],
     );

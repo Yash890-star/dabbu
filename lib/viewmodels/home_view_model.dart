@@ -123,6 +123,9 @@ class HomeViewModel extends ChangeNotifier {
       ); // Normalize to midnight
 
       final amount = (tx['amount'] as num).toDouble();
+      final isIgnored = (tx['isIgnored'] as int? ?? 0) == 1;
+
+      if (isIgnored) continue; // Skip calculations
 
       // Daily Totals
       if (!totals.containsKey(key)) {

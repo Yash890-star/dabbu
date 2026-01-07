@@ -731,6 +731,29 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen> {
                       const SizedBox(height: 20),
                     ],
 
+                    SwitchListTile(
+                      title: Text(
+                        "Exclude from Budget",
+                        style: TextStyle(
+                          fontSize: 16,
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                      subtitle: Text(
+                        "Ignore this transaction in monthly calculations",
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                      value: _viewModel.isIgnored,
+                      onChanged: (val) async {
+                        await _viewModel.updateIsIgnored(val);
+                      },
+                      contentPadding: EdgeInsets.zero,
+                    ),
+                    const SizedBox(height: 20),
+
                     if (!_isEditing &&
                         (_viewModel.transaction['body'] ?? "") != "") ...[
                       Text(
