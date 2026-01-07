@@ -36,7 +36,7 @@ class HomePageState extends State<HomePage> with AutomaticKeepAliveClientMixin {
   @override
   void initState() {
     super.initState();
-    _viewModel.init();
+    _viewModel.init().then((_) => _syncMessages());
   }
 
   void refreshData() {
