@@ -21,52 +21,82 @@
 *   **Goal:** Guide the user from "Zero" to "Ready" without overwhelming them.
 *   **UX Needs:**
     1.  **Welcome:** Friendly hook. "Your money, clear and simple."
-    2.  **Permissions Primer:** Explain *why* we need SMS/Notification permissions (Privacy emphasis: "We read, we analyze, we discard. Nothing leaves your phone.").
-    3.  **Initial Setup:**
-        *   Set "Monthly Budget".
-        *   Ask "When does your salary cycle start?" (Date picker).
-        *   Perform the *first sync* with a visually pleasing loading animation ("Crunching numbers...").
+    2.  **Permissions Primer (The "Seamless & Secure" Screen):**
+        *   *Concept:* Before triggering system dialogs, show a beautiful "Feature List" page.
+        *   *Content:*
+            *   "SMS Parsing": Explain automation.
+            *   "Smart Alerts": Explain notifications.
+            *   "Privacy Promise": Reassure user (Shield icon).
+        *   *Action:* "Allow Permissions" (Primary) and "Maybe Later" (Text).
+    3.  **Initial Setup (The "Wizard" Flow):**
+        *   *Visual Style:* Use the "Step 1 of 3" pill at the top (from reference).
+        *   **Step 1: The Baseline (Input)**
+            *   "Monthly Budget Goal": Large input.
+            *   "Salary Cycle": Horizontal Day Picker.
+            *   *Action:* "Next" -> slides to Step 2.
+        *   **Step 2: The Crunch (Sync)**
+            *   *Content:* The circular loader from the reference image.
+            *   *Copy:* "Crunching numbers...", showing a live counter of found transactions.
+            *   *Tech:* Requires streaming sync service.
+        *   **Step 3: All Set (Success)**
+            *   *Content:* "You're all set!" with a summary ("Found 120 transactions").
+            *   *Action:* "Go into Dabbu" (Enter Dashboard).
 
 ### B. Dashboard (Home Screen)
 *   **Goal:** Instant financial health check.
+*   **Visual Style:** Deep background, Glowing central element.
 *   **Key Elements:**
-    1.  **The "Pulse" (Budget Gauge):** A central visual element showing *Remaining Budget*.
-        *   *Interaction:* Swipe left/right to change months. Tap to edit budget.
-        *   *Vibe:* Green = Good, Yellow = Caution, Red = Danger.
-    2.  **Recent Activity:** A short list of the last 3-5 transactions.
-    3.  **Smart Insights:** "Safe to Spend: ₹500/day" or "You've saved ₹2k more than last month!" (Micro-copy is key here).
-    4.  **Floating Action Button (FAB):** Multi-expandable.
-        *   Primary: Add Cash Transaction.
-        *   Secondary: Tally (Reconciliation).
+    1.  **Top Bar & Month Selector:**
+        *   Profile Icon (Left).
+        *   Month Carousel (Center): explicit `< October >` arrows for clarity.
+        *   *Privacy Toggle (Eye Icon):* Hides all monetary values (Blur effect). *New Feature*.
+    2.  **The "Glow" Gauge:**
+        *   Central circular progress.
+        *   Text: "Remaining ₹X" (Large).
+        *   Action: Small "Modify Budget" pill button below the gauge.
+    3.  **Smart Insight Card (The "Star" Card):**
+        *   *Content:* "Safe to spend: ₹500/day".
+        *   *Logic:* (Remaining Budget) / (Days Left in Month). This is a new calculation we need to add to `HomeViewModel`.
+    4.  **Recent Activity:** Standard list, but highly stylized (Dark Tiles).
+    5.  **FAB:** Standard `+` button, Cyan color.
 
 ### C. Transaction Details (Redesign)
-*   **Current Pain Point:** Cluttered. Too many fields.
-*   **Goal:** Clean, focused editing.
-*   **UX Needs:**
-    *   **Header:** Large Amount, Merchant Name, & Date.
-    *   **"Smart Actions" Toolbar:** Group related actions cleanly.
-        *   *Magic Wand:* Create Auto-Rule (for this merchant).
-        *   *Split:* Split bill (if added later).
-        *   *Ignore:* "Exclude from Budget".
-    *   **Categorization:** Large, easy-to-tap category pill. changing it should be delightful (icon grid).
-    *   **Edit Mode:** Fields (Notes, Tags) should look editable but clean.
+*   **Visual Style:** Centralized "Smart Card" aesthetic.
+*   **Header:** Dynamic Icon (Category), Merchant Name, Large Amount (Cyan).
+*   **"Smart Actions" Row:** A pill-shaped container with quick actions.
+    *   *Supported:* "Auto-Rule" (Magic Wand), "Ignore" (exclude), "Delete".
+    *   *Not Supported (Yet):* "Split Bill" (Remove from design), "Map Location" (Remove).
+*   **Data Fields:**
+    *   Category: Wide pill button.
+    *   Note: Dark text area.
+    *   Tags: We currently don't use a "Tag" system, only Categories. *Decision: Omit Tags for now to keep it clean, or use this space for "Bank Source".*
+*   **Footer Actions:** Large "Save Changes" (Primary) and small "Delete" (Destructive Icon).
 
 ### D. Tally (Reconciliation Mode) - "The Health Checkup"
-*   **Current Pain Point:** Feels like a spreadsheet/tool. Hard to understand "Liquid" vs "Non-Liquid".
-*   **Concept:** Make it a "Wizard" flow.
-*   **Steps:**
-    1.  **"Let's Check Your Pockets":** Ask for current balances of specific accounts (Cash, Bank, Wallet).
-    2.  **The Reveal:** "Dabbu thought you had ₹5000. You actually have ₹4800."
-    3.  **The Fix:** "Where did the ₹200 go?" -> Options: "Forgot to track (Add Expense)", "Adjustment", "Ignore".
-*   **Visuals:** Calm, focused. Step-by-step cards.
+*   **Flow:** 3-Step Wizard.
+    1.  **Check Your Pockets:**
+        *   Ask user for *actual* balances.
+        *   *Constraint:* We currently track one global "Liquid Balance". UI should allow entering "Total Cash" + "Total Bank", but we sum it up for the logic.
+    2.  **The Reveal:**
+        *   "Dabbu Thought you had ₹X" vs "You actually have ₹Y".
+        *   Show the *Deviation* (e.g., "-₹200").
+    3.  **The Fix:** "Where did the difference go?"
+        *   *Forgot to track:* Opens "Add Transaction" screen.
+        *   *Adjustment:* Auto-adds a system transaction "Balance Correction".
+        *   *Ignore:* Dismisses the discrepancy (Reset baseline).
+*   **Visuals:** Dark, Focused, Step-by-step.
 
-### E. Goals & Savings
-*   **Current Pain Point:** Dry list.
-*   **Goal:** Gamification.
-*   **Visuals:**
-    *   Progress Bars that fill up like liquid.
-    *   Celebratory animation when a goal is reached.
-    *   "Drag and Drop" money into goals (metaphorically).
+### E. Goals & Savings (The "Vault")
+*   **Visual Style:** Bento Grid layout + Glassmorphism.
+*   **Key Elements:**
+    1.  **"Total Savings" Header:**
+        *   Display the sum of all *saved* amounts across all goals.
+        *   *Style:* Dark Card with gradient glow (Visual only, no "Unallocated" logic yet).
+    2.  **Active Goals Grid:**
+        *   Cards showing Name, Target, Saved Amount, and Percentage.
+        *   *Visuals:* Use **Beautiful Gradients** as backgrounds. No user images for V1.
+    3.  **Interaction:** Tap a card to see History.
+    4.  **Completed Goals:** Distinct visual style (Gold/Yellow) at the bottom. Start celebrating wins!
 
 ### F. Settings & "Training" (Refactor)
 *   **Current Pain Point:** Deeply nested. Hard to find "SMS Patterns".
@@ -74,9 +104,40 @@
     *   **Account:** Profile, Data Export.
     *   **Preferences:** Theme, Currency, Start Date.
     *   **"The Brain" (Auto-Categorization):** A dedicated section to manage Rules and Keywords.
-        *   Show a list of "Learned Rules".
-        *   Allow user to manually teach new Merchant names.
-        *   *Visual:* Chat-bubble style interface? "If message says 'Starbucks', mark as 'Coffee'."
+    *   "The Brain" (Auto-Categorization): A dedicated section to manage Rules and Keywords.
+        *   *Tabs:* "Teach" (New Rule) vs "My Rules" (List).
+        *   *Flow:* Standard 3-Step Wizard.
+            1.  **Select Source:** User picks a recent SMS or types a raw keyword.
+            2.  **Define Rule:** User highlights the specific keyword (e.g., "Starbucks") from the text.
+            3.  **Assign Category:** User selects the target category (e.g., "Food").
+        *   *Visual:* Clean cards, big clickable areas. No "Chat" gimmicks.
+        *   *My Rules:* A clean list of "Keyword -> Category" cards with a delete option.
+
+### G. Analytics & Insights
+*   **Visual Style:** Deep Dashboard.
+*   **Spending Heatmap (Refine Existing):**
+    *   *Current State:* We already have `HeatMapBlock`.
+    *   *Redesign Goal:* Apply the new cyan/dark theme and ensure date numbers are visible.
+    *   *Interaction:* Tap a day to see transaction breakdown below.
+*   **Charts:** Keep it simple. Don't overwhelm. Pie chart for categories is enough for V1.
+*   **Filters:** "Top Categories", "Income vs Expense", "Date Range".
+
+### H. Subscriptions Manager (Recovered Feature)
+*   **Goal:** Manage recurring payments (Netflix, Rent, SIPs).
+*   **Visual Style:** "List of Cards" look.
+*   **Features:**
+    *   **Auto-Scan:** Button to scan past transactions for patterns.
+    *   **List:** standard cards showing Name, Amount, Frequency (Monthly/Yearly), and "Days Left" countdown.
+    *   **Manual Add:** Form to add a subscription manually.
+
+### I. Archived Goals (The Vault)
+*   **Location:** Accessed via "Goals" screen (top right menu or bottom of list).
+*   **Style:** Muted/Grayscale cards.
+*   **Action:** "Restore" or "Delete Permanently".
+
+### J. Advanced Budgeting (Budget Overrides)
+*   **Concept:** Life isn't static. Allow setting a *different* budget for specific months (e.g., December = High Spend).
+*   **UI:** Inside "Modify Budget" dialog, add "One-time override for [Month]" option.
 
 ## 4. Key Improvements requested
 1.  **Unified Colors:** Define a primary Brand Color (e.g., Electric Indigo or Teal) and stick to it.
