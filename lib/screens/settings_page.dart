@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import '../utils/cms.dart';
 import '../utils/app_colors.dart';
 import '../utils/theme_controller.dart';
+import '../services/notification_service.dart'; // Import Service
 
 import 'sms_parsing_screen.dart';
+import 'notification_settings_screen.dart'; // Import Screen
 import 'sms_setup_screen.dart';
 import 'subscriptions_screen.dart';
 import '../viewmodels/settings_view_model.dart';
@@ -502,6 +504,25 @@ class SettingsPageState extends State<SettingsPage>
                       ),
                       trailing: const Icon(Icons.edit_outlined, size: 20),
                       onTap: openBudgetEditDialog,
+                    ),
+                    const Divider(height: 1, indent: 56),
+                    ListTile(
+                      leading: const Icon(
+                        Icons.notifications_outlined,
+                        color: Colors.deepPurple,
+                      ),
+                      title: const Text("Notifications"),
+                      subtitle: const Text("Reminders & Alerts"),
+                      trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder:
+                                (context) => const NotificationSettingsScreen(),
+                          ),
+                        );
+                      },
                     ),
                     const Divider(height: 1, indent: 56),
                     ListTile(

@@ -803,6 +803,32 @@ class DatabaseHelper {
     return budgets;
   }
 
+  Future<double> getCategorySpend(int month, int year, int categoryId) async {
+    final db = await instance.database;
+    final start = DateTime(year, month, 1).millisecondsSinceEpoch;
+    final end =
+        (month == 12)
+            ? DateTime(year + 1, 1, 1).millisecondsSinceEpoch
+            : DateTime(year, month + 1, 1).millisecondsSinceEpoch;
+
+    final result = await db.rawQuery(
+      '''
+      SELECT SUM(amount) as total
+      FROM transactions 
+      WHERE date >= ? AND date < ? 
+        AND categoryId = ? 
+        AND type IN ('debit', 'expense')
+        AND (isIgnored IS NULL OR isIgnored = 0)
+    ''',
+      [start, end, categoryId],
+    );
+
+    if (result.isNotEmpty) {
+      return (result.first['total'] as num?)?.toDouble() ?? 0.0;
+    }
+    return 0.0;
+  }
+
   // --- Checkpoints (Tally) ---
 
   Future<Map<String, dynamic>?> getLastCheckpoint() async {

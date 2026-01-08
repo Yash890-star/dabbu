@@ -109,6 +109,7 @@ class TransactionDetailViewModel extends ChangeNotifier {
       where: 'id = ?',
       whereArgs: [transaction['id']],
     );
+    isIgnored = val;
     transaction['isIgnored'] = val ? 1 : 0;
     notifyListeners();
   }

@@ -7,6 +7,8 @@ import 'package:flutter/services.dart'; // Import Services for SystemChrome
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:google_fonts/google_fonts.dart'; // Import Google Fonts
 import 'package:dabbu/utils/theme_controller.dart';
+import 'package:dabbu/services/notification_service.dart'; // Import NotificationService
+import 'package:dabbu/services/background_service.dart'; // Import BackgroundService
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -23,6 +25,16 @@ Future<void> main() async {
   // Initialize Theme
   final themeController = ThemeController();
   await themeController.loadTheme();
+
+  // Initialize Notification Service
+  final notificationService = NotificationService();
+  await notificationService.init();
+
+  // Initialize Background Service
+  final backgroundService = BackgroundService();
+  await backgroundService.init();
+  // Optional: Register immediately for dev, or let settings control it.
+  // For Phase 2 verification, we will rely on settings or manual trigger.
 
   final prefs = await SharedPreferences.getInstance();
   bool showOptions = prefs.getBool('initialSetupDone') ?? false;

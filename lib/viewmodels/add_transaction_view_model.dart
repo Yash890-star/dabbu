@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../services/database_helper.dart';
 import '../utils/cms.dart';
+import '../services/notification_service.dart';
 
 class AddTransactionViewModel extends ChangeNotifier {
   // State
@@ -136,6 +137,19 @@ class AddTransactionViewModel extends ChangeNotifier {
       } else {
         // Insert
         await DatabaseHelper.instance.insertTransaction(txData);
+      }
+
+      // Check Budget Alerts if it's an expense
+      if (type == 'debit') {
+        // We only check category of current transaction + global
+        await NotificationService().checkBudgetThresholds(
+          specificCategoryId: selectedCategoryId,
+        );
+        // Also Trigger global check (pass null or handle inside service to always check global)
+        // Our service implementation checks global + specific category if provided.
+        // But what if global budget is exceeded? The 'specificCategoryId' arg in our service
+        // restricts the loop over categories, but Global Budget check is separate (Step 1).
+        // So passing specificCategoryId is efficient and correct.
       }
 
       isLoading = false;
