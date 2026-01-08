@@ -139,4 +139,14 @@ class SettingsViewModel extends ChangeNotifier {
     }
     return null;
   }
+
+  // --- Category Rules ---
+  Future<List<Map<String, dynamic>>> getCategoryRules(int categoryId) async {
+    return await DatabaseHelper.instance.getCategoryRules(categoryId);
+  }
+
+  Future<void> deleteCategoryRule(int ruleId) async {
+    await DatabaseHelper.instance.deleteCategoryRule(ruleId);
+    notifyListeners(); // Refresh UI if showing list
+  }
 }

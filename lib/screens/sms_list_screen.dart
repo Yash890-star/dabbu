@@ -8,8 +8,9 @@ import 'sms_parsing_screen.dart';
 
 class SmsListScreen extends StatefulWidget {
   final List<SmsMessage> messages;
+  final Function(SmsMessage)? onSmsSelected;
 
-  const SmsListScreen({super.key, required this.messages});
+  const SmsListScreen({super.key, required this.messages, this.onSmsSelected});
 
   @override
   State<SmsListScreen> createState() => _SmsListScreenState();
@@ -137,13 +138,17 @@ class _SmsListScreenState extends State<SmsListScreen> {
                       ),
                       trailing: const Icon(Icons.arrow_forward_ios, size: 16),
                       onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder:
-                                (context) => SmsParsingScreen(message: msg),
-                          ),
-                        );
+                        if (widget.onSmsSelected != null) {
+                          widget.onSmsSelected!(msg);
+                        } else {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder:
+                                  (context) => SmsParsingScreen(message: msg),
+                            ),
+                          );
+                        }
                       },
                     );
                   },

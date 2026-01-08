@@ -4,6 +4,7 @@ import '../utils/cms.dart';
 import '../utils/app_colors.dart';
 import '../viewmodels/transaction_detail_view_model.dart';
 import '../widgets/transaction/ticket_modal.dart';
+import 'category_rule_setup_screen.dart';
 
 class TransactionDetailScreen extends StatefulWidget {
   final Map<String, dynamic> transaction;
@@ -636,6 +637,56 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen> {
                                       context,
                                     ).colorScheme.onSurfaceVariant,
                               ),
+                              if (_viewModel.selectedCategoryId != null &&
+                                  _viewModel.selectedCategoryId !=
+                                      1 && // Assuming 1 is Uncategorized/Default
+                                  (_viewModel.transaction['body'] ?? "")
+                                      .isNotEmpty) ...[
+                                const SizedBox(width: 12),
+                                IconButton(
+                                  constraints: const BoxConstraints(),
+                                  padding: EdgeInsets.zero,
+                                  tooltip: "Create Auto-Rule",
+                                  icon: Icon(
+                                    Icons.auto_fix_high,
+                                    size: 20,
+                                    color:
+                                        Theme.of(context).colorScheme.primary,
+                                  ),
+                                  onPressed: () async {
+                                    final result = await Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder:
+                                            (
+                                              context,
+                                            ) => CategoryRuleSetupScreen(
+                                              categoryId:
+                                                  _viewModel
+                                                      .selectedCategoryId!,
+                                              categoryName:
+                                                  _viewModel.categoryName,
+                                              initialBody:
+                                                  _viewModel
+                                                      .transaction['body'],
+                                              initialSender:
+                                                  _viewModel
+                                                      .transaction['sender'],
+                                            ),
+                                      ),
+                                    );
+
+                                    if (result == true && mounted) {
+                                      Navigator.pop(context, {
+                                        'action': 'update',
+                                        // Pass the potentially updated transaction (or at least ID)
+                                        // The parent should really invalidate its entire list or re-fetch this ID.
+                                        'transaction': _viewModel.transaction,
+                                      });
+                                    }
+                                  },
+                                ),
+                              ],
                             ],
                           ),
                         ],

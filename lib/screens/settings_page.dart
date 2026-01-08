@@ -7,6 +7,7 @@ import '../services/notification_service.dart'; // Import Service
 import 'sms_parsing_screen.dart';
 import 'notification_settings_screen.dart'; // Import Screen
 import 'sms_setup_screen.dart';
+import 'category_rule_setup_screen.dart';
 import 'subscriptions_screen.dart';
 import '../viewmodels/settings_view_model.dart';
 import '../widgets/settings/settings_section.dart';
@@ -103,144 +104,257 @@ class SettingsPageState extends State<SettingsPage>
 
     await showDialog(
       context: context,
-      builder:
-          (ctx) => StatefulBuilder(
-            builder: (innerContext, setDialogState) {
-              return AlertDialog(
-                title: Text(
-                  existingCategory == null
-                      ? CMS.settings['new_category_title']!
-                      : CMS.settings['edit_category_title']!,
-                ),
-                content: SingleChildScrollView(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      TextField(
-                        controller: nameController,
-                        decoration: InputDecoration(
-                          labelText: CMS.settings['category_name_label']!,
-                          border: const OutlineInputBorder(),
-                          hintText: CMS.settings['category_name_hint']!,
-                        ),
-                        textCapitalization: TextCapitalization.sentences,
+      builder: (ctx) {
+        // Local state for rules - MOVED OUTSIDE StatefulBuilder
+        List<Map<String, dynamic>> rules = [];
+        bool isLoadingRules = true;
+        bool hasStartedLoading = false;
+
+        return StatefulBuilder(
+          builder: (innerContext, setDialogState) {
+            // Helper to load rules
+            Future<void> loadRules() async {
+              if (existingCategory == null) {
+                if (innerContext.mounted) {
+                  setDialogState(() {
+                    isLoadingRules = false;
+                  });
+                }
+                return;
+              }
+              try {
+                final r = await _viewModel.getCategoryRules(
+                  existingCategory['id'],
+                );
+                if (innerContext.mounted) {
+                  setDialogState(() {
+                    rules = r;
+                    isLoadingRules = false;
+                  });
+                }
+              } catch (e) {
+                debugPrint("Error loading rules: $e");
+                if (innerContext.mounted) {
+                  setDialogState(() {
+                    rules = [];
+                    isLoadingRules = false;
+                  });
+                }
+              }
+            }
+
+            // Load once
+            if (!hasStartedLoading) {
+              hasStartedLoading = true;
+              loadRules();
+            }
+
+            return AlertDialog(
+              title: Text(
+                existingCategory == null
+                    ? CMS.settings['new_category_title']!
+                    : CMS.settings['edit_category_title']!,
+              ),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    TextField(
+                      controller: nameController,
+                      decoration: InputDecoration(
+                        labelText: CMS.settings['category_name_label']!,
+                        border: const OutlineInputBorder(),
+                        hintText: CMS.settings['category_name_hint']!,
                       ),
-                      const SizedBox(height: 16),
-                      TextField(
-                        controller: budgetController,
-                        decoration: InputDecoration(
-                          labelText: CMS.settings['category_limit_label']!,
-                          border: const OutlineInputBorder(),
-                          hintText: CMS.settings['category_limit_hint']!,
-                          prefixText: "₹ ",
-                        ),
-                        keyboardType: TextInputType.number,
+                      textCapitalization: TextCapitalization.sentences,
+                    ),
+                    const SizedBox(height: 16),
+                    TextField(
+                      controller: budgetController,
+                      decoration: InputDecoration(
+                        labelText: CMS.settings['category_limit_label']!,
+                        border: const OutlineInputBorder(),
+                        hintText: CMS.settings['category_limit_hint']!,
+                        prefixText: "₹ ",
                       ),
-                      const SizedBox(height: 16),
+                      keyboardType: TextInputType.number,
+                    ),
+                    const SizedBox(height: 16),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        CMS.settings['pick_color']!,
+                        style: TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    // Color Picker Grid
+                    Wrap(
+                      spacing: 10,
+                      runSpacing: 10,
+                      children:
+                          _viewModel.categoryColors.map((color) {
+                            final isSelected =
+                                selectedColor.toARGB32() == color.toARGB32();
+                            return GestureDetector(
+                              onTap: () {
+                                setDialogState(() {
+                                  selectedColor = color;
+                                });
+                              },
+                              child: Container(
+                                width: 36,
+                                height: 36,
+                                decoration: BoxDecoration(
+                                  color: color,
+                                  shape: BoxShape.circle,
+                                  border:
+                                      isSelected
+                                          ? Border.all(
+                                            color:
+                                                Theme.of(
+                                                  innerContext,
+                                                ).colorScheme.onSurface,
+                                            width: 3,
+                                          )
+                                          : null,
+                                  boxShadow: [
+                                    if (isSelected)
+                                      const BoxShadow(
+                                        color: Colors.black26,
+                                        blurRadius: 4,
+                                        offset: Offset(0, 2),
+                                      ),
+                                  ],
+                                ),
+                                child:
+                                    isSelected
+                                        ? const Icon(
+                                          Icons.check,
+                                          color: Colors.white,
+                                          size: 20,
+                                        )
+                                        : null,
+                              ),
+                            );
+                          }).toList(),
+                    ),
+                    const SizedBox(height: 24),
+                    if (existingCategory != null) ...[
+                      const Divider(),
                       Align(
                         alignment: Alignment.centerLeft,
                         child: Text(
-                          CMS.settings['pick_color']!,
-                          style: TextStyle(fontWeight: FontWeight.bold),
+                          "Auto-Categorization Rules",
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 13,
+                          ),
                         ),
                       ),
                       const SizedBox(height: 8),
-                      // Color Picker Grid
-                      Wrap(
-                        spacing: 10,
-                        runSpacing: 10,
-                        children:
-                            _viewModel.categoryColors.map((color) {
-                              final isSelected =
-                                  selectedColor.toARGB32() == color.toARGB32();
-                              return GestureDetector(
-                                onTap: () {
-                                  setDialogState(() {
-                                    selectedColor = color;
-                                  });
-                                },
-                                child: Container(
-                                  width: 36,
-                                  height: 36,
-                                  decoration: BoxDecoration(
-                                    color: color,
-                                    shape: BoxShape.circle,
-                                    border:
-                                        isSelected
-                                            ? Border.all(
-                                              color:
-                                                  Theme.of(
-                                                    innerContext,
-                                                  ).colorScheme.onSurface,
-                                              width: 3,
-                                            )
-                                            : null,
-                                    boxShadow: [
-                                      if (isSelected)
-                                        const BoxShadow(
-                                          color: Colors.black26,
-                                          blurRadius: 4,
-                                          offset: Offset(0, 2),
-                                        ),
-                                    ],
+                      if (isLoadingRules)
+                        const Center(
+                          child: SizedBox(
+                            height: 20,
+                            width: 20,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          ),
+                        ),
+                      if (!isLoadingRules && rules.isEmpty)
+                        const Text(
+                          "No keywords set.",
+                          style: TextStyle(color: Colors.grey, fontSize: 12),
+                        ),
+                      if (!isLoadingRules && rules.isNotEmpty)
+                        Wrap(
+                          spacing: 8,
+                          children:
+                              rules
+                                  .map(
+                                    (r) => Chip(
+                                      label: Text(r['keyword']),
+                                      deleteIcon: const Icon(
+                                        Icons.close,
+                                        size: 16,
+                                      ),
+                                      onDeleted: () async {
+                                        await _viewModel.deleteCategoryRule(
+                                          r['id'],
+                                        );
+                                        loadRules(); // Refresh
+                                      },
+                                    ),
+                                  )
+                                  .toList(),
+                        ),
+                      const SizedBox(height: 8),
+                      OutlinedButton.icon(
+                        icon: const Icon(Icons.add, size: 16),
+                        label: const Text("Add Keyword Rule"),
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder:
+                                  (context) => CategoryRuleSetupScreen(
+                                    categoryId: existingCategory['id'],
+                                    categoryName: existingCategory['name'],
                                   ),
-                                  child:
-                                      isSelected
-                                          ? const Icon(
-                                            Icons.check,
-                                            color: Colors.white,
-                                            size: 20,
-                                          )
-                                          : null,
-                                ),
-                              );
-                            }).toList(),
+                            ),
+                          ).then((val) {
+                            if (val == true) {
+                              loadRules();
+                            }
+                          });
+                        },
                       ),
                     ],
-                  ),
+                  ],
                 ),
-                actions: [
-                  TextButton(
-                    onPressed: () => Navigator.pop(ctx),
-                    child: Text(CMS.common['cancel']!),
-                  ),
-                  ElevatedButton(
-                    onPressed: () async {
-                      if (nameController.text.trim().isEmpty) return;
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx),
+                  child: Text(CMS.common['cancel']!),
+                ),
+                ElevatedButton(
+                  onPressed: () async {
+                    if (nameController.text.trim().isEmpty) return;
 
-                      final budget =
-                          double.tryParse(budgetController.text) ?? 0.0;
+                    final budget =
+                        double.tryParse(budgetController.text) ?? 0.0;
 
-                      final wasBudgetUpdated = await _viewModel
-                          .addOrUpdateCategory(
-                            id: existingCategory?['id'],
-                            name: nameController.text.trim(),
-                            colorValue: selectedColor.toARGB32(),
-                            budgetLimit: budget,
-                            icon: existingCategory?['icon'],
-                          );
-
-                      if (ctx.mounted) {
-                        Navigator.pop(ctx);
-                      }
-
-                      if (mounted && wasBudgetUpdated) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text(CMS.settings['auto_budget_update']!),
-                            backgroundColor:
-                                Theme.of(context).colorScheme.primary,
-                            duration: const Duration(seconds: 4),
-                          ),
+                    final wasBudgetUpdated = await _viewModel
+                        .addOrUpdateCategory(
+                          id: existingCategory?['id'],
+                          name: nameController.text.trim(),
+                          colorValue: selectedColor.toARGB32(),
+                          budgetLimit: budget,
+                          icon: existingCategory?['icon'],
                         );
-                      }
-                    },
-                    child: Text(CMS.common['save']!),
-                  ),
-                ],
-              );
-            },
-          ),
+
+                    if (ctx.mounted) {
+                      Navigator.pop(ctx);
+                    }
+                    if (mounted && wasBudgetUpdated) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(CMS.settings['auto_budget_update']!),
+                          backgroundColor:
+                              Theme.of(context).colorScheme.primary,
+                          duration: const Duration(seconds: 4),
+                        ),
+                      );
+                    }
+                  },
+                  child: Text(CMS.common['save']!),
+                ),
+              ],
+            );
+          },
+        );
+      },
     );
   }
 

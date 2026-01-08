@@ -23,6 +23,10 @@ class MessageHelper {
       return 0;
     }
 
+    // 1.5 Fetch all Category Rules
+    final allRules = await dbHelper.getAllCategoryRules();
+    debugPrint("Loaded ${allRules.length} category rules.");
+
     // 2. Calculate the Look-back Date
     int sinceTimestamp;
 
@@ -120,6 +124,25 @@ class MessageHelper {
             );
 
             if (!isDuplicate) {
+              // Auto-Categorization Logic
+              int categoryId = 1; // Default: Uncategorized
+              final lowerBody = body.toLowerCase();
+              final lowerSender = (msg.address ?? "").toLowerCase();
+
+              for (var rule in allRules) {
+                final keyword = (rule['keyword'] as String).toLowerCase();
+                // Check body OR sender for keyword
+                // Simple logic: if message contains the keyword string anywhere
+                if (lowerBody.contains(keyword) ||
+                    lowerSender.contains(keyword)) {
+                  categoryId = rule['categoryId'] as int;
+                  debugPrint(
+                    "Auto-categorized as $categoryId (Match: $keyword)",
+                  );
+                  break;
+                }
+              }
+
               debugPrint("Found NEW Transaction: $amount from ${msg.address}");
               await dbHelper.insertTransaction({
                 'amount': amount,
@@ -127,7 +150,7 @@ class MessageHelper {
                 'body': body,
                 'date': msgDate,
                 'type': pattern['messageType'],
-                'categoryId': 1,
+                'categoryId': categoryId,
                 'patternId': pattern['id'],
               });
               newTransactionsCount++;

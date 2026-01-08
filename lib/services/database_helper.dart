@@ -19,7 +19,7 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 10,
+      version: 11,
       onCreate: _createDB,
       onUpgrade: _onUpgrade,
     );
@@ -178,6 +178,102 @@ class DatabaseHelper {
         // Ignore
       }
     }
+
+    if (oldVersion < 11) {
+      // 11. Category Rules (Auto-Categorization)
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS category_rules (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          categoryId INTEGER NOT NULL,
+          keyword TEXT NOT NULL,
+          matchType TEXT DEFAULT 'CONTAINS', -- CONTAINS, EXACT, STARTS_WITH
+          FOREIGN KEY (categoryId) REFERENCES categories (id)
+        )
+      ''');
+    }
+  }
+
+  // ... (existing _createDB) ...
+
+  // --- Category Rules Methods ---
+
+  Future<int> addCategoryRule(int categoryId, String keyword) async {
+    final db = await instance.database;
+    return await db.insert('category_rules', {
+      'categoryId': categoryId,
+      'keyword': keyword,
+      'matchType': 'CONTAINS',
+    });
+  }
+
+  Future<List<Map<String, dynamic>>> getCategoryRules(int categoryId) async {
+    final db = await instance.database;
+    try {
+      return await db.query(
+        'category_rules',
+        where: 'categoryId = ?',
+        whereArgs: [categoryId],
+      );
+    } catch (e) {
+      // Return empty if table doesn't exist (backward compatibility)
+      return [];
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> getAllCategoryRules() async {
+    final db = await instance.database;
+    try {
+      return await db.query('category_rules');
+    } catch (e) {
+      // Return empty if table doesn't exist
+      return [];
+    }
+  }
+
+  Future<int> deleteCategoryRule(int id) async {
+    final db = await instance.database;
+    return await db.delete('category_rules', where: 'id = ?', whereArgs: [id]);
+  }
+
+  // Check if a keyword rule already exists
+  Future<Map<String, dynamic>?> getRuleByKeyword(String keyword) async {
+    final db = await instance.database;
+    final results = await db.query(
+      'category_rules',
+      where: 'keyword = ?',
+      whereArgs: [keyword],
+    );
+    if (results.isNotEmpty) {
+      return results.first;
+    }
+    return null;
+  }
+
+  // Update an existing rule's category (Move Rule)
+  Future<int> updateCategoryRule(int ruleId, int newCategoryId) async {
+    final db = await instance.database;
+    return await db.update(
+      'category_rules',
+      {'categoryId': newCategoryId},
+      where: 'id = ?',
+      whereArgs: [ruleId],
+    );
+  }
+
+  Future<int> applyCategoryRuleToTransactions(
+    int categoryId,
+    String keyword,
+  ) async {
+    final db = await instance.database;
+    // We update transactions where body OR sender contains the keyword
+    // Using LIKE %keyword% pattern
+    final likePattern = '%$keyword%';
+    return await db.update(
+      'transactions',
+      {'categoryId': categoryId},
+      where: 'body LIKE ? OR sender LIKE ?',
+      whereArgs: [likePattern, likePattern],
+    );
   }
 
   Future<void> _createDB(Database db, int version) async {
@@ -270,13 +366,24 @@ class DatabaseHelper {
 
     // 7. Checkpoints Table
     await db.execute('''
-      CREATE TABLE checkpoints (
+      CREATE TABLE IF NOT EXISTS checkpoints (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         date INTEGER NOT NULL,
         balance REAL NOT NULL,
         calculatedBalance REAL,
         diff REAL,
         note TEXT
+      )
+    ''');
+
+    // 8. Category Rules Table
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS category_rules (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        categoryId INTEGER NOT NULL,
+        keyword TEXT NOT NULL,
+        matchType TEXT DEFAULT 'CONTAINS',
+        FOREIGN KEY (categoryId) REFERENCES categories (id)
       )
     ''');
 
