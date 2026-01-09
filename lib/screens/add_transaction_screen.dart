@@ -50,6 +50,17 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
       initialDate: _viewModel.selectedDate,
       firstDate: DateTime(2000),
       lastDate: DateTime.now(),
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: Theme.of(context).colorScheme.copyWith(
+              primary: AppColors.primary,
+              onPrimary: Colors.white,
+            ),
+          ),
+          child: child!,
+        );
+      },
     );
     if (picked != null) {
       _viewModel.setSelectedDate(picked);

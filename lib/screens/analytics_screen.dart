@@ -155,7 +155,10 @@ class _AnalyticsScreenState extends State<AnalyticsScreen>
                     children: [
                       IconButton(
                         icon: const Icon(Icons.chevron_left),
-                        onPressed: () => _viewModel.changeDate(-1),
+                        onPressed:
+                            _viewModel.canGoPrevious
+                                ? () => _viewModel.changeDate(-1)
+                                : null,
                       ),
                       GestureDetector(
                         onTap: () => _viewModel.selectFullMonth(),
@@ -169,7 +172,10 @@ class _AnalyticsScreenState extends State<AnalyticsScreen>
                       ),
                       IconButton(
                         icon: const Icon(Icons.chevron_right),
-                        onPressed: () => _viewModel.changeDate(1),
+                        onPressed:
+                            _viewModel.canGoNext
+                                ? () => _viewModel.changeDate(1)
+                                : null,
                       ),
                     ],
                   ),

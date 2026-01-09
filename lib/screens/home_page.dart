@@ -113,7 +113,7 @@ class HomePageState extends State<HomePage> with AutomaticKeepAliveClientMixin {
                   builder: (context) => const AddTransactionScreen(),
                 ),
               );
-              _viewModel.refreshData();
+              await _viewModel.refreshData();
             },
             icon: const Icon(Icons.add),
             label: Text(CMS.common['add'] ?? 'Add'),
@@ -192,7 +192,6 @@ class HomePageState extends State<HomePage> with AutomaticKeepAliveClientMixin {
                     const SizedBox(height: 16),
 
                     // --- 2. Financial Health (Budget Gauge) ---
-                    // --- 2. Financial Health (Budget Gauge) ---
                     _viewModel.isLoading
                         ? const ShimmerLoading(
                           width: double.infinity,
@@ -224,7 +223,6 @@ class HomePageState extends State<HomePage> with AutomaticKeepAliveClientMixin {
                         ),
                     const SizedBox(height: 16),
 
-                    // --- 3. Quick Stats (Income / Expense) ---
                     // --- 3. Quick Stats (Income / Expense) ---
                     FadeInEntry(
                       delay: 300,
@@ -273,7 +271,6 @@ class HomePageState extends State<HomePage> with AutomaticKeepAliveClientMixin {
                     ),
                     const SizedBox(height: 16),
 
-                    // --- 4. Actions ---
                     // --- 4. Actions ---
                     const SizedBox(height: 16),
 
@@ -328,7 +325,7 @@ class HomePageState extends State<HomePage> with AutomaticKeepAliveClientMixin {
                                       ),
                                 ),
                               );
-                              _viewModel.refreshData();
+                              await _viewModel.refreshData();
                             },
                             isPrivacyEnabled: _isPrivacyEnabled,
                           ),

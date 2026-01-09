@@ -19,7 +19,7 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 12,
+      version: 13,
       onCreate: _createDB,
       onUpgrade: _onUpgrade,
     );
@@ -154,6 +154,17 @@ class DatabaseHelper {
       // 12. Add Note Column
       try {
         await db.execute('ALTER TABLE transactions ADD COLUMN note TEXT');
+      } catch (e) {
+        // Ignore
+      }
+    }
+
+    if (oldVersion < 13) {
+      // 13. Add isExcluded Column
+      try {
+        await db.execute(
+          'ALTER TABLE transactions ADD COLUMN isExcluded INTEGER DEFAULT 0',
+        );
       } catch (e) {
         // Ignore
       }
@@ -325,6 +336,8 @@ class DatabaseHelper {
         is_goal_addition INTEGER DEFAULT 1,
         isIgnored INTEGER DEFAULT 0,
         isLiquid INTEGER DEFAULT 1, -- New column
+        isExcluded INTEGER DEFAULT 0,
+        note TEXT,
         FOREIGN KEY (categoryId) REFERENCES categories (id),
         FOREIGN KEY (patternId) REFERENCES patterns (id),
         FOREIGN KEY (goalId) REFERENCES goals (id)
@@ -600,17 +613,14 @@ class DatabaseHelper {
       'categoryId',
       'patternId',
       'goalId',
-      'goalId',
-      'goalId',
       'is_goal_addition',
       'isIgnored',
       'isLiquid',
+      'isExcluded',
       'note',
     ];
-    final Map<String, dynamic> sanitized = {};
-    for (var key in validColumns) {
-      if (row.containsKey(key)) sanitized[key] = row[key];
-    }
+    final Map<String, dynamic> sanitized = Map.from(row)
+      ..removeWhere((key, value) => !validColumns.contains(key));
 
     return await db.update(
       'transactions',
@@ -618,6 +628,20 @@ class DatabaseHelper {
       where: 'id = ?',
       whereArgs: [id],
     );
+  }
+
+  Future<Map<String, int?>> getTransactionDateRange() async {
+    final db = await instance.database;
+    final result = await db.rawQuery(
+      'SELECT MIN(date) as minDate, MAX(date) as maxDate FROM transactions',
+    );
+    if (result.isNotEmpty) {
+      return {
+        'minDate': result.first['minDate'] as int?,
+        'maxDate': result.first['maxDate'] as int?,
+      };
+    }
+    return {'minDate': null, 'maxDate': null};
   }
 
   Future<int> deleteTransaction(int id) async {
@@ -879,7 +903,7 @@ class DatabaseHelper {
         SUM(CASE WHEN type IN ('debit', 'expense') THEN amount ELSE 0 END) as expense,
         SUM(CASE WHEN type IN ('credit', 'income') THEN amount ELSE 0 END) as income
       FROM transactions 
-      WHERE date >= ? AND date < ? AND (isIgnored IS NULL OR isIgnored = 0)
+      WHERE date >= ? AND date < ? AND (isIgnored IS NULL OR isIgnored = 0) AND (isExcluded IS NULL OR isExcluded = 0)
     ''',
       [start, end],
     );

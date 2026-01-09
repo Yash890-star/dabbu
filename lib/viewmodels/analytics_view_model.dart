@@ -59,6 +59,30 @@ class AnalyticsViewModel extends ChangeNotifier {
   double filteredTotalCredit = 0.0;
   double filteredTotalDebit = 0.0;
 
+  // --- Date Boundaries ---
+  DateTime? _firstTransactionDate;
+  DateTime? _lastTransactionDate;
+
+  bool get canGoPrevious {
+    if (_firstTransactionDate == null) return true; // Default if no data
+    final minMonth = DateTime(
+      _firstTransactionDate!.year,
+      _firstTransactionDate!.month,
+    );
+    final currentMonth = DateTime(focusedDate.year, focusedDate.month);
+    return currentMonth.isAfter(minMonth);
+  }
+
+  bool get canGoNext {
+    if (_lastTransactionDate == null) return false;
+    final maxMonth = DateTime(
+      _lastTransactionDate!.year,
+      _lastTransactionDate!.month,
+    );
+    final currentMonth = DateTime(focusedDate.year, focusedDate.month);
+    return currentMonth.isBefore(maxMonth);
+  }
+
   // --- Data State ---
 
   // 1. Heatmap Data (Full Month)
@@ -119,6 +143,20 @@ class AnalyticsViewModel extends ChangeNotifier {
 
     allCategories = cats;
     allPatterns = modifiablePatterns;
+
+    // Fetch Date Boundaries
+    final range = await db.getTransactionDateRange();
+    if (range['minDate'] != null) {
+      _firstTransactionDate = DateTime.fromMillisecondsSinceEpoch(
+        range['minDate']!,
+      );
+    }
+    if (range['maxDate'] != null) {
+      _lastTransactionDate = DateTime.fromMillisecondsSinceEpoch(
+        range['maxDate']!,
+      );
+    }
+
     if (!_isDisposed) notifyListeners();
   }
 
@@ -160,6 +198,9 @@ class AnalyticsViewModel extends ChangeNotifier {
   }
 
   void changeDate(int offset) {
+    if (offset < 0 && !canGoPrevious) return;
+    if (offset > 0 && !canGoNext) return;
+
     // Moves the Focused Month
     focusedDate = DateTime(focusedDate.year, focusedDate.month + offset, 1);
 

@@ -189,26 +189,23 @@ class BackupService {
   Future<void> _upsertPattern(Map<String, dynamic> pat) async {
     final db = await DatabaseHelper.instance.database;
     final sender = pat['senderId'] as String;
-    final regex = pat['regex'] as String;
+    // Export uses DB column name 'patternRegex', but code might have looked for 'regex'.
+    final regex = (pat['patternRegex'] ?? pat['regex']) as String;
 
     // Try to match by sender AND regex to avoid duplicates
     final existing = await db.query(
       'patterns',
-      where: 'senderId = ? AND regex = ?',
+      where: 'senderId = ? AND patternRegex = ?',
       whereArgs: [sender, regex],
     );
 
     if (existing.isEmpty) {
       await db.insert('patterns', {
         'senderId': sender,
-        'regex': regex,
+        'patternRegex': regex,
         'name': pat['name'],
-        'type': pat['type'],
-        'categoryId':
-            pat['categoryId'], // Note: This might point to wrong ID if cats re-created.
-        // Handling FK relationships in basic backup is tricky.
-        // Ideal way: Map old IDs to new IDs.
-        // For now, we assume standard categories or accept broken link (defaults to Misc).
+        'messageType': pat['messageType'],
+        'extractionIndex': pat['extractionIndex'],
         'isLiquid': pat['isLiquid'],
       });
     }

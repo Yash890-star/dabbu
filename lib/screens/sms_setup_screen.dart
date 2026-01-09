@@ -107,10 +107,9 @@ class _SmsSetupScreenState extends State<SmsSetupScreen> {
       builder: (context, child) {
         return Theme(
           data: Theme.of(context).copyWith(
-            colorScheme: ColorScheme.light(
+            colorScheme: Theme.of(context).colorScheme.copyWith(
               primary: AppColors.primary,
               onPrimary: Colors.white,
-              surface: Theme.of(context).cardColor,
             ),
           ),
           child: child!,
@@ -217,7 +216,7 @@ class _SmsSetupScreenState extends State<SmsSetupScreen> {
                               color: Colors.orange,
                             ),
                           ),
-                          const SizedBox(height: 16),
+                          const SizedBox(width: 16),
                           Expanded(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
