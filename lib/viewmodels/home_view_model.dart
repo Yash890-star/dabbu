@@ -169,8 +169,9 @@ class HomeViewModel extends ChangeNotifier {
 
       final amount = (tx['amount'] as num).toDouble();
       final isIgnored = (tx['isIgnored'] as int? ?? 0) == 1;
+      final isExcluded = (tx['isExcluded'] as int? ?? 0) == 1;
 
-      if (isIgnored) continue; // Skip calculations
+      if (isIgnored || isExcluded) continue; // Skip calculations
 
       // Daily Totals
       if (!totals.containsKey(key)) {

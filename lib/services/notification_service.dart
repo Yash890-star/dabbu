@@ -2,6 +2,7 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart'
     as fln;
 import 'package:timezone/timezone.dart' as tz;
 import 'package:timezone/data/latest_all.dart' as tz;
+import 'package:flutter_timezone/flutter_timezone.dart';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'database_helper.dart';
@@ -22,6 +23,26 @@ class NotificationService {
     if (_isInitialized) return;
 
     tz.initializeTimeZones();
+    try {
+      final dynamic timeZoneInfo = await FlutterTimezone.getLocalTimezone();
+      // Handle flutter_timezone 5.x which returns TimezoneInfo object
+      String timeZoneName;
+      if (timeZoneInfo is String) {
+        timeZoneName = timeZoneInfo;
+      } else {
+        // Assume has identifier property based on search results
+        try {
+          timeZoneName = (timeZoneInfo as dynamic).identifier;
+        } catch (e) {
+          timeZoneName = timeZoneInfo.toString();
+        }
+      }
+      tz.setLocalLocation(tz.getLocation(timeZoneName));
+    } catch (e) {
+      debugPrint(
+        "Could not set local timezone. Defaulting to UTC/Default. Error: $e",
+      );
+    }
 
     const fln.AndroidInitializationSettings initializationSettingsAndroid =
         fln.AndroidInitializationSettings('@mipmap/launcher_icon');
@@ -51,6 +72,26 @@ class NotificationService {
       },
     );
 
+    // Create Channel explicitly for Android
+    if (defaultTargetPlatform == TargetPlatform.android) {
+      final androidImplementation =
+          flutterLocalNotificationsPlugin
+              .resolvePlatformSpecificImplementation<
+                fln.AndroidFlutterLocalNotificationsPlugin
+              >();
+
+      const fln.AndroidNotificationChannel tallyChannel =
+          fln.AndroidNotificationChannel(
+            'dabbu_tally_channel_v2',
+            'Tally Reminders',
+            description: 'Reminders to tally your balance',
+            importance: fln.Importance.max,
+            playSound: true,
+          );
+
+      await androidImplementation?.createNotificationChannel(tallyChannel);
+    }
+
     _isInitialized = true;
   }
 
@@ -77,9 +118,9 @@ class NotificationService {
   }) async {
     const fln.AndroidNotificationDetails androidPlatformChannelSpecifics =
         fln.AndroidNotificationDetails(
-          'dabbu_general_channel',
-          'General Notifications',
-          channelDescription: 'General app notifications',
+          'dabbu_tally_channel_v2', // Use the SAME channel as reminder
+          'Tally Reminders',
+          channelDescription: 'Reminders to tally your balance',
           importance: fln.Importance.max,
           priority: fln.Priority.high,
           ticker: 'ticker',
@@ -109,7 +150,7 @@ class NotificationService {
       _nextInstanceOf(hour, minute),
       const fln.NotificationDetails(
         android: fln.AndroidNotificationDetails(
-          'dabbu_tally_channel',
+          'dabbu_tally_channel_v2',
           'Tally Reminders',
           channelDescription: 'Reminders to tally your balance',
         ),
@@ -117,22 +158,79 @@ class NotificationService {
       androidScheduleMode: fln.AndroidScheduleMode.exactAllowWhileIdle,
       matchDateTimeComponents: fln.DateTimeComponents.time,
     );
+    // Save scheduled time for debugging
+    final nextTime = _nextInstanceOf(hour, minute);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(
+      'last_scheduled_rem_time',
+      nextTime.toIso8601String(),
+    );
+
+    debugPrint("Scheduled Tally Reminder for: $nextTime");
+  }
+
+  Future<void> scheduleOneMinuteTest() async {
+    // 1. Get current time in UTC directly
+    final DateTime nowUTC = DateTime.now().toUtc();
+    final DateTime scheduledUTC = nowUTC.add(const Duration(minutes: 1));
+
+    // 2. Use tz.UTC location explicitly
+    final tz.TZDateTime scheduledTZ = tz.TZDateTime.from(scheduledUTC, tz.UTC);
+
+    debugPrint("Scheduling 1-min test for UTC: $scheduledTZ");
+
+    await flutterLocalNotificationsPlugin.zonedSchedule(
+      1002,
+      '1 Minute Test (UTC)',
+      'If you see this, UTC Scheduling works!',
+      scheduledTZ,
+      const fln.NotificationDetails(
+        android: fln.AndroidNotificationDetails(
+          'dabbu_tally_channel_v2',
+          'Tally Reminders',
+          channelDescription: 'Reminders to tally your balance',
+          importance: fln.Importance.max,
+          priority: fln.Priority.high,
+          playSound: true,
+          enableVibration: true,
+        ),
+      ),
+      androidScheduleMode: fln.AndroidScheduleMode.exactAllowWhileIdle,
+    );
+    // Save scheduled time for debugging
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(
+      'last_scheduled_rem_time',
+      scheduledTZ.toIso8601String(),
+    );
+  }
+
+  Future<List<fln.PendingNotificationRequest>> getPendingNotifications() async {
+    return await flutterLocalNotificationsPlugin.pendingNotificationRequests();
   }
 
   tz.TZDateTime _nextInstanceOf(int hour, int minute) {
-    final tz.TZDateTime now = tz.TZDateTime.now(tz.local);
-    tz.TZDateTime scheduledDate = tz.TZDateTime(
-      tz.local,
+    // 1. Get current time in Native Local (device time)
+    final DateTime now = DateTime.now();
+
+    // 2. Create the target time in Native Local
+    DateTime scheduledDate = DateTime(
       now.year,
       now.month,
       now.day,
       hour,
       minute,
     );
+
+    // 3. If passed, add a day
     if (scheduledDate.isBefore(now)) {
       scheduledDate = scheduledDate.add(const Duration(days: 1));
     }
-    return scheduledDate;
+
+    // 4. Safely convert Native Local -> configured tz.local
+    // If tz.local is UTC, this converts 22:00 IST -> 16:30 UTC (Correct absolute time)
+    // If tz.local is IST, this converts 22:00 IST -> 22:00 IST (Correct absolute time)
+    return tz.TZDateTime.from(scheduledDate, tz.local);
   }
 
   Future<void> cancelAll() async {

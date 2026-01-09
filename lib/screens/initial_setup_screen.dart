@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../utils/cms.dart';
 import '../utils/app_colors.dart';
 import '../services/backup_service.dart';
+import '../services/background_service.dart'; // Added for immediate registration
 import '../viewmodels/initial_setup_view_model.dart';
 import '../viewmodels/sms_setup_view_model.dart';
 import 'main_screen.dart';
@@ -238,167 +239,178 @@ class _InitialSetupScreenState extends State<InitialSetupScreen> {
   // ... (keep _buildStep0Intro, _buildStep1Input)
 
   Widget _buildStep0Intro() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          const Spacer(),
-          FadeInEntry(
-            delay: 100,
-            child: Text(
-              "Control your Money",
-              style: Theme.of(
-                context,
-              ).textTheme.displaySmall?.copyWith(fontWeight: FontWeight.bold),
-              textAlign: TextAlign.center,
-            ),
-          ),
-          const SizedBox(height: 32),
-
-          // Bento Grid
-          FadeInEntry(
-            delay: 200,
-            child: SizedBox(
-              height: 280, // Fixed height for the grid
-              child: Row(
-                children: [
-                  // Large Left Card (Auto Sync)
-                  Expanded(
-                    flex: 3,
-                    child: Container(
-                      padding: const EdgeInsets.all(20),
-                      decoration: BoxDecoration(
-                        color: AppColors.primary.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(24),
-                        border: Border.all(
-                          color: AppColors.primary.withValues(alpha: 0.2),
-                        ),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(12),
-                            decoration: BoxDecoration(
-                              color: AppColors.primary,
-                              shape: BoxShape.circle,
-                            ),
-                            child: const Icon(
-                              Icons.sync_outlined,
-                              color: Colors.white,
-                              size: 28,
-                            ),
-                          ),
-                          const Spacer(),
-                          const Text(
-                            "Auto\nSync",
-                            style: TextStyle(
-                              fontSize: 20,
-                              fontWeight: FontWeight.bold,
-                              height: 1.2,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            "Tracks SMS automatically",
-                            style: TextStyle(
-                              fontSize: 13,
-                              color: AppColors.textSecondary,
-                            ),
-                          ),
-                        ],
-                      ),
+    return SingleChildScrollView(
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          minHeight: MediaQuery.of(context).size.height - 200,
+        ),
+        child: IntrinsicHeight(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const Spacer(),
+                FadeInEntry(
+                  delay: 100,
+                  child: Text(
+                    "Control your Money",
+                    style: Theme.of(context).textTheme.displaySmall?.copyWith(
+                      fontWeight: FontWeight.bold,
                     ),
+                    textAlign: TextAlign.center,
                   ),
-                  const SizedBox(width: 12),
+                ),
+                const SizedBox(height: 32),
 
-                  // Right Column (Two Small Cards)
-                  Expanded(
-                    flex: 2,
-                    child: Column(
+                // Bento Grid
+                FadeInEntry(
+                  delay: 200,
+                  child: SizedBox(
+                    height: 280, // Fixed height for the grid
+                    child: Row(
                       children: [
-                        // Top Right (Privacy)
+                        // Large Left Card (Auto Sync)
                         Expanded(
+                          flex: 3,
                           child: Container(
-                            width: double.infinity,
-                            padding: const EdgeInsets.all(16),
+                            padding: const EdgeInsets.all(20),
                             decoration: BoxDecoration(
-                              color: Colors.teal.withValues(alpha: 0.1),
+                              color: AppColors.primary.withValues(alpha: 0.1),
                               borderRadius: BorderRadius.circular(24),
                               border: Border.all(
-                                color: Colors.teal.withValues(alpha: 0.2),
+                                color: AppColors.primary.withValues(alpha: 0.2),
                               ),
                             ),
                             child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                const Icon(
-                                  Icons.lock_outline,
-                                  color: Colors.teal,
-                                  size: 28,
+                                Container(
+                                  padding: const EdgeInsets.all(12),
+                                  decoration: BoxDecoration(
+                                    color: AppColors.primary,
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: const Icon(
+                                    Icons.sync_outlined,
+                                    color: Colors.white,
+                                    size: 28,
+                                  ),
+                                ),
+                                const Spacer(),
+                                const Text(
+                                  "Auto\nSync",
+                                  style: TextStyle(
+                                    fontSize: 20,
+                                    fontWeight: FontWeight.bold,
+                                    height: 1.2,
+                                  ),
                                 ),
                                 const SizedBox(height: 8),
-                                const Text(
-                                  "Privacy\nFirst",
-                                  textAlign: TextAlign.center,
+                                Text(
+                                  "Tracks SMS automatically",
                                   style: TextStyle(
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.bold,
+                                    fontSize: 13,
+                                    color: AppColors.textSecondary,
                                   ),
                                 ),
                               ],
                             ),
                           ),
                         ),
-                        const SizedBox(height: 12),
-                        // Bottom Right (Offline)
+                        const SizedBox(width: 12),
+
+                        // Right Column (Two Small Cards)
                         Expanded(
-                          child: Container(
-                            width: double.infinity,
-                            padding: const EdgeInsets.all(16),
-                            decoration: BoxDecoration(
-                              color: Colors.orange.withValues(alpha: 0.1),
-                              borderRadius: BorderRadius.circular(24),
-                              border: Border.all(
-                                color: Colors.orange.withValues(alpha: 0.2),
-                              ),
-                            ),
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                const Icon(
-                                  Icons.wifi_off,
-                                  color: Colors.orange,
-                                  size: 28,
-                                ),
-                                const SizedBox(height: 8),
-                                const Text(
-                                  "Works\nOffline",
-                                  textAlign: TextAlign.center,
-                                  style: TextStyle(
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.bold,
+                          flex: 2,
+                          child: Column(
+                            children: [
+                              // Top Right (Privacy)
+                              Expanded(
+                                child: Container(
+                                  width: double.infinity,
+                                  padding: const EdgeInsets.all(16),
+                                  decoration: BoxDecoration(
+                                    color: Colors.teal.withValues(alpha: 0.1),
+                                    borderRadius: BorderRadius.circular(24),
+                                    border: Border.all(
+                                      color: Colors.teal.withValues(alpha: 0.2),
+                                    ),
+                                  ),
+                                  child: const Column(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Icon(
+                                        Icons.lock_outline,
+                                        color: Colors.teal,
+                                        size: 28,
+                                      ),
+                                      SizedBox(height: 8),
+                                      Text(
+                                        "Privacy\nFirst",
+                                        textAlign: TextAlign.center,
+                                        style: TextStyle(
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                 ),
-                              ],
-                            ),
+                              ),
+                              const SizedBox(height: 12),
+                              // Bottom Right (Offline)
+                              Expanded(
+                                child: Container(
+                                  width: double.infinity,
+                                  padding: const EdgeInsets.all(16),
+                                  decoration: BoxDecoration(
+                                    color: Colors.orange.withValues(alpha: 0.1),
+                                    borderRadius: BorderRadius.circular(24),
+                                    border: Border.all(
+                                      color: Colors.orange.withValues(
+                                        alpha: 0.2,
+                                      ),
+                                    ),
+                                  ),
+                                  child: const Column(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Icon(
+                                        Icons.wifi_off,
+                                        color: Colors.orange,
+                                        size: 28,
+                                      ),
+                                      SizedBox(height: 8),
+                                      Text(
+                                        "Works\nOffline",
+                                        textAlign: TextAlign.center,
+                                        style: TextStyle(
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                       ],
                     ),
                   ),
-                ],
-              ),
+                ),
+                const Spacer(),
+                FadeInEntry(
+                  delay: 300,
+                  child: AppButton(label: "Get Started", onPressed: _nextPage),
+                ),
+                const SizedBox(height: 20),
+              ],
             ),
           ),
-          const Spacer(),
-          FadeInEntry(
-            delay: 300,
-            child: AppButton(label: "Get Started", onPressed: _nextPage),
-          ),
-          const SizedBox(height: 20),
-        ],
+        ),
       ),
     );
   }
@@ -477,268 +489,292 @@ class _InitialSetupScreenState extends State<InitialSetupScreen> {
   }
 
   Widget _buildStep2Sms() {
-    return Padding(
-      padding: const EdgeInsets.all(24.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          const SizedBox(height: 20),
-          FadeInEntry(
-            delay: 100,
-            child: Container(
-              width: 100,
-              height: 100,
-              decoration: BoxDecoration(
-                color: AppColors.primary.withValues(alpha: 0.1),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(
-                Icons.sms_outlined,
-                size: 48,
-                color: AppColors.primary,
-              ),
-            ),
-          ),
-          const SizedBox(height: 24),
-          FadeInEntry(
-            delay: 150,
-            child: Text(
-              "Sync Messages",
-              style: Theme.of(
-                context,
-              ).textTheme.displaySmall?.copyWith(fontWeight: FontWeight.bold),
-              textAlign: TextAlign.center,
-            ),
-          ),
-          const SizedBox(height: 16),
-          FadeInEntry(
-            delay: 200,
-            child: Text(
-              "Allow Dabbu to read SMS to track your expenses automatically. We only look for bank transactions.",
-              textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                color: AppColors.textSecondary,
-                height: 1.5,
-              ),
-            ),
-          ),
-          const SizedBox(height: 32),
-          FadeInEntry(
-            delay: 250,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
-              decoration: BoxDecoration(
-                color: Theme.of(context).cardColor,
-                borderRadius: BorderRadius.circular(24),
-                border: Border.all(color: Colors.white10),
-              ),
-              child: Column(
-                children: [
-                  const Text(
-                    "Sync History From:",
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                  ),
-                  const SizedBox(height: 32), // Increased from 16
-                  InkWell(
-                    onTap: () async {
-                      final DateTime? picked = await showDatePicker(
-                        context: context,
-                        initialDate: _smsViewModel.selectedDate,
-                        firstDate: DateTime(2020),
-                        lastDate: DateTime.now(),
-                        builder: (BuildContext context, Widget? child) {
-                          return Theme(
-                            data: Theme.of(context).copyWith(
-                              colorScheme: const ColorScheme.dark(
-                                primary: AppColors.primary,
-                                onPrimary: Colors.black,
-                                surface: Color(0xFF1E1E1E),
-                                onSurface: Colors.white,
-                              ),
-                              dialogBackgroundColor: const Color(0xFF1E1E1E),
-                            ),
-                            child: child!,
-                          );
-                        },
-                      );
-                      if (picked != null &&
-                          picked != _smsViewModel.selectedDate) {
-                        setState(() {
-                          _smsViewModel.setSelectedDate(picked);
-                        });
-                      }
-                    },
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        vertical: 12,
-                        horizontal: 20,
-                      ),
-                      decoration: BoxDecoration(
-                        color: AppColors.backgroundDark,
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
-                          color: AppColors.primary.withValues(alpha: 0.5),
-                        ),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            Icons.calendar_today,
-                            size: 20,
-                            color: AppColors.primary,
-                          ),
-                          const SizedBox(width: 24), // Increased padding
-                          Text(
-                            "${_smsViewModel.selectedDate.day}/${_smsViewModel.selectedDate.month}/${_smsViewModel.selectedDate.year}",
-                            style: const TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 18,
-                            ),
-                          ),
-                        ],
-                      ),
+    return SingleChildScrollView(
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          minHeight: MediaQuery.of(context).size.height - 200,
+        ),
+        child: IntrinsicHeight(
+          child: Padding(
+            padding: const EdgeInsets.all(24.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const SizedBox(height: 20),
+                FadeInEntry(
+                  delay: 100,
+                  child: Container(
+                    width: 100,
+                    height: 100,
+                    decoration: BoxDecoration(
+                      color: AppColors.primary.withValues(alpha: 0.1),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      Icons.sms_outlined,
+                      size: 48,
+                      color: AppColors.primary,
                     ),
                   ),
-                ],
-              ),
-            ),
-          ),
-
-          if (_isSyncing) ...[
-            const Spacer(),
-            const Column(
-              children: [
-                CircularProgressIndicator(),
-                SizedBox(height: 16),
-                Text("Scanning your inbox..."),
-              ],
-            ),
-            const Spacer(),
-          ] else ...[
-            const Spacer(),
-            FadeInEntry(
-              delay: 300,
-              child: AppButton(
-                label: "Allow & Sync",
-                onPressed: _startSync,
-                isLoading: _isSyncing,
-              ),
-            ),
-            const SizedBox(height: 12),
-            TextButton(
-              onPressed: _nextPage,
-              child: const Text("Skip SMS setup"),
-            ),
-            const SizedBox(height: 20),
-          ],
-        ],
-      ),
-    );
-  }
-
-  Widget _buildStep3Notifications() {
-    return Padding(
-      padding: const EdgeInsets.all(24.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          const SizedBox(height: 20),
-          FadeInEntry(
-            delay: 100,
-            child: Container(
-              width: 100,
-              height: 100,
-              decoration: BoxDecoration(
-                color: AppColors.secondary.withValues(alpha: 0.5),
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(
-                Icons.notifications_active_outlined,
-                size: 48,
-                color: Colors.amber,
-              ),
-            ),
-          ),
-          const SizedBox(height: 24),
-          FadeInEntry(
-            delay: 150,
-            child: Text(
-              "Stay Updated",
-              style: Theme.of(
-                context,
-              ).textTheme.displaySmall?.copyWith(fontWeight: FontWeight.bold),
-              textAlign: TextAlign.center,
-            ),
-          ),
-          const SizedBox(height: 16),
-          FadeInEntry(
-            delay: 200,
-            child: Text(
-              "Enable notifications to get instant alerts when Dabbu detects a new transaction.",
-              textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                color: AppColors.textSecondary,
-                height: 1.5,
-              ),
-            ),
-          ),
-          const SizedBox(height: 32),
-          FadeInEntry(
-            delay: 250,
-            child: Container(
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                color: Theme.of(context).cardColor,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: Colors.white10),
-              ),
-              child: Row(
-                children: [
-                  const Icon(Icons.sync, color: AppColors.primary),
-                  const SizedBox(width: 16),
-                  const Expanded(
+                ),
+                const SizedBox(height: 24),
+                FadeInEntry(
+                  delay: 150,
+                  child: Text(
+                    "Sync Messages",
+                    style: Theme.of(context).textTheme.displaySmall?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                FadeInEntry(
+                  delay: 200,
+                  child: Text(
+                    "Allow Dabbu to read SMS to track your expenses automatically. We only look for bank transactions.",
+                    textAlign: TextAlign.center,
+                    style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                      color: AppColors.textSecondary,
+                      height: 1.5,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 32),
+                FadeInEntry(
+                  delay: 250,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 24,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).cardColor,
+                      borderRadius: BorderRadius.circular(24),
+                      border: Border.all(color: Colors.white10),
+                    ),
                     child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          "Background Auto-Sync",
-                          style: TextStyle(fontWeight: FontWeight.bold),
-                        ),
-                        Text(
-                          "Check for new SMS periodically",
+                        const Text(
+                          "Sync History From:",
                           style: TextStyle(
-                            color: AppColors.textSecondary,
-                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                          ),
+                        ),
+                        const SizedBox(height: 32),
+                        InkWell(
+                          onTap: () async {
+                            final DateTime? picked = await showDatePicker(
+                              context: context,
+                              initialDate: _smsViewModel.selectedDate,
+                              firstDate: DateTime(2020),
+                              lastDate: DateTime.now(),
+                              builder: (BuildContext context, Widget? child) {
+                                return Theme(
+                                  data: Theme.of(context).copyWith(
+                                    colorScheme: Theme.of(
+                                      context,
+                                    ).colorScheme.copyWith(
+                                      primary: AppColors.primary,
+                                      onPrimary: Colors.white,
+                                    ),
+                                  ),
+                                  child: child!,
+                                );
+                              },
+                            );
+                            if (picked != null &&
+                                picked != _smsViewModel.selectedDate) {
+                              setState(() {
+                                _smsViewModel.setSelectedDate(picked);
+                              });
+                            }
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              vertical: 12,
+                              horizontal: 20,
+                            ),
+                            decoration: BoxDecoration(
+                              color: AppColors.backgroundDark,
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: AppColors.primary.withValues(alpha: 0.5),
+                              ),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  Icons.calendar_today,
+                                  size: 20,
+                                  color: AppColors.primary,
+                                ),
+                                const SizedBox(width: 24),
+                                Text(
+                                  "${_smsViewModel.selectedDate.day}/${_smsViewModel.selectedDate.month}/${_smsViewModel.selectedDate.year}",
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 18,
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
                         ),
                       ],
                     ),
                   ),
-                  Switch(
-                    value: _featureAutoSync,
-                    onChanged: (val) {
-                      setState(() => _featureAutoSync = val);
-                      // We will save this preference later or now?
-                      // For now just UI state.
-                    },
+                ),
+
+                if (_isSyncing) ...[
+                  const Spacer(),
+                  const Column(
+                    children: [
+                      CircularProgressIndicator(),
+                      SizedBox(height: 16),
+                      Text("Scanning your inbox..."),
+                    ],
                   ),
+                  const Spacer(),
+                ] else ...[
+                  const Spacer(),
+                  FadeInEntry(
+                    delay: 300,
+                    child: AppButton(
+                      label: "Allow & Sync",
+                      onPressed: _startSync,
+                      isLoading: _isSyncing,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  TextButton(
+                    onPressed: _nextPage,
+                    child: const Text("Skip SMS setup"),
+                  ),
+                  const SizedBox(height: 20),
                 ],
-              ),
+              ],
             ),
           ),
-          const Spacer(),
-          FadeInEntry(
-            delay: 300,
-            child: AppButton(
-              label: "Enable Notifications",
-              onPressed: _requestNotification,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildStep3Notifications() {
+    return SingleChildScrollView(
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          minHeight: MediaQuery.of(context).size.height - 200,
+        ),
+        child: IntrinsicHeight(
+          child: Padding(
+            padding: const EdgeInsets.all(24.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const SizedBox(height: 20),
+                FadeInEntry(
+                  delay: 100,
+                  child: Container(
+                    width: 100,
+                    height: 100,
+                    decoration: BoxDecoration(
+                      color: AppColors.secondary.withValues(alpha: 0.5),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.notifications_active_outlined,
+                      size: 48,
+                      color: Colors.amber,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 24),
+                FadeInEntry(
+                  delay: 150,
+                  child: Text(
+                    "Stay Updated",
+                    style: Theme.of(context).textTheme.displaySmall?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                FadeInEntry(
+                  delay: 200,
+                  child: Text(
+                    "Enable notifications to get instant alerts when Dabbu detects a new transaction.",
+                    textAlign: TextAlign.center,
+                    style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                      color: AppColors.textSecondary,
+                      height: 1.5,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 32),
+                FadeInEntry(
+                  delay: 250,
+                  child: Container(
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).cardColor,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: Colors.white10),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.sync, color: AppColors.primary),
+                        const SizedBox(width: 16),
+                        const Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                "Background Auto-Sync",
+                                style: TextStyle(fontWeight: FontWeight.bold),
+                              ),
+                              Text(
+                                "Check for new SMS periodically",
+                                style: TextStyle(
+                                  color: AppColors.textSecondary,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Switch(
+                          value: _featureAutoSync,
+                          onChanged: (val) {
+                            setState(() => _featureAutoSync = val);
+                          },
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const Spacer(),
+                FadeInEntry(
+                  delay: 300,
+                  child: AppButton(
+                    label: "Enable Notifications",
+                    onPressed: _requestNotification,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextButton(
+                  onPressed: _nextPage,
+                  child: const Text("Maybe Later"),
+                ),
+                const SizedBox(height: 20),
+              ],
             ),
           ),
-          const SizedBox(height: 12),
-          TextButton(onPressed: _nextPage, child: const Text("Maybe Later")),
-          const SizedBox(height: 20),
-        ],
+        ),
       ),
     );
   }
@@ -855,8 +891,12 @@ class _InitialSetupScreenState extends State<InitialSetupScreen> {
             onPressed: () {
               // Save AutoSync preference if we haven't already
               // Actually, we should probably save it to SharedPreferences
-              SharedPreferences.getInstance().then((prefs) {
-                prefs.setBool('auto_sync_enabled', _featureAutoSync);
+              SharedPreferences.getInstance().then((prefs) async {
+                // Use 'bg_sync_enabled' to match NotificationSettingsScreen
+                await prefs.setBool('bg_sync_enabled', _featureAutoSync);
+                if (_featureAutoSync) {
+                  await BackgroundService().registerPeriodicTask();
+                }
               });
               _nextPage();
             },
@@ -869,45 +909,60 @@ class _InitialSetupScreenState extends State<InitialSetupScreen> {
   }
 
   Widget _buildStep5Success() {
-    // ... (Same as old Step 4)
-    return Padding(
-      padding: const EdgeInsets.all(24.0),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const Icon(
-            Icons.check_circle_outline,
-            size: 100,
-            color: AppColors.success,
+    return SingleChildScrollView(
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          minHeight: MediaQuery.of(context).size.height - 200,
+        ),
+        child: IntrinsicHeight(
+          child: Padding(
+            padding: const EdgeInsets.all(24.0),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Spacer(),
+                const Icon(
+                  Icons.check_circle_outline,
+                  size: 100,
+                  color: AppColors.success,
+                ),
+                const SizedBox(height: 24),
+                Text(
+                  "All Set!",
+                  style: Theme.of(context).textTheme.displaySmall?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  _syncedCount > 0
+                      ? "We found $_syncedCount transactions."
+                      : "You're ready to start tracking.",
+                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                    color: AppColors.textSecondary,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 48),
+                AppButton(
+                  label: "Go to Dashboard",
+                  onPressed: () {
+                    SharedPreferences.getInstance().then((prefs) {
+                      prefs.setBool('initialSetupDone', true);
+                    });
+                    Navigator.pushReplacement(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const MainScreen(),
+                      ),
+                    );
+                  },
+                ),
+                const Spacer(),
+              ],
+            ),
           ),
-          const SizedBox(height: 24),
-          Text(
-            "All Set!",
-            style: Theme.of(
-              context,
-            ).textTheme.displaySmall?.copyWith(fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 16),
-          Text(
-            _syncedCount > 0
-                ? "We found $_syncedCount transactions."
-                : "You're ready to start tracking.",
-            style: Theme.of(
-              context,
-            ).textTheme.bodyLarge?.copyWith(color: AppColors.textSecondary),
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 48),
-          AppButton(
-            label: "Go to Dashboard",
-            onPressed: () {
-              Navigator.pushReplacement(
-                context,
-                MaterialPageRoute(builder: (context) => const MainScreen()),
-              );
-            },
-          ),
-        ],
+        ),
       ),
     );
   }

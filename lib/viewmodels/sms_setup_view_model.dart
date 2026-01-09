@@ -36,22 +36,30 @@ class SmsSetupViewModel extends ChangeNotifier {
     notifyListeners();
 
     try {
-      // 1. Request SMS Permission via Plugin to avoid RequestCode conflict (24)
+      // 1. Check current status
+      var status = await Permission.sms.status;
+      if (status.isPermanentlyDenied) {
+        permissionDeniedPermanently = true;
+        isLoading = false;
+        notifyListeners();
+        return null;
+      }
+
+      // 2. Request SMS Permission via Plugin
+      // We use the plugin's own request to avoid MethodChannel "Reply already submitted" crash
       bool? granted = await _telephony.requestPhoneAndSmsPermissions;
+
       if (granted != true) {
-        // Double check with permission_handler just in case, or trust the plugin
-        var status = await Permission.sms.status;
-        if (!status.isGranted) {
-          isLoading = false;
-          // If verified denied
-          if (status.isPermanentlyDenied) {
-            permissionDeniedPermanently = true;
-          } else {
-            errorMessage = "Permission required";
-          }
-          notifyListeners();
-          return null;
+        // Double check status to see if it just got permanently denied
+        status = await Permission.sms.status;
+        if (status.isPermanentlyDenied) {
+          permissionDeniedPermanently = true;
+        } else {
+          errorMessage = "Permission required";
         }
+        isLoading = false;
+        notifyListeners();
+        return null;
       }
 
       // 3. Save Date

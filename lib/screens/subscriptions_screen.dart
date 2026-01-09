@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../utils/cms.dart';
+import '../utils/app_colors.dart';
 import '../viewmodels/subscriptions_view_model.dart';
 
 class SubscriptionsScreen extends StatefulWidget {
@@ -246,6 +247,19 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> {
                                 lastDate: DateTime.now().add(
                                   const Duration(days: 365 * 2),
                                 ),
+                                builder: (context, child) {
+                                  return Theme(
+                                    data: Theme.of(context).copyWith(
+                                      colorScheme: Theme.of(
+                                        context,
+                                      ).colorScheme.copyWith(
+                                        primary: AppColors.primary,
+                                        onPrimary: Colors.white,
+                                      ),
+                                    ),
+                                    child: child!,
+                                  );
+                                },
                               );
                               if (picked != null) {
                                 setState(() => selectedDate = picked);
