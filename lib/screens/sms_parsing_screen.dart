@@ -299,6 +299,16 @@ class _SmsParsingScreenState extends State<SmsParsingScreen> {
                     ),
                     const SizedBox(height: 16),
 
+                    // Liquidity Toggle
+                    SwitchListTile(
+                      title: const Text("Affects Bank Balance?"),
+                      subtitle: const Text("Turn off for Credit Cards."),
+                      value: _viewModel.isLiquid,
+                      onChanged: (val) => _viewModel.setIsLiquid(val),
+                      contentPadding: EdgeInsets.zero,
+                    ),
+                    const SizedBox(height: 16),
+
                     TextField(
                       controller: _patternNameController,
                       decoration: InputDecoration(

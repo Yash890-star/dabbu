@@ -260,8 +260,20 @@ class CMS {
   static const Map<String, dynamic> main = {
     'nav_home': 'Home',
     'nav_analytics': 'Analytics',
-    'nav_calendar': 'Calendar',
+    'nav_tools': 'Tools',
     'nav_settings': 'Settings',
+  };
+
+  static const Map<String, dynamic> tools = {
+    'title': 'Tools',
+    'tally_title': 'Tally & Reconcile',
+    'tally_desc': 'Balance your accounts',
+    'goals_title': 'Savings Goals',
+    'goals_desc': 'Track your dreams',
+    'export_title': 'Export Data',
+    'export_desc': 'Backup your transactions',
+    'brain_title': 'The Brain',
+    'brain_desc': 'Manage rules & patterns',
   };
 
   static const Map<String, dynamic> smsList = {
@@ -301,5 +313,53 @@ class CMS {
     'no_patterns_found': 'No recurring patterns found.',
     'days_left_suffix': ' days)',
     'next_due_label': 'Next: ',
+  };
+
+  static const Map<String, dynamic> brain = {
+    'title': 'The Brain',
+    'rules_tab': 'Category Rules',
+    'patterns_tab': 'Message Patterns',
+    'teach_tab': 'Teach',
+    'teach_fab_label': 'New Rule',
+    'intro_bubble': 'I\'m ready to learn. Teach me a new keyword pattern.',
+    'keyword_prompt': 'Message contains "{keyword}"',
+    'category_bubble':
+        'Got it. When I see "{keyword}", how should I categorize it?',
+    'step_category': 'STEP 2: THE CATEGORY',
+    'save_btn': 'Save Rule',
+    'rules_list_title': 'My Rules',
+    'no_rules': 'No rules yet. Teach me something!',
+    'delete_rule_title': 'Delete Rule',
+    'delete_rule_content':
+        'Are you sure you want to forget the rule for "{keyword}"?',
+  };
+
+  static const Map<String, dynamic> teach_pattern = {
+    'title': 'New Message Pattern',
+    'step_amount': 'Step 1: The Amount',
+    'prompt_amount':
+        'Tap the word that represents the **amount** of the transaction.',
+    'step_anchor': 'Step 2: The Anchor',
+    'prompt_anchor':
+        'Tap **keywords** that always appear (e.g., "sent to", "debited").',
+    'step_type': 'Step 3: Transaction Type',
+    'prompt_type':
+        'Is this usually an **income** (credit) or **expense** (debit)?',
+    'step_liquid': 'Step 4: Bank Balance',
+    'prompt_liquid':
+        'Does this transaction usually directly affect your **bank balance**? (No for Credit Cards)',
+    'step_name': 'Step 5: Name It',
+    'prompt_name': 'Give this pattern a name (e.g., "HDFC Debit").',
+    'step_category': 'Step 6: Default Category',
+    'prompt_category_yn': 'Do you want to assign a **default category**?',
+    'prompt_category_select': 'Which category?',
+    'step_retro': 'Step 7: Finalize',
+    'prompt_retro': 'Apply this pattern to **past messages** too?',
+    'btn_next': 'Next',
+    'btn_save': 'Save Pattern',
+    'lbl_debit': 'Expense (Debit)',
+    'lbl_credit': 'Income (Credit)',
+    'lbl_liquid_yes': 'Yes, affects balance',
+    'lbl_liquid_no': 'No, credit/later',
   };
 }

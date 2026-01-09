@@ -16,52 +16,45 @@ class BentoGrid extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // For a true "Bento" feel with spanning, we usually need StaggeredGrid.
-    // However, without external deps, we'll implement a simple uniform grid
-    // for 1x1 items, and expect the caller to use specific "BentoRow" widgets
-    // for more complex layouts (2x1, etc).
-    // This widget serves as a clean wrapper for uniform grids (like Categories).
+    if (children.isEmpty) return const SizedBox();
 
-    return GridView.count(
-      crossAxisCount: crossAxisCount,
-      mainAxisSpacing: mainAxisSpacing,
-      crossAxisSpacing: crossAxisSpacing,
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      children: children,
-    );
-  }
-}
+    // Manual Masonry Implementation
+    // Distribute children into columns
+    List<List<Widget>> columns = List.generate(crossAxisCount, (_) => []);
 
-class BentoRow extends StatelessWidget {
-  final List<Widget> children;
-  final List<int>? flex;
-  final double spacing;
+    for (int i = 0; i < children.length; i++) {
+      columns[i % crossAxisCount].add(children[i]);
+    }
 
-  const BentoRow({
-    super.key,
-    required this.children,
-    this.flex,
-    this.spacing = 16.0,
-  });
-
-  @override
-  Widget build(BuildContext context) {
     return Row(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: List.generate(children.length, (index) {
-        final flexFactor =
-            flex != null && index < flex!.length ? flex![index] : 1;
-        final isLast = index == children.length - 1;
-
-        return Expanded(
-          flex: flexFactor,
-          child: Padding(
-            padding: EdgeInsets.only(right: isLast ? 0 : spacing),
-            child: children[index],
-          ),
-        );
-      }),
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children:
+          List.generate(crossAxisCount, (colIndex) {
+                return Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: List.generate(columns[colIndex].length, (
+                      rowIndex,
+                    ) {
+                      final isLast = rowIndex == columns[colIndex].length - 1;
+                      return Padding(
+                        padding: EdgeInsets.only(
+                          bottom: isLast ? 0 : mainAxisSpacing,
+                        ),
+                        child: columns[colIndex][rowIndex],
+                      );
+                    }),
+                  ),
+                );
+              })
+              .expand(
+                (widget) => [
+                  widget,
+                  if (children.length > 1) SizedBox(width: crossAxisSpacing),
+                ],
+              )
+              .toList()
+            ..removeLast(), // Add spacing between columns and remove the last one
     );
   }
 }

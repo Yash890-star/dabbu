@@ -19,7 +19,7 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 8,
+      version: 12,
       onCreate: _createDB,
       onUpgrade: _onUpgrade,
     );
@@ -138,6 +138,151 @@ class DatabaseHelper {
         // Ignore if columns exist
       }
     }
+
+    if (oldVersion < 9) {
+      // 9. Ignore Transaction Flag
+      try {
+        await db.execute(
+          'ALTER TABLE transactions ADD COLUMN isIgnored INTEGER DEFAULT 0',
+        );
+      } catch (e) {
+        // Ignore if column exists
+      }
+    }
+
+    if (oldVersion < 12) {
+      // 12. Add Note Column
+      try {
+        await db.execute('ALTER TABLE transactions ADD COLUMN note TEXT');
+      } catch (e) {
+        // Ignore
+      }
+    }
+
+    if (oldVersion < 10) {
+      // 10. Tally Feature (Checkpoints & Liquid Assets)
+      try {
+        // Checkpoints Table
+        await db.execute('''
+          CREATE TABLE checkpoints (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            date INTEGER NOT NULL,
+            balance REAL NOT NULL,
+            calculatedBalance REAL,
+            diff REAL,
+            note TEXT
+          )
+        ''');
+
+        // isLiquid in patterns (Default True/1)
+        await db.execute(
+          'ALTER TABLE patterns ADD COLUMN isLiquid INTEGER DEFAULT 1',
+        );
+
+        // isLiquid in transactions (Default True/1)
+        await db.execute(
+          'ALTER TABLE transactions ADD COLUMN isLiquid INTEGER DEFAULT 1',
+        );
+      } catch (e) {
+        // Ignore
+      }
+    }
+
+    if (oldVersion < 11) {
+      // 11. Category Rules (Auto-Categorization)
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS category_rules (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          categoryId INTEGER NOT NULL,
+          keyword TEXT NOT NULL,
+          matchType TEXT DEFAULT 'CONTAINS', -- CONTAINS, EXACT, STARTS_WITH
+          FOREIGN KEY (categoryId) REFERENCES categories (id)
+        )
+      ''');
+    }
+  }
+
+  // ... (existing _createDB) ...
+
+  // --- Category Rules Methods ---
+
+  Future<int> addCategoryRule(int categoryId, String keyword) async {
+    final db = await instance.database;
+    return await db.insert('category_rules', {
+      'categoryId': categoryId,
+      'keyword': keyword,
+      'matchType': 'CONTAINS',
+    });
+  }
+
+  Future<List<Map<String, dynamic>>> getCategoryRules(int categoryId) async {
+    final db = await instance.database;
+    try {
+      return await db.query(
+        'category_rules',
+        where: 'categoryId = ?',
+        whereArgs: [categoryId],
+      );
+    } catch (e) {
+      // Return empty if table doesn't exist (backward compatibility)
+      return [];
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> getAllCategoryRules() async {
+    final db = await instance.database;
+    try {
+      return await db.query('category_rules');
+    } catch (e) {
+      // Return empty if table doesn't exist
+      return [];
+    }
+  }
+
+  Future<int> deleteCategoryRule(int id) async {
+    final db = await instance.database;
+    return await db.delete('category_rules', where: 'id = ?', whereArgs: [id]);
+  }
+
+  // Check if a keyword rule already exists
+  Future<Map<String, dynamic>?> getRuleByKeyword(String keyword) async {
+    final db = await instance.database;
+    final results = await db.query(
+      'category_rules',
+      where: 'keyword = ?',
+      whereArgs: [keyword],
+    );
+    if (results.isNotEmpty) {
+      return results.first;
+    }
+    return null;
+  }
+
+  // Update an existing rule's category (Move Rule)
+  Future<int> updateCategoryRule(int ruleId, int newCategoryId) async {
+    final db = await instance.database;
+    return await db.update(
+      'category_rules',
+      {'categoryId': newCategoryId},
+      where: 'id = ?',
+      whereArgs: [ruleId],
+    );
+  }
+
+  Future<int> applyCategoryRuleToTransactions(
+    int categoryId,
+    String keyword,
+  ) async {
+    final db = await instance.database;
+    // We update transactions where body OR sender contains the keyword
+    // Using LIKE %keyword% pattern
+    final likePattern = '%$keyword%';
+    return await db.update(
+      'transactions',
+      {'categoryId': categoryId},
+      where: 'body LIKE ? OR sender LIKE ?',
+      whereArgs: [likePattern, likePattern],
+    );
   }
 
   Future<void> _createDB(Database db, int version) async {
@@ -160,7 +305,8 @@ class DatabaseHelper {
         senderId TEXT NOT NULL,
         patternRegex TEXT NOT NULL,
         messageType TEXT NOT NULL,  -- "credit" or "debit"
-        extractionIndex INTEGER DEFAULT 1
+        extractionIndex INTEGER DEFAULT 1,
+        isLiquid INTEGER DEFAULT 1
       )
     ''');
 
@@ -176,7 +322,9 @@ class DatabaseHelper {
         categoryId INTEGER DEFAULT 1, -- Defaults to 'Uncategorized' (ID 1)
         patternId INTEGER,
         goalId INTEGER,
-        is_goal_addition INTEGER DEFAULT 1, -- New column
+        is_goal_addition INTEGER DEFAULT 1,
+        isIgnored INTEGER DEFAULT 0,
+        isLiquid INTEGER DEFAULT 1, -- New column
         FOREIGN KEY (categoryId) REFERENCES categories (id),
         FOREIGN KEY (patternId) REFERENCES patterns (id),
         FOREIGN KEY (goalId) REFERENCES goals (id)
@@ -222,6 +370,29 @@ class DatabaseHelper {
         categoryId INTEGER, 
         amount REAL,
         PRIMARY KEY (month, year, categoryId)
+      )
+    ''');
+
+    // 7. Checkpoints Table
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS checkpoints (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        date INTEGER NOT NULL,
+        balance REAL NOT NULL,
+        calculatedBalance REAL,
+        diff REAL,
+        note TEXT
+      )
+    ''');
+
+    // 8. Category Rules Table
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS category_rules (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        categoryId INTEGER NOT NULL,
+        keyword TEXT NOT NULL,
+        matchType TEXT DEFAULT 'CONTAINS',
+        FOREIGN KEY (categoryId) REFERENCES categories (id)
       )
     ''');
 
@@ -429,7 +600,12 @@ class DatabaseHelper {
       'categoryId',
       'patternId',
       'goalId',
+      'goalId',
+      'goalId',
       'is_goal_addition',
+      'isIgnored',
+      'isLiquid',
+      'note',
     ];
     final Map<String, dynamic> sanitized = {};
     for (var key in validColumns) {
@@ -467,11 +643,16 @@ class DatabaseHelper {
         t.categoryId, 
         t.patternId,
         t.goalId,
+        t.goalId,
         t.is_goal_addition,
+        t.isIgnored,
+        t.isLiquid,
+        t.note,
         c.name as categoryName, 
         c.color as categoryColor, 
         c.icon as categoryIcon,
         p.name as patternName,
+        p.isLiquid as patternIsLiquid,
         g.name as goalName
       FROM transactions t
       LEFT JOIN categories c ON t.categoryId = c.id
@@ -574,6 +755,22 @@ class DatabaseHelper {
     ORDER BY t.date DESC
   ''', args);
   }
+  // --- Helper Checks ---
+
+  Future<bool> hasTransactionsInMonth(int month, int year) async {
+    final db = await instance.database;
+    final start = DateTime(year, month, 1);
+    final end = DateTime(year, month + 1, 0, 23, 59, 59);
+
+    final count = Sqflite.firstIntValue(
+      await db.rawQuery(
+        'SELECT COUNT(*) FROM transactions WHERE date >= ? AND date <= ? AND (isIgnored IS NULL OR isIgnored = 0) LIMIT 1',
+        [start.millisecondsSinceEpoch, end.millisecondsSinceEpoch],
+      ),
+    );
+    return (count ?? 0) > 0;
+  }
+
   // --- Goals CRUD ---
 
   Future<int> createGoal(Map<String, dynamic> goal) async {
@@ -682,7 +879,7 @@ class DatabaseHelper {
         SUM(CASE WHEN type IN ('debit', 'expense') THEN amount ELSE 0 END) as expense,
         SUM(CASE WHEN type IN ('credit', 'income') THEN amount ELSE 0 END) as income
       FROM transactions 
-      WHERE date >= ? AND date < ?
+      WHERE date >= ? AND date < ? AND (isIgnored IS NULL OR isIgnored = 0)
     ''',
       [start, end],
     );
@@ -730,11 +927,71 @@ class DatabaseHelper {
       final catId = row['categoryId'] as int;
       final amount = (row['amount'] as num).toDouble();
       if (catId == 0) {
-        budgets['total'] = amount;
+        if (amount > 0) {
+          budgets['total'] = amount;
+        }
       } else {
         budgets['cat_$catId'] = amount;
       }
     }
     return budgets;
+  }
+
+  Future<double> getCategorySpend(int month, int year, int categoryId) async {
+    final db = await instance.database;
+    final start = DateTime(year, month, 1).millisecondsSinceEpoch;
+    final end =
+        (month == 12)
+            ? DateTime(year + 1, 1, 1).millisecondsSinceEpoch
+            : DateTime(year, month + 1, 1).millisecondsSinceEpoch;
+
+    final result = await db.rawQuery(
+      '''
+      SELECT SUM(amount) as total
+      FROM transactions 
+      WHERE date >= ? AND date < ? 
+        AND categoryId = ? 
+        AND type IN ('debit', 'expense')
+        AND (isIgnored IS NULL OR isIgnored = 0)
+    ''',
+      [start, end, categoryId],
+    );
+
+    if (result.isNotEmpty) {
+      return (result.first['total'] as num?)?.toDouble() ?? 0.0;
+    }
+    return 0.0;
+  }
+
+  // --- Checkpoints (Tally) ---
+
+  Future<Map<String, dynamic>?> getLastCheckpoint() async {
+    final db = await instance.database;
+    final res = await db.query('checkpoints', orderBy: 'date DESC', limit: 1);
+    if (res.isNotEmpty) return res.first;
+    return null;
+  }
+
+  Future<Map<String, dynamic>?> getLastCheckpointBefore(int timestamp) async {
+    final db = await instance.database;
+    final res = await db.query(
+      'checkpoints',
+      where: 'date <= ?',
+      whereArgs: [timestamp],
+      orderBy: 'date DESC',
+      limit: 1,
+    );
+    if (res.isNotEmpty) return res.first;
+    return null;
+  }
+
+  Future<List<Map<String, dynamic>>> getCheckpoints() async {
+    final db = await instance.database;
+    return await db.query('checkpoints', orderBy: 'date DESC');
+  }
+
+  Future<int> addCheckpoint(Map<String, dynamic> row) async {
+    final db = await instance.database;
+    return await db.insert('checkpoints', row);
   }
 }

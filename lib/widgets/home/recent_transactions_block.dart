@@ -6,15 +6,16 @@ import '../app_card.dart';
 class RecentTransactionsBlock extends StatelessWidget {
   final List<Map<String, dynamic>> transactions;
   final VoidCallback onViewAll;
+  final Function(Map<String, dynamic>)? onTransactionTap;
+  final bool isPrivacyEnabled;
 
   const RecentTransactionsBlock({
     super.key,
     required this.transactions,
     required this.onViewAll,
     this.onTransactionTap,
+    this.isPrivacyEnabled = false,
   });
-
-  final Function(Map<String, dynamic>)? onTransactionTap;
 
   @override
   Widget build(BuildContext context) {
@@ -24,7 +25,12 @@ class RecentTransactionsBlock extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Padding(
-            padding: const EdgeInsets.all(16.0),
+            padding: const EdgeInsets.only(
+              left: 16.0,
+              right: 16.0,
+              top: 16.0,
+              bottom: 8.0,
+            ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -49,8 +55,8 @@ class RecentTransactionsBlock extends StatelessWidget {
           ),
 
           if (transactions.isEmpty)
-            Padding(
-              padding: const EdgeInsets.all(32.0),
+            const Padding(
+              padding: EdgeInsets.all(32.0),
               child: Center(
                 child: Text(
                   "No recent transactions",
@@ -76,18 +82,20 @@ class RecentTransactionsBlock extends StatelessWidget {
                 ListTile(
                   contentPadding: const EdgeInsets.symmetric(
                     horizontal: 16,
-                    vertical: 4,
+                    vertical: 8,
                   ),
                   leading: Container(
-                    padding: const EdgeInsets.all(8),
+                    padding: const EdgeInsets.all(10),
                     decoration: BoxDecoration(
                       color: color.withValues(alpha: 0.1),
                       shape: BoxShape.circle,
                     ),
                     child: Icon(
-                      isDebit ? Icons.arrow_upward : Icons.arrow_downward,
+                      isDebit
+                          ? Icons.arrow_outward
+                          : Icons.arrow_downward, // Updated icons
                       color: color,
-                      size: 16,
+                      size: 20,
                     ),
                   ),
                   title: Text(
@@ -99,18 +107,33 @@ class RecentTransactionsBlock extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                   ),
                   subtitle: Text(
-                    DateFormat('MMM d').format(date),
+                    DateFormat('MMM d, h:mm a').format(date),
                     style: TextStyle(
                       color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      fontSize: 12,
                     ),
                   ),
-                  trailing: Text(
-                    "${isDebit ? '-' : '+'}₹${amount.toString()}",
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      color: color,
-                      fontSize: 14,
-                    ),
+                  trailing: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child:
+                        isPrivacyEnabled
+                            ? Text(
+                              "••••",
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.bold,
+                                color: Theme.of(context).colorScheme.onSurface,
+                                letterSpacing: 2.0,
+                              ),
+                            )
+                            : Text(
+                              "${isDebit ? '-' : '+'}₹${amount.toString()}",
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                color: color,
+                                fontSize: 16,
+                              ),
+                            ),
                   ),
                   onTap: () => onTransactionTap?.call(tx),
                 ),

@@ -87,6 +87,7 @@ class _AddGoalDialogState extends State<AddGoalDialog> {
             final amount =
                 double.tryParse(_amountController.text.trim()) ?? 0.0;
             if (name.isNotEmpty && amount > 0) {
+              final nav = Navigator.of(context);
               await DatabaseHelper.instance.createGoal({
                 'name': name,
                 'targetAmount': amount,
@@ -99,7 +100,7 @@ class _AddGoalDialogState extends State<AddGoalDialog> {
                         .millisecondsSinceEpoch, // Default 1 year
               });
               if (!mounted) return;
-              Navigator.pop(context);
+              nav.pop();
               widget.onGoalAdded();
             }
           },

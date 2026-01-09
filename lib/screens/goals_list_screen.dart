@@ -76,16 +76,7 @@ class _GoalsListScreenContentState extends State<_GoalsListScreenContent> {
   Future<void> _loadGoals() async {
     setState(() => _isLoading = true);
     final allGoals = await DatabaseHelper.instance.getAllGoals();
-    // Filter out archived goals if needed, or the helper does it?
-    // The helper likely returns ALL, usually explicitly filtered.
-    // Based on HomeViewModel, it gets ALL. Usually active goals are shown here.
-    // Let's assume we want only active ones for the "List".
-    // Checking HomeViewModel logic: it uses 'allGoals'.
-    // Wait, the UI in Home checks active? No, looks like it shows all in BentoGrid?
-    // Let's check 'database_helper.dart' for 'getAllGoals'.
-    // Actually, usually Main List shows Active. Archived are in Settings.
-    // I'll filter by 'isArchived != 1'.
-
+    // Filter active goals
     final active = allGoals.where((g) => (g['isArchived'] ?? 0) == 0).toList();
 
     if (mounted) {
@@ -101,140 +92,194 @@ class _GoalsListScreenContentState extends State<_GoalsListScreenContent> {
       context: context,
       builder: (context) => AddGoalDialog(onGoalAdded: _loadGoals),
     );
-    widget.onRefresh(); // Keep notifying parent just in case
+    widget.onRefresh();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text("Savings Goals"),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.add),
-            onPressed: _showAddGoalDialog,
-          ),
-        ],
-      ),
-      body: RefreshIndicator(
-        onRefresh: () async {
-          await _loadGoals();
-          widget.onRefresh();
-        },
-        child:
-            _isLoading
-                ? const Center(child: CircularProgressIndicator())
-                : _goals.isEmpty
-                ? Center(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.flag_outlined, size: 64, color: Colors.grey),
-                      const SizedBox(height: 16),
-                      Text(
-                        "No goals yet",
-                        style: TextStyle(
-                          fontSize: 18,
-                          color: Theme.of(context).colorScheme.onSurfaceVariant,
-                        ),
+      backgroundColor: Theme.of(context).colorScheme.surface,
+      body:
+          (!_isLoading && _goals.isEmpty)
+              ? Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(24),
+                      decoration: BoxDecoration(
+                        color: Theme.of(context)
+                            .colorScheme
+                            .surfaceContainerHighest
+                            .withValues(alpha: 0.3),
+                        shape: BoxShape.circle,
                       ),
+                      child: Icon(
+                        Icons.flag_outlined,
+                        size: 48,
+                        color: Theme.of(context).colorScheme.primary,
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    Text(
+                      "No goals yet",
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: Theme.of(context).colorScheme.onSurface,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      "Create a savings goal to start tracking.",
+                      style: TextStyle(
+                        fontSize: 16,
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                    const SizedBox(height: 32),
+                    ElevatedButton.icon(
+                      onPressed: _showAddGoalDialog,
+                      icon: const Icon(Icons.add),
+                      label: const Text("Create Goal"),
+                    ),
+                  ],
+                ),
+              )
+              : RefreshIndicator(
+                onRefresh: () async {
+                  await _loadGoals();
+                  widget.onRefresh();
+                },
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.all(16),
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (_goals.isNotEmpty)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 16),
+                          child: Text(
+                            "${_goals.length} Active Goals",
+                            style: TextStyle(
+                              color:
+                                  Theme.of(
+                                    context,
+                                  ).colorScheme.onSurfaceVariant,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      BentoGrid(
+                        children:
+                            _goals.map((goal) => _buildGoalTile(goal)).toList(),
+                      ),
+                      const SizedBox(height: 80), // Fab spacing
                     ],
                   ),
-                )
-                : SingleChildScrollView(
-                  physics: const AlwaysScrollableScrollPhysics(),
-                  padding: const EdgeInsets.all(16),
-                  child: BentoGrid(
-                    crossAxisCount: 2,
-                    children:
-                        _goals.map((goal) {
-                          final target =
-                              (goal['targetAmount'] as num).toDouble();
-                          final saved =
-                              (goal['savedAmount'] as num?)?.toDouble() ?? 0.0;
-                          final progress = (saved / target).clamp(0.0, 1.0);
-                          final color =
-                              goal['color'] != null
-                                  ? Color(goal['color'])
-                                  : AppColors.defaultGoalColor;
-
-                          return AppCard(
-                            onTap: () async {
-                              await Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder:
-                                      (context) =>
-                                          GoalHistoryScreen(goal: goal),
-                                ),
-                              );
-                              await _loadGoals(); // Refresh local list
-                              widget.onRefresh(); // Refresh parent
-                            },
-                            padding: const EdgeInsets.all(12),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Row(
-                                  mainAxisAlignment:
-                                      MainAxisAlignment.spaceBetween,
-                                  children: [
-                                    CircleAvatar(
-                                      radius: 12,
-                                      backgroundColor: color.withValues(
-                                        alpha: 0.2,
-                                      ),
-                                      child: Icon(
-                                        Icons.star,
-                                        size: 14,
-                                        color: color,
-                                      ),
-                                    ),
-                                    Text(
-                                      "${(progress * 100).toStringAsFixed(0)}%",
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.bold,
-                                        color: color,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                const Spacer(),
-                                Text(
-                                  goal['name'],
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 16,
-                                  ),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                                const SizedBox(height: 4),
-                                LinearProgressIndicator(
-                                  value: progress,
-                                  color: color,
-                                  backgroundColor: color.withValues(alpha: 0.1),
-                                  minHeight: 4,
-                                  borderRadius: BorderRadius.circular(2),
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  "₹${NumberFormat.compact().format(saved)} / ${NumberFormat.compact().format(target)}",
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    color:
-                                        Theme.of(
-                                          context,
-                                        ).colorScheme.onSurfaceVariant,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          );
-                        }).toList(),
-                  ),
                 ),
+              ),
+      floatingActionButton:
+          _goals.isNotEmpty
+              ? FloatingActionButton(
+                onPressed: _showAddGoalDialog,
+                child: const Icon(Icons.add),
+              )
+              : null,
+    );
+  }
+
+  Widget _buildGoalTile(Map<String, dynamic> goal) {
+    final target = (goal['targetAmount'] as num).toDouble();
+    final saved = (goal['savedAmount'] as num?)?.toDouble() ?? 0.0;
+    final progress = (saved / target).clamp(0.0, 1.0);
+    final color =
+        goal['color'] != null
+            ? Color(goal['color'])
+            : AppColors.defaultGoalColor;
+    final isCompleted = progress >= 1.0;
+
+    return AppCard(
+      onTap: () async {
+        await Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => GoalHistoryScreen(goal: goal),
+          ),
+        );
+        await _loadGoals();
+        widget.onRefresh();
+      },
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  isCompleted ? Icons.emoji_events : Icons.star,
+                  size: 18,
+                  color: color,
+                ),
+              ),
+              Text(
+                "${(progress * 100).toStringAsFixed(0)}%",
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                  color: isCompleted ? AppColors.income : color,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Text(
+            goal['name'],
+            style: const TextStyle(
+              fontWeight: FontWeight.bold,
+              fontSize: 18,
+              height: 1.2,
+            ),
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+          ),
+          const SizedBox(height: 8),
+          Text(
+            "₹${NumberFormat.compact().format(saved)}",
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              color: Theme.of(
+                context,
+              ).colorScheme.onSurface.withValues(alpha: 0.8),
+            ),
+          ),
+          Text(
+            "of ₹${NumberFormat.compact().format(target)}",
+            style: TextStyle(
+              fontSize: 12,
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
+          ),
+          const SizedBox(height: 12),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(4),
+            child: LinearProgressIndicator(
+              value: progress,
+              color: isCompleted ? AppColors.income : color,
+              backgroundColor: color.withValues(alpha: 0.1),
+              minHeight: 6,
+            ),
+          ),
+        ],
       ),
     );
   }

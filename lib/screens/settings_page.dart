@@ -3,10 +3,10 @@ import '../utils/cms.dart';
 import '../utils/app_colors.dart';
 import '../utils/theme_controller.dart';
 
-import 'sms_parsing_screen.dart';
-import 'sms_setup_screen.dart';
-import 'subscriptions_screen.dart';
+import 'notification_settings_screen.dart'; // Import Screen
+import 'brain_screen.dart';
 import '../viewmodels/settings_view_model.dart';
+import '../services/backup_service.dart';
 import '../widgets/settings/settings_section.dart';
 
 class SettingsPage extends StatefulWidget {
@@ -40,7 +40,7 @@ class SettingsPageState extends State<SettingsPage>
     super.dispose();
   }
 
-  Future<void> _editBudget() async {
+  Future<void> openBudgetEditDialog() async {
     final controller = TextEditingController(
       text:
           _viewModel.monthlyBudget > 0
@@ -101,144 +101,175 @@ class SettingsPageState extends State<SettingsPage>
 
     await showDialog(
       context: context,
-      builder:
-          (ctx) => StatefulBuilder(
-            builder: (context, setDialogState) {
-              return AlertDialog(
-                title: Text(
-                  existingCategory == null
-                      ? CMS.settings['new_category_title']!
-                      : CMS.settings['edit_category_title']!,
-                ),
-                content: SingleChildScrollView(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      TextField(
-                        controller: nameController,
-                        decoration: InputDecoration(
-                          labelText: CMS.settings['category_name_label']!,
-                          border: const OutlineInputBorder(),
-                          hintText: CMS.settings['category_name_hint']!,
-                        ),
-                        textCapitalization: TextCapitalization.sentences,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (innerContext, setDialogState) {
+            return AlertDialog(
+              title: Text(
+                existingCategory == null
+                    ? CMS.settings['new_category_title']!
+                    : CMS.settings['edit_category_title']!,
+              ),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    TextField(
+                      controller: nameController,
+                      decoration: InputDecoration(
+                        labelText: CMS.settings['category_name_label']!,
+                        border: const OutlineInputBorder(),
+                        hintText: CMS.settings['category_name_hint']!,
                       ),
-                      const SizedBox(height: 16),
-                      TextField(
-                        controller: budgetController,
-                        decoration: InputDecoration(
-                          labelText: CMS.settings['category_limit_label']!,
-                          border: const OutlineInputBorder(),
-                          hintText: CMS.settings['category_limit_hint']!,
-                          prefixText: "₹ ",
-                        ),
-                        keyboardType: TextInputType.number,
+                      textCapitalization: TextCapitalization.sentences,
+                    ),
+                    const SizedBox(height: 16),
+                    TextField(
+                      controller: budgetController,
+                      decoration: InputDecoration(
+                        labelText: CMS.settings['category_limit_label']!,
+                        border: const OutlineInputBorder(),
+                        hintText: CMS.settings['category_limit_hint']!,
+                        prefixText: "₹ ",
                       ),
-                      const SizedBox(height: 16),
-                      Align(
-                        alignment: Alignment.centerLeft,
-                        child: Text(
-                          CMS.settings['pick_color']!,
-                          style: TextStyle(fontWeight: FontWeight.bold),
-                        ),
+                      keyboardType: TextInputType.number,
+                    ),
+                    const SizedBox(height: 16),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        CMS.settings['pick_color']!,
+                        style: TextStyle(fontWeight: FontWeight.bold),
                       ),
-                      const SizedBox(height: 8),
-                      // Color Picker Grid
-                      Wrap(
-                        spacing: 10,
-                        runSpacing: 10,
-                        children:
-                            _viewModel.categoryColors.map((color) {
-                              final isSelected =
-                                  selectedColor.toARGB32() == color.toARGB32();
-                              return GestureDetector(
-                                onTap: () {
-                                  setDialogState(() {
-                                    selectedColor = color;
-                                  });
-                                },
-                                child: Container(
-                                  width: 36,
-                                  height: 36,
-                                  decoration: BoxDecoration(
-                                    color: color,
-                                    shape: BoxShape.circle,
-                                    border:
-                                        isSelected
-                                            ? Border.all(
-                                              color:
-                                                  Theme.of(
-                                                    context,
-                                                  ).colorScheme.onSurface,
-                                              width: 3,
-                                            )
-                                            : null,
-                                    boxShadow: [
-                                      if (isSelected)
-                                        const BoxShadow(
-                                          color: Colors.black26,
-                                          blurRadius: 4,
-                                          offset: Offset(0, 2),
-                                        ),
-                                    ],
-                                  ),
-                                  child:
+                    ),
+                    const SizedBox(height: 8),
+                    // Color Picker Grid
+                    Wrap(
+                      spacing: 10,
+                      runSpacing: 10,
+                      children:
+                          _viewModel.categoryColors.map((color) {
+                            final isSelected =
+                                selectedColor.toARGB32() == color.toARGB32();
+                            return GestureDetector(
+                              onTap: () {
+                                setDialogState(() {
+                                  selectedColor = color;
+                                });
+                              },
+                              child: Container(
+                                width: 36,
+                                height: 36,
+                                decoration: BoxDecoration(
+                                  color: color,
+                                  shape: BoxShape.circle,
+                                  border:
                                       isSelected
-                                          ? const Icon(
-                                            Icons.check,
-                                            color: Colors.white,
-                                            size: 20,
+                                          ? Border.all(
+                                            color:
+                                                Theme.of(
+                                                  innerContext,
+                                                ).colorScheme.onSurface,
+                                            width: 3,
                                           )
                                           : null,
+                                  boxShadow: [
+                                    if (isSelected)
+                                      const BoxShadow(
+                                        color: Colors.black26,
+                                        blurRadius: 4,
+                                        offset: Offset(0, 2),
+                                      ),
+                                  ],
                                 ),
-                              );
-                            }).toList(),
+                                child:
+                                    isSelected
+                                        ? const Icon(
+                                          Icons.check,
+                                          color: Colors.white,
+                                          size: 20,
+                                        )
+                                        : null,
+                              ),
+                            );
+                          }).toList(),
+                    ),
+                    const SizedBox(height: 24),
+                    if (existingCategory != null) ...[
+                      const Divider(),
+                      const SizedBox(height: 8),
+                      // Simplified Rules Link
+                      SizedBox(
+                        width: double.infinity,
+                        child: OutlinedButton.icon(
+                          style: OutlinedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            side: BorderSide(
+                              color: Theme.of(context).colorScheme.primary,
+                            ),
+                          ),
+                          icon: const Icon(Icons.psychology_outlined),
+                          label: const Text("Manage Auto-Rules"),
+                          onPressed: () {
+                            Navigator.pop(context); // Close dialog
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder:
+                                    (context) => BrainScreen(
+                                      initialCategoryId: existingCategory['id'],
+                                    ),
+                              ),
+                            );
+                          },
+                        ),
                       ),
                     ],
-                  ),
+                  ],
                 ),
-                actions: [
-                  TextButton(
-                    onPressed: () => Navigator.pop(ctx),
-                    child: Text(CMS.common['cancel']!),
-                  ),
-                  ElevatedButton(
-                    onPressed: () async {
-                      if (nameController.text.trim().isEmpty) return;
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx),
+                  child: Text(CMS.common['cancel']!),
+                ),
+                ElevatedButton(
+                  onPressed: () async {
+                    if (nameController.text.trim().isEmpty) return;
 
-                      final budget =
-                          double.tryParse(budgetController.text) ?? 0.0;
+                    final budget =
+                        double.tryParse(budgetController.text) ?? 0.0;
 
-                      final wasBudgetUpdated = await _viewModel
-                          .addOrUpdateCategory(
-                            id: existingCategory?['id'],
-                            name: nameController.text.trim(),
-                            colorValue: selectedColor.toARGB32(),
-                            budgetLimit: budget,
-                            icon: existingCategory?['icon'],
-                          );
-
-                      if (ctx.mounted) {
-                        Navigator.pop(ctx);
-                      }
-
-                      if (mounted && wasBudgetUpdated) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text(CMS.settings['auto_budget_update']!),
-                            backgroundColor:
-                                Theme.of(context).colorScheme.primary,
-                            duration: const Duration(seconds: 4),
-                          ),
+                    final wasBudgetUpdated = await _viewModel
+                        .addOrUpdateCategory(
+                          id: existingCategory?['id'],
+                          name: nameController.text.trim(),
+                          colorValue: selectedColor.toARGB32(),
+                          budgetLimit: budget,
+                          icon: existingCategory?['icon'],
                         );
-                      }
-                    },
-                    child: Text(CMS.common['save']!),
-                  ),
-                ],
-              );
-            },
-          ),
+
+                    if (ctx.mounted) {
+                      Navigator.pop(ctx);
+                    }
+                    if (mounted && wasBudgetUpdated) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(CMS.settings['auto_budget_update']!),
+                          backgroundColor:
+                              Theme.of(context).colorScheme.primary,
+                          duration: const Duration(seconds: 4),
+                        ),
+                      );
+                    }
+                  },
+                  child: Text(CMS.common['save']!),
+                ),
+              ],
+            );
+          },
+        );
+      },
     );
   }
 
@@ -310,91 +341,6 @@ class SettingsPageState extends State<SettingsPage>
     );
   }
 
-  // --- Pattern Logic ---
-  Future<void> _editPattern(Map<String, dynamic> pattern) async {
-    // Show loading indicator
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (ctx) => const Center(child: CircularProgressIndicator()),
-    );
-
-    final sms = await _viewModel.findLatestSms(pattern['senderId']);
-
-    if (!mounted) return;
-    Navigator.pop(context); // Dismiss loading
-
-    if (sms != null) {
-      // Open Visual Editor with the latest message
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder:
-              (context) => SmsParsingScreen(
-                message: sms,
-                existingPatternId: pattern['id'],
-                initialPatternName: pattern['name'],
-              ),
-        ),
-      ).then((_) => _viewModel.loadData());
-    } else {
-      // No SMS found
-      showDialog(
-        context: context,
-        builder:
-            (ctx) => AlertDialog(
-              title: Text(CMS.settings['no_sms_title']!),
-              content: Text(
-                (CMS.errors['no_sms_found'] as String).replaceFirst(
-                  '{senderId}',
-                  pattern['senderId'],
-                ),
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(ctx),
-                  child: Text(CMS.common['ok']!),
-                ),
-              ],
-            ),
-      );
-    }
-  }
-
-  Future<void> _deletePattern(int id) async {
-    // Show confirmation dialog
-    final shouldDeleteTransactions = await showDialog<bool>(
-      context: context,
-      builder:
-          (ctx) => AlertDialog(
-            title: Text(CMS.settings['delete_pattern_title']!),
-            content: Text(CMS.settings['delete_pattern_content']!),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(ctx, null), // Cancel
-                child: Text(CMS.common['cancel']!),
-              ),
-              TextButton(
-                onPressed: () => Navigator.pop(ctx, false), // Keep Transactions
-                child: Text(CMS.settings['keep_transactions_btn']!),
-              ),
-              TextButton(
-                onPressed: () => Navigator.pop(ctx, true), // Delete All
-                style: TextButton.styleFrom(foregroundColor: AppColors.delete),
-                child: Text(CMS.settings['delete_all_btn']!),
-              ),
-            ],
-          ),
-    );
-
-    if (shouldDeleteTransactions == null) return;
-
-    await _viewModel.deletePattern(
-      id,
-      deleteTransactions: shouldDeleteTransactions,
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     super.build(context);
@@ -433,7 +379,7 @@ class SettingsPageState extends State<SettingsPage>
                             isDark
                                 ? Icons.dark_mode_outlined
                                 : Icons.light_mode_outlined,
-                            color: isDark ? Colors.purpleAccent : Colors.orange,
+                            color: isDark ? AppColors.primary : Colors.orange,
                           ),
                           title: Text(isDark ? "Dark Mode" : "Light Mode"),
                           value: isDark,
@@ -456,27 +402,27 @@ class SettingsPageState extends State<SettingsPage>
                             : CMS.settings['monthly_budget_not_set']!,
                       ),
                       trailing: const Icon(Icons.edit_outlined, size: 20),
-                      onTap: _editBudget,
+                      onTap: openBudgetEditDialog,
                     ),
                     const Divider(height: 1, indent: 56),
                     ListTile(
                       leading: const Icon(
-                        Icons.receipt_long_outlined,
-                        color: AppColors.subscriptionIcon,
+                        Icons.notifications_outlined,
+                        color: AppColors.primary,
                       ),
-                      title: Text(CMS.settings['subscriptions_title']!),
-                      subtitle: Text(CMS.settings['subscriptions_subtitle']!),
+                      title: const Text("Notifications"),
+                      subtitle: const Text("Reminders & Alerts"),
                       trailing: const Icon(Icons.arrow_forward_ios, size: 16),
                       onTap: () {
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (context) => const SubscriptionsScreen(),
+                            builder:
+                                (context) => const NotificationSettingsScreen(),
                           ),
                         );
                       },
                     ),
-                    const Divider(height: 1, indent: 56),
                     ListTile(
                       leading: const Icon(
                         Icons.archive_outlined,
@@ -486,6 +432,24 @@ class SettingsPageState extends State<SettingsPage>
                       subtitle: Text(CMS.settings['archived_goals_subtitle']!),
                       trailing: const Icon(Icons.arrow_forward_ios, size: 16),
                       onTap: _showArchivedGoals,
+                    ),
+                    const Divider(height: 1, indent: 56),
+                    ListTile(
+                      leading: const Icon(
+                        Icons.psychology_outlined,
+                        color: Colors.purple,
+                      ),
+                      title: Text(CMS.brain['title']!),
+                      subtitle: const Text("Manage Auto-Rules"),
+                      trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const BrainScreen(),
+                          ),
+                        );
+                      },
                     ),
                   ],
                 ),
@@ -565,7 +529,7 @@ class SettingsPageState extends State<SettingsPage>
                       title: Text(
                         CMS.settings['add_category']!,
                         style: const TextStyle(
-                          color: Colors.blue,
+                          color: AppColors.primary,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
@@ -574,66 +538,47 @@ class SettingsPageState extends State<SettingsPage>
                   ],
                 ),
 
-                // 3. PATTERNS
+                // 3. BACKUP & RESTORE
                 SettingsSection(
-                  title: CMS.settings['patterns_tab']!,
-                  icon: Icons.code,
+                  title: "Backup & Restore",
+                  icon: Icons.cloud_sync_outlined,
                   children: [
-                    ..._viewModel.patterns.map(
-                      (p) => Column(
-                        children: [
-                          ListTile(
-                            title: Text(
-                              p['name'] ?? "Unnamed",
-                              style: const TextStyle(
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                            subtitle: Text(
-                              p['senderId'],
-                              style: const TextStyle(fontFamily: 'monospace'),
-                            ),
-                            trailing: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                IconButton(
-                                  icon: const Icon(
-                                    Icons.edit_outlined,
-                                    size: 20,
-                                  ),
-                                  onPressed: () => _editPattern(p),
-                                ),
-                                IconButton(
-                                  icon: const Icon(
-                                    Icons.delete_outline,
-                                    size: 20,
-                                    color: AppColors.delete,
-                                  ),
-                                  onPressed: () => _deletePattern(p['id']),
-                                ),
-                              ],
-                            ),
-                          ),
-                          const Divider(height: 1, indent: 16),
-                        ],
-                      ),
-                    ),
                     ListTile(
-                      leading: const Icon(Icons.add, color: Colors.blue),
-                      title: Text(
-                        CMS.settings['add_pattern_title']!,
-                        style: const TextStyle(
-                          color: Colors.blue,
-                          fontWeight: FontWeight.bold,
-                        ),
+                      leading: const Icon(
+                        Icons.upload_file,
+                        color: Colors.purple,
                       ),
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => const SmsSetupScreen(),
-                          ),
-                        ).then((_) => _viewModel.loadData());
+                      title: const Text("Export Settings"),
+                      subtitle: const Text(
+                        "Backup rules, patterns, categories & budget",
+                      ),
+                      onTap: () async {
+                        await BackupService.instance.exportSettings(context);
+                      },
+                    ),
+                    const Divider(height: 1, indent: 56),
+                    ListTile(
+                      leading: const Icon(
+                        Icons.download_for_offline,
+                        color: Colors.teal,
+                      ),
+                      title: const Text("Import Settings"),
+                      subtitle: const Text(
+                        "Restore from a previously saved backup file",
+                      ),
+                      onTap: () async {
+                        final success = await BackupService.instance
+                            .importSettings(context);
+                        if (success) {
+                          refresh(); // Reload settings
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text("Settings imported successfully"),
+                              ),
+                            );
+                          }
+                        }
                       },
                     ),
                   ],

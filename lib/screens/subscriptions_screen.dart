@@ -222,8 +222,9 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> {
                                 ),
                               ],
                               onChanged: (val) {
-                                if (val != null)
+                                if (val != null) {
                                   setState(() => frequencyType = val);
+                                }
                               },
                             ),
                           ),

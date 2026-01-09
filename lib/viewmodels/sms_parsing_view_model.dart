@@ -18,6 +18,7 @@ class SmsParsingViewModel extends ChangeNotifier {
   String generatedRegex = "";
   String transactionType = "debit";
   bool isLoading = false;
+  bool isLiquid = true;
 
   List<Map<String, dynamic>> categories = [];
   int selectedCategoryId = 1;
@@ -91,8 +92,9 @@ class SmsParsingViewModel extends ChangeNotifier {
       // ANCHOR MODE
       if (selectedAmountIndex == null) return; // Need amount first
 
-      if (index == selectedAmountIndex)
+      if (index == selectedAmountIndex) {
         return; // Cannot be anchor if it is amount
+      }
 
       if (selectedAnchorIndices.contains(index)) {
         selectedAnchorIndices.remove(index);
@@ -200,6 +202,11 @@ class SmsParsingViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
+  void setIsLiquid(bool value) {
+    isLiquid = value;
+    notifyListeners();
+  }
+
   // --- Actions ---
   Future<void> addNewCategory(String name) async {
     if (name.isNotEmpty) {
@@ -223,6 +230,7 @@ class SmsParsingViewModel extends ChangeNotifier {
     try {
       if (existingPatternId != null) {
         // --- EDIT MODE ---
+        // (Existing logic: delete txns, update pattern, rescan)
         await DatabaseHelper.instance.deleteTransactionsByPatternId(
           existingPatternId!,
         );
@@ -234,6 +242,7 @@ class SmsParsingViewModel extends ChangeNotifier {
           'patternRegex': generatedRegex,
           'messageType': transactionType,
           'extractionIndex': 1,
+          'isLiquid': isLiquid ? 1 : 0,
         });
 
         await MessageHelper().processNewMessages(forceFullScan: true);
@@ -249,6 +258,7 @@ class SmsParsingViewModel extends ChangeNotifier {
           'patternRegex': generatedRegex,
           'messageType': transactionType,
           'extractionIndex': 1,
+          'isLiquid': isLiquid ? 1 : 0,
         });
 
         // Insert manual transaction for immediate feedback
@@ -273,6 +283,7 @@ class SmsParsingViewModel extends ChangeNotifier {
           'type': transactionType,
           'categoryId': selectedCategoryId,
           'patternId': patternId,
+          'isLiquid': isLiquid ? 1 : 0,
         });
 
         final prefs = await SharedPreferences.getInstance();

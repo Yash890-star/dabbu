@@ -1,25 +1,27 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../utils/cms.dart';
+import '../utils/app_spacing.dart';
 import 'transaction_detail_screen.dart';
 import 'add_transaction_screen.dart';
-import 'settings_page.dart';
-import 'goals_list_screen.dart';
+
 import '../viewmodels/home_view_model.dart';
 import '../utils/app_colors.dart';
 import '../widgets/home/welcome_block.dart';
 import '../widgets/home/budget_gauge_block.dart';
 import '../widgets/home/stat_card.dart';
-import '../widgets/home/action_strip.dart';
 import '../widgets/home/recent_transactions_block.dart';
+import 'brain_screen.dart';
 import '../widgets/home/sublimit_block.dart';
-import '../widgets/add_goal_dialog.dart';
+
 import 'all_transactions_screen.dart';
+
 import '../widgets/shimmer_loading.dart';
 import '../widgets/fade_in_entry.dart';
 
 class HomePage extends StatefulWidget {
-  const HomePage({super.key});
+  final VoidCallback? onSetBudgetTap;
+  const HomePage({super.key, this.onSetBudgetTap});
 
   @override
   State<HomePage> createState() => HomePageState();
@@ -27,6 +29,8 @@ class HomePage extends StatefulWidget {
 
 class HomePageState extends State<HomePage> with AutomaticKeepAliveClientMixin {
   final HomeViewModel _viewModel = HomeViewModel();
+  HomeViewModel get viewModel => _viewModel; // Expose for ToolsScreen
+  bool _isPrivacyEnabled = false;
 
   @override
   bool get wantKeepAlive => true;
@@ -34,11 +38,17 @@ class HomePageState extends State<HomePage> with AutomaticKeepAliveClientMixin {
   @override
   void initState() {
     super.initState();
-    _viewModel.init();
+    _viewModel.init().then((_) => _syncMessages());
   }
 
   void refreshData() {
     _viewModel.refreshData();
+  }
+
+  void _togglePrivacy() {
+    setState(() {
+      _isPrivacyEnabled = !_isPrivacyEnabled;
+    });
   }
 
   @override
@@ -62,8 +72,11 @@ class HomePageState extends State<HomePage> with AutomaticKeepAliveClientMixin {
                   '{count}',
                   '$newCount',
                 )
-                : CMS.home['no_new_transaction']!,
-            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                : CMS.home['no_new_transaction'] ?? 'No new transactions',
+            style: const TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.bold,
+            ),
           ),
           backgroundColor: Colors.black87, // High contrast for visibility
           behavior: SnackBarBehavior.floating,
@@ -74,84 +87,6 @@ class HomePageState extends State<HomePage> with AutomaticKeepAliveClientMixin {
         ),
       );
     }
-  }
-
-  void _showAddMenu(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (context) {
-        return Container(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                CMS.home['add_menu_title']!,
-                style: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 20),
-              ListTile(
-                leading: Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.primaryContainer,
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(
-                    Icons.add_card,
-                    color: Theme.of(context).colorScheme.primary,
-                  ),
-                ),
-                title: Text(CMS.home['add_menu_transaction']!),
-                subtitle: Text(CMS.home['add_menu_transaction_sub']!),
-                onTap: () async {
-                  Navigator.pop(context); // Close sheet
-                  await Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => const AddTransactionScreen(),
-                    ),
-                  );
-                  _viewModel.refreshData();
-                },
-              ),
-              const SizedBox(height: 10),
-              ListTile(
-                leading: Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.secondaryContainer,
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(
-                    Icons.auto_fix_high,
-                    color: Theme.of(context).colorScheme.secondary,
-                  ),
-                ),
-                title: Text(CMS.home['add_menu_pattern']!),
-                subtitle: Text(CMS.home['add_menu_pattern_sub']!),
-                onTap: () {
-                  Navigator.pop(context); // Close sheet
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => const SettingsPage(initialIndex: 1),
-                    ),
-                  ).then((_) => _viewModel.refreshData());
-                },
-              ),
-              const SizedBox(height: 10),
-            ],
-          ),
-        );
-      },
-    );
   }
 
   @override
@@ -170,6 +105,21 @@ class HomePageState extends State<HomePage> with AutomaticKeepAliveClientMixin {
             Theme.of(context).colorScheme.surface;
 
         return Scaffold(
+          floatingActionButton: FloatingActionButton.extended(
+            onPressed: () async {
+              await Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const AddTransactionScreen(),
+                ),
+              );
+              _viewModel.refreshData();
+            },
+            icon: const Icon(Icons.add),
+            label: Text(CMS.common['add'] ?? 'Add'),
+            backgroundColor: Theme.of(context).colorScheme.primary,
+            foregroundColor: Theme.of(context).colorScheme.onPrimary,
+          ),
           body: SafeArea(
             bottom:
                 false, // Let navigation bar handle bottom padding if needed, or add manual padding
@@ -177,16 +127,24 @@ class HomePageState extends State<HomePage> with AutomaticKeepAliveClientMixin {
               onRefresh: _syncMessages,
               child: SingleChildScrollView(
                 physics: const AlwaysScrollableScrollPhysics(),
-                padding: const EdgeInsets.all(16),
+                padding: const EdgeInsets.all(AppSpacing.md),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     // --- 1. Header (Welcome) ---
                     WelcomeBlock(
                       userName: _viewModel.userName,
-                      notificationCount: 0,
-                      onNotificationTap: () {},
-                      onScanSms: _syncMessages, // Wiring up scan SMS here
+                      onScanSms: _syncMessages,
+                      isPrivacyEnabled: _isPrivacyEnabled,
+                      onPrivacyToggle: _togglePrivacy,
+                      onAddPattern: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const BrainScreen(),
+                          ),
+                        ).then((_) => _viewModel.refreshData());
+                      },
                     ),
 
                     // Month Selector
@@ -257,7 +215,10 @@ class HomePageState extends State<HomePage> with AutomaticKeepAliveClientMixin {
                             child: BudgetGaugeBlock(
                               totalBudget: _viewModel.monthlyBudget,
                               totalSpent: expense,
-                              currencySymbol: CMS.common['currency_symbol']!,
+                              currencySymbol:
+                                  CMS.common['currency_symbol'] ?? '₹',
+                              onTap: widget.onSetBudgetTap,
+                              isPrivacyEnabled: _isPrivacyEnabled,
                             ),
                           ),
                         ),
@@ -277,13 +238,15 @@ class HomePageState extends State<HomePage> with AutomaticKeepAliveClientMixin {
                                       height: 100,
                                     )
                                     : StatCard(
-                                      title: CMS.home['credits_label']!,
+                                      title:
+                                          CMS.home['credits_label'] ?? 'Income',
                                       amount: NumberFormat.compactCurrency(
                                         symbol: CMS.common['currency_symbol']!,
                                       ).format(income),
                                       icon: Icons.arrow_downward,
                                       color: AppColors.income,
                                       backgroundColor: statCardBg,
+                                      isPrivacyEnabled: _isPrivacyEnabled,
                                     ),
                           ),
                           const SizedBox(width: 16),
@@ -302,6 +265,7 @@ class HomePageState extends State<HomePage> with AutomaticKeepAliveClientMixin {
                                       icon: Icons.arrow_upward,
                                       color: AppColors.expense,
                                       backgroundColor: statCardBg,
+                                      isPrivacyEnabled: _isPrivacyEnabled,
                                     ),
                           ),
                         ],
@@ -311,35 +275,6 @@ class HomePageState extends State<HomePage> with AutomaticKeepAliveClientMixin {
 
                     // --- 4. Actions ---
                     // --- 4. Actions ---
-                    FadeInEntry(
-                      delay: 400,
-                      child: ActionStrip(
-                        onAddTransaction: () => _showAddMenu(context),
-                        // onScanSms: _syncMessages, // Removed from here
-                        onManageGoals: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder:
-                                  (context) => GoalsListScreen(
-                                    goals: _viewModel.goals,
-                                    onRefresh: _viewModel.refreshData,
-                                  ),
-                            ),
-                          ).then((_) => _viewModel.refreshData());
-                        },
-                        onAddGoal: () async {
-                          // Quick add goal popup without redirect
-                          await showDialog(
-                            context: context,
-                            builder:
-                                (context) => AddGoalDialog(
-                                  onGoalAdded: _viewModel.refreshData,
-                                ),
-                          );
-                        },
-                      ),
-                    ),
                     const SizedBox(height: 16),
 
                     // --- 4.5 Sublimits ---
@@ -355,6 +290,7 @@ class HomePageState extends State<HomePage> with AutomaticKeepAliveClientMixin {
                             categories: _viewModel.categories,
                             categorySpending: _viewModel.categorySpending,
                             currencySymbol: CMS.common['currency_symbol']!,
+                            isPrivacyEnabled: _isPrivacyEnabled,
                           ),
                         ),
                     const SizedBox(height: 16),
@@ -394,6 +330,7 @@ class HomePageState extends State<HomePage> with AutomaticKeepAliveClientMixin {
                               );
                               _viewModel.refreshData();
                             },
+                            isPrivacyEnabled: _isPrivacyEnabled,
                           ),
                         ),
 

@@ -20,7 +20,7 @@ class SmsCodeBlock extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFF1E1E1E), // Dark terminal background
+        color: Theme.of(context).cardColor, // Soft dark background
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: Colors.white10),
         boxShadow: const [
@@ -50,7 +50,7 @@ class SmsCodeBlock extends StatelessWidget {
             isSelected = true;
           } else {
             // Unselected (Wildcard area) -> Dimmed
-            textColor = Colors.white30;
+            textColor = Theme.of(context).colorScheme.onSurface;
           }
 
           return InkWell(
