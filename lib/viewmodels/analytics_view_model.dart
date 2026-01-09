@@ -360,10 +360,11 @@ class AnalyticsViewModel extends ChangeNotifier {
       }
 
       double currentNet = tempNet[day] ?? 0.0;
-      if (isDebit)
+      if (isDebit) {
         currentNet += amount;
-      else
+      } else {
         currentNet -= amount;
+      }
 
       tempNet[day] = currentNet;
       if (currentNet.abs() > tempMax) tempMax = currentNet.abs();
@@ -418,8 +419,9 @@ class AnalyticsViewModel extends ChangeNotifier {
       rangeTxs =
           rangeTxs.where((tx) {
             if (selectedCategoryIds.isNotEmpty &&
-                !selectedCategoryIds.contains(tx['categoryId']))
+                !selectedCategoryIds.contains(tx['categoryId'])) {
               return false;
+            }
 
             if (selectedNames.isNotEmpty) {
               // Prefer Pattern Name, fallback to Sender

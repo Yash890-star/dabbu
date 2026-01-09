@@ -28,7 +28,9 @@ class CategoryBento extends StatelessWidget {
       padding: EdgeInsets.zero,
       color:
           isSelected
-              ? Theme.of(context).colorScheme.primaryContainer.withOpacity(0.3)
+              ? Theme.of(
+                context,
+              ).colorScheme.primaryContainer.withValues(alpha: 0.3)
               : null,
       child: Container(
         decoration: BoxDecoration(

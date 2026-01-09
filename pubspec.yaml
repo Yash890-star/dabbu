@@ -22,6 +22,9 @@ dependencies:
   flutter_local_notifications: ^19.5.0
   timezone: ^0.10.1
   workmanager: ^0.9.0+3
+  file_picker: ^10.3.8
+  share_plus: ^12.0.1
+  path_provider: ^2.1.5
 
 dev_dependencies:
   flutter_test:
@@ -35,13 +38,16 @@ flutter_launcher_icons:
   ios: true
   image_path: "assets/icon.png"
   min_sdk_android: 21
+  adaptive_icon_background: "#0D1619"
+  adaptive_icon_foreground: "assets/icon.png"
 
 flutter_native_splash:
-  color: "#ffffff"
+  color: "#0D1619"
   image: "assets/splash.png"
   android_12:
     image: "assets/splash.png"
-    color: "#ffffff"
+    icon_background_color: "#0D1619"
+    color: "#0D1619"
 flutter:
   uses-material-design: true
 

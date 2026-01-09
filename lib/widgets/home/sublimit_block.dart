@@ -6,13 +6,20 @@ class SublimitBlock extends StatelessWidget {
   final List<Map<String, dynamic>> categories;
   final Map<int, double> categorySpending;
   final String currencySymbol;
+  final bool isPrivacyEnabled;
 
   const SublimitBlock({
     super.key,
     required this.categories,
     required this.categorySpending,
     this.currencySymbol = '₹',
+    this.isPrivacyEnabled = false,
   });
+
+  String _formatAmount(double amount) {
+    if (isPrivacyEnabled) return "••••";
+    return "$currencySymbol${amount.toStringAsFixed(0)}";
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -63,13 +70,11 @@ class SublimitBlock extends StatelessWidget {
             final name = cat['name'] as String;
 
             Color statusColor = AppColors.success;
-            String statusText =
-                "Left: $currencySymbol${remaining.toStringAsFixed(0)}";
+            String statusText = "Left: ${_formatAmount(remaining)}";
 
             if (isOverspent) {
               statusColor = AppColors.expense;
-              statusText =
-                  "Overspent: $currencySymbol${(-remaining).toStringAsFixed(0)}";
+              statusText = "Over: ${_formatAmount(-remaining)}";
             } else if (ratio > 0.8) {
               statusColor = AppColors.archiveIcon; // Orange
             }
@@ -133,7 +138,7 @@ class SublimitBlock extends StatelessWidget {
                   Align(
                     alignment: Alignment.centerRight,
                     child: Text(
-                      "$currencySymbol${spent.toStringAsFixed(0)} / $currencySymbol${limit.toStringAsFixed(0)}",
+                      "${_formatAmount(spent)} / ${_formatAmount(limit)}",
                       style: TextStyle(
                         fontSize: 10,
                         color: Theme.of(context).colorScheme.onSurfaceVariant,

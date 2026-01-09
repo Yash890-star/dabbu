@@ -194,24 +194,37 @@ class HomeViewModel extends ChangeNotifier {
   Map<int, double> _categorySpending = {};
   Map<int, double> get categorySpending => _categorySpending;
 
-  void changeSummaryMonth(int months) {
+  Future<void> changeSummaryMonth(int months) async {
     final newDate = DateTime(summaryMonth.year, summaryMonth.month + months, 1);
-    // Allow going back to any past month. Prevent going to FUTURE months beyond current.
+
+    // Check if new month is in the future
     final now = DateTime.now();
     final currentMonthStart = DateTime(now.year, now.month, 1);
 
-    if (newDate.isAfter(currentMonthStart)) return;
+    // General Restriction: Allow navigation only if:
+    // 1. It is the Current Month (Always allow accessibility to "Now")
+    // 2. OR The target month has transactions.
+
+    // Note: We use isAtSameMomentAs for precise month comparison
+    final isCurrentMonth =
+        newDate.year == currentMonthStart.year &&
+        newDate.month == currentMonthStart.month;
+
+    if (!isCurrentMonth) {
+      final hasData = await DatabaseHelper.instance.hasTransactionsInMonth(
+        newDate.month,
+        newDate.year,
+      );
+      if (!hasData) return;
+    }
 
     summaryMonth = newDate;
     notifyListeners(); // Immediate update for UI
-    refreshData();
+    await refreshData();
   }
 
   bool get canGoNext {
-    final now = DateTime.now();
-    final currentMonthStart = DateTime(now.year, now.month, 1);
-    final nextMonth = DateTime(summaryMonth.year, summaryMonth.month + 1, 1);
-    return !nextMonth.isAfter(currentMonthStart);
+    return true; // Always allow next
   }
 
   void resetSummaryMonth() {

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../utils/app_colors.dart';
 import '../app_card.dart';
 
 class StatCard extends StatelessWidget {
@@ -7,6 +8,7 @@ class StatCard extends StatelessWidget {
   final IconData icon;
   final Color color;
   final Color backgroundColor;
+  final bool isPrivacyEnabled; // New prop
 
   const StatCard({
     super.key,
@@ -14,52 +16,67 @@ class StatCard extends StatelessWidget {
     required this.amount,
     required this.icon,
     required this.color,
-    required this.backgroundColor,
+    this.backgroundColor = Colors.white,
+    this.isPrivacyEnabled = false,
   });
 
   @override
   Widget build(BuildContext context) {
     return AppCard(
       color: backgroundColor,
-      child: SizedBox(
-        height: 120,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: color.withValues(alpha: 0.2),
-                shape: BoxShape.circle,
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(icon, color: color, size: 20),
               ),
-              child: Icon(icon, color: color, size: 20),
-            ),
-            const Spacer(),
-            Text(
-              title,
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                color: Theme.of(
-                  context,
-                ).colorScheme.onSurface.withValues(alpha: 0.7),
-              ),
-            ),
-            const SizedBox(height: 4),
-            FittedBox(
-              fit: BoxFit.scaleDown,
-              child: Text(
-                amount,
-                style: TextStyle(
-                  fontSize: 18,
+              // Optional: Trend indicator?
+            ],
+          ),
+          const SizedBox(height: 12),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title.toUpperCase(),
+                style: const TextStyle(
+                  fontSize: 11,
                   fontWeight: FontWeight.bold,
-                  color: Theme.of(context).colorScheme.onSurface,
+                  letterSpacing: 0.5,
+                  color: AppColors.textSecondary,
                 ),
               ),
-            ),
-          ],
-        ),
+              const SizedBox(height: 4),
+              isPrivacyEnabled
+                  ? const Text(
+                    "••••",
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 2.0,
+                    ),
+                  )
+                  : Text(
+                    amount,
+                    style: const TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 2.0,
+                    ),
+                  ),
+            ],
+          ),
+        ],
       ),
     );
   }

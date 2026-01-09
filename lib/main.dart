@@ -60,32 +60,41 @@ class MyApp extends StatelessWidget {
           debugShowCheckedModeBanner: false,
           themeMode: themeMode, // Dynamic Theme Mode
           theme: ThemeData.light().copyWith(
-            textTheme: GoogleFonts.interTextTheme(), // Apply Inter Font
-            colorScheme: ColorScheme.fromSeed(
-              seedColor: AppColors.primary,
-              brightness: Brightness.light,
-              primary: AppColors.primary,
-              secondary: AppColors.secondary,
+            textTheme: GoogleFonts.interTextTheme().apply(
+              bodyColor: AppColors.textPrimaryLight,
+              displayColor: AppColors.textPrimaryLight,
             ),
-            scaffoldBackgroundColor: const Color(0xFFF2F2F7), // iOS Off-White
+            colorScheme: ColorScheme.fromSeed(
+              seedColor: AppColors.primaryLight,
+              brightness: Brightness.light,
+              primary: AppColors.primaryLight,
+              onPrimary: Colors.white,
+              secondary: AppColors.secondary,
+              surface: AppColors.surfaceLight,
+              onSurface: AppColors.textPrimaryLight,
+            ),
+            scaffoldBackgroundColor: AppColors.backgroundLight,
             appBarTheme: const AppBarTheme(
-              backgroundColor: Color(0xFFF2F2F7),
+              backgroundColor: AppColors.backgroundLight,
               surfaceTintColor: Colors.transparent,
-              foregroundColor: Colors.black,
+              foregroundColor: AppColors.textPrimaryLight,
               elevation: 0,
-              systemOverlayStyle: SystemUiOverlayStyle.dark, // Dark icons
+              systemOverlayStyle: SystemUiOverlayStyle.dark,
             ),
             cardTheme: CardThemeData(
-              color: Colors.white,
+              color: AppColors.surfaceLight,
               elevation: 2,
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-                side: BorderSide(color: Colors.grey.withValues(alpha: 0.2)),
+                borderRadius: BorderRadius.circular(20), // V4: Rounder
+                side: BorderSide(color: Colors.grey.withValues(alpha: 0.1)),
               ),
             ),
             navigationBarTheme: NavigationBarThemeData(
-              backgroundColor: Colors.white,
-              indicatorColor: Colors.deepPurpleAccent.withValues(alpha: 0.2),
+              backgroundColor: AppColors.surfaceLight,
+              indicatorColor: AppColors.primaryLight.withValues(alpha: 0.2),
+              iconTheme: WidgetStateProperty.all(
+                const IconThemeData(color: AppColors.textSecondaryLight),
+              ),
               labelBehavior:
                   NavigationDestinationLabelBehavior.onlyShowSelected,
             ),
@@ -93,29 +102,35 @@ class MyApp extends StatelessWidget {
           darkTheme: ThemeData.dark().copyWith(
             textTheme: GoogleFonts.interTextTheme(
               ThemeData.dark().textTheme,
-            ), // Apply Inter Font
+            ).apply(
+              bodyColor: AppColors.textPrimary,
+              displayColor: AppColors.textPrimary,
+            ),
             colorScheme: ColorScheme.fromSeed(
               seedColor: AppColors.primary,
               brightness: Brightness.dark,
-              surface: const Color(0xFF1E293B), // Slate 800 for cards
+              surface: AppColors.surfaceDark,
+              onSurface: AppColors.textPrimary,
               primary: AppColors.primary,
+              onPrimary: AppColors.onPrimary,
               secondary: AppColors.secondary,
-              onSurface: Colors.white,
             ),
-            scaffoldBackgroundColor: AppColors.surfaceDark, // Slate 900
+            scaffoldBackgroundColor: AppColors.backgroundDark,
             appBarTheme: const AppBarTheme(
-              backgroundColor: AppColors.surfaceDark,
-              surfaceTintColor: Colors.transparent, // Avoid tint on scroll
-              foregroundColor: Colors.white,
+              backgroundColor: AppColors.backgroundDark,
+              surfaceTintColor: Colors.transparent,
+              foregroundColor: AppColors.textPrimary,
               elevation: 0,
-              systemOverlayStyle: SystemUiOverlayStyle.light, // Light icons
+              systemOverlayStyle: SystemUiOverlayStyle.light,
             ),
             cardTheme: CardThemeData(
-              color: const Color(0xFF1E293B), // Slate 800
+              color: AppColors.surfaceDark,
               elevation: 0,
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-                side: BorderSide(color: Colors.white.withValues(alpha: 0.05)),
+                borderRadius: BorderRadius.circular(20), // V4: Rounder
+                side: BorderSide(
+                  color: AppColors.secondary.withValues(alpha: 0.5),
+                ),
               ),
             ),
             navigationBarTheme: NavigationBarThemeData(
@@ -126,18 +141,17 @@ class MyApp extends StatelessWidget {
               labelTextStyle: WidgetStateProperty.resolveWith((states) {
                 if (states.contains(WidgetState.selected)) {
                   return const TextStyle(
-                    color: Colors.white,
+                    color: AppColors.primary,
                     fontWeight: FontWeight.bold,
                   );
                 }
-                return const TextStyle(color: Colors.white70);
+                return const TextStyle(color: AppColors.textSecondary);
               }),
               iconTheme: WidgetStateProperty.resolveWith((states) {
                 if (states.contains(WidgetState.selected)) {
-                  return const IconThemeData(color: Colors.white);
+                  return const IconThemeData(color: AppColors.primary);
                 }
-                // Use white70 for unselected icons to ensure visibility on black
-                return const IconThemeData(color: Colors.white70);
+                return const IconThemeData(color: AppColors.textSecondary);
               }),
             ),
           ),

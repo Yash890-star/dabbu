@@ -4,7 +4,7 @@ import 'package:intl/intl.dart';
 import '../utils/cms.dart';
 import '../viewmodels/sms_list_view_model.dart';
 
-import 'sms_parsing_screen.dart';
+import 'teach_pattern_screen.dart';
 
 class SmsListScreen extends StatefulWidget {
   final List<SmsMessage> messages;
@@ -145,7 +145,7 @@ class _SmsListScreenState extends State<SmsListScreen> {
                             context,
                             MaterialPageRoute(
                               builder:
-                                  (context) => SmsParsingScreen(message: msg),
+                                  (context) => TeachPatternScreen(message: msg),
                             ),
                           );
                         }

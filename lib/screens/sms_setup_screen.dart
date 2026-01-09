@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:intl/intl.dart';
 import '../utils/cms.dart';
+import '../utils/app_colors.dart';
 import '../viewmodels/sms_setup_view_model.dart';
 import 'sms_list_screen.dart';
-import '../widgets/app_card.dart';
+import '../widgets/common/app_button.dart';
+import '../widgets/common/glass_card.dart';
 import '../widgets/fade_in_entry.dart';
 
 class SmsSetupScreen extends StatefulWidget {
@@ -35,10 +37,11 @@ class _SmsSetupScreenState extends State<SmsSetupScreen> {
             content: Text(
               '${CMS.smsSetup['no_messages']!}${DateFormat.yMMMd().format(_viewModel.selectedDate)}',
             ),
+            backgroundColor: AppColors.error,
           ),
         );
       } else {
-        Navigator.push(
+        Navigator.pushReplacement(
           context,
           MaterialPageRoute(
             builder: (context) => SmsListScreen(messages: messages),
@@ -51,7 +54,10 @@ class _SmsSetupScreenState extends State<SmsSetupScreen> {
       } else if (_viewModel.errorMessage != null) {
         if (_viewModel.errorMessage == "Permission required") {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(CMS.smsSetup['permission_required']!)),
+            SnackBar(
+              content: Text(CMS.smsSetup['permission_required']!),
+              backgroundColor: AppColors.error,
+            ),
           );
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -59,6 +65,7 @@ class _SmsSetupScreenState extends State<SmsSetupScreen> {
               content: Text(
                 '${CMS.smsSetup['error_prefix']!}${_viewModel.errorMessage}',
               ),
+              backgroundColor: AppColors.error,
             ),
           );
         }
@@ -71,6 +78,7 @@ class _SmsSetupScreenState extends State<SmsSetupScreen> {
       context: context,
       builder:
           (ctx) => AlertDialog(
+            backgroundColor: Theme.of(context).cardColor,
             title: Text(CMS.smsSetup['perm_denied_title']!),
             content: Text(CMS.smsSetup['perm_denied_content']!),
             actions: [
@@ -96,6 +104,18 @@ class _SmsSetupScreenState extends State<SmsSetupScreen> {
       initialDate: _viewModel.selectedDate,
       firstDate: DateTime(2020),
       lastDate: DateTime.now(),
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: ColorScheme.light(
+              primary: AppColors.primary,
+              onPrimary: Colors.white,
+              surface: Theme.of(context).cardColor,
+            ),
+          ),
+          child: child!,
+        );
+      },
     );
     if (picked != null && picked != _viewModel.selectedDate) {
       _viewModel.setSelectedDate(picked);
@@ -105,6 +125,7 @@ class _SmsSetupScreenState extends State<SmsSetupScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      appBar: AppBar(title: Text(CMS.smsSetup['title']!), centerTitle: true),
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(24.0),
@@ -112,47 +133,60 @@ class _SmsSetupScreenState extends State<SmsSetupScreen> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               const SizedBox(height: 20),
-              Text(
-                CMS.smsSetup['scan_title']!,
-                style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                  fontWeight: FontWeight.bold,
+              FadeInEntry(
+                delay: 100,
+                child: Text(
+                  CMS.smsSetup['scan_title']!,
+                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+                  textAlign: TextAlign.center,
                 ),
-                textAlign: TextAlign.center,
               ),
               const SizedBox(height: 8),
-              Text(
-                CMS.smsSetup['scan_subtitle']!,
-                style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+              FadeInEntry(
+                delay: 200,
+                child: Text(
+                  CMS.smsSetup['scan_subtitle']!,
+                  style: const TextStyle(color: AppColors.textSecondary),
+                  textAlign: TextAlign.center,
                 ),
-                textAlign: TextAlign.center,
               ),
 
               const SizedBox(height: 40),
 
-              // Info Card using Bento Style
+              // Info Card
               FadeInEntry(
-                delay: 200,
-                child: AppCard(
+                delay: 300,
+                child: GlassCard(
                   child: Column(
                     children: [
-                      const Icon(
-                        Icons.sms_failed_outlined,
-                        size: 48,
-                        color: Colors.blue,
+                      Container(
+                        width: 60,
+                        height: 60,
+                        decoration: BoxDecoration(
+                          color: AppColors.primary.withValues(alpha: 0.1),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(
+                          Icons.search,
+                          size: 30,
+                          color: AppColors.primary,
+                        ),
                       ),
                       const SizedBox(height: 16),
                       Text(
-                        "Why scan SMS?",
+                        "Scan History",
                         style: Theme.of(context).textTheme.titleMedium
                             ?.copyWith(fontWeight: FontWeight.bold),
                       ),
                       const SizedBox(height: 8),
-                      Text(
-                        "Dabbu analyzes bank SMS to clear the clutter and track expenses automatically. No manual entry needed.",
+                      const Text(
+                        "Analyze past messages to find untracked transactions or train new patterns.",
                         textAlign: TextAlign.center,
-                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        style: TextStyle(
+                          color: AppColors.textSecondary,
+                          height: 1.5,
                         ),
                       ),
                     ],
@@ -162,20 +196,20 @@ class _SmsSetupScreenState extends State<SmsSetupScreen> {
 
               const SizedBox(height: 24),
 
-              // Date Picker Bento Block
+              // Date Picker
               AnimatedBuilder(
                 animation: _viewModel,
                 builder: (context, child) {
                   return FadeInEntry(
-                    delay: 300,
-                    child: AppCard(
+                    delay: 400,
+                    child: GlassCard(
                       onTap: _pickDate,
                       child: Row(
                         children: [
                           Container(
                             padding: const EdgeInsets.all(12),
                             decoration: BoxDecoration(
-                              color: Colors.orange.shade50,
+                              color: Colors.orange.withValues(alpha: 0.1),
                               borderRadius: BorderRadius.circular(12),
                             ),
                             child: const Icon(
@@ -183,22 +217,19 @@ class _SmsSetupScreenState extends State<SmsSetupScreen> {
                               color: Colors.orange,
                             ),
                           ),
-                          const SizedBox(width: 16),
+                          const SizedBox(height: 16),
                           Expanded(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
                                   CMS.smsSetup['start_from']!,
-                                  style: Theme.of(
-                                    context,
-                                  ).textTheme.bodySmall?.copyWith(
-                                    color:
-                                        Theme.of(
-                                          context,
-                                        ).colorScheme.onSurfaceVariant,
+                                  style: const TextStyle(
+                                    color: AppColors.textSecondary,
+                                    fontSize: 12,
                                   ),
                                 ),
+                                const SizedBox(height: 4),
                                 Text(
                                   DateFormat.yMMMd().format(
                                     _viewModel.selectedDate,
@@ -214,7 +245,7 @@ class _SmsSetupScreenState extends State<SmsSetupScreen> {
                           const Icon(
                             Icons.edit_outlined,
                             size: 20,
-                            color: Colors.grey,
+                            color: AppColors.textSecondary,
                           ),
                         ],
                       ),
@@ -229,28 +260,12 @@ class _SmsSetupScreenState extends State<SmsSetupScreen> {
                 animation: _viewModel,
                 builder: (context, child) {
                   return FadeInEntry(
-                    delay: 400,
-                    child: FilledButton.icon(
+                    delay: 500,
+                    child: AppButton(
                       onPressed:
                           _viewModel.isLoading ? null : _fetchSmsAndContinue,
-                      icon:
-                          _viewModel.isLoading
-                              ? const SizedBox(
-                                width: 20,
-                                height: 20,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  color: Colors.white,
-                                ),
-                              )
-                              : const Icon(Icons.search),
-                      label: Text(CMS.smsSetup['scan_btn']!),
-                      style: FilledButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
+                      isLoading: _viewModel.isLoading,
+                      label: CMS.smsSetup['scan_btn']!,
                     ),
                   );
                 },

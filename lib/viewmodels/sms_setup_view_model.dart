@@ -25,6 +25,9 @@ class SmsSetupViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
+  // New State for Analysis
+  List<String> potentialSenders = [];
+
   /// Returns a list of messages if successful, or null if failed/denied.
   Future<List<SmsMessage>?> scanInbox() async {
     isLoading = true;
@@ -33,41 +36,44 @@ class SmsSetupViewModel extends ChangeNotifier {
     notifyListeners();
 
     try {
-      // 1. Request Permission
-      var status = await Permission.sms.status;
-      if (!status.isGranted) {
-        status = await Permission.sms.request();
-      }
-
-      if (!status.isGranted) {
-        isLoading = false;
-        if (status.isPermanentlyDenied) {
-          permissionDeniedPermanently = true;
-        } else {
-          errorMessage =
-              "Permission required"; // Key handled in UI usually, but internal flag here
+      // 1. Request SMS Permission via Plugin to avoid RequestCode conflict (24)
+      bool? granted = await _telephony.requestPhoneAndSmsPermissions;
+      if (granted != true) {
+        // Double check with permission_handler just in case, or trust the plugin
+        var status = await Permission.sms.status;
+        if (!status.isGranted) {
+          isLoading = false;
+          // If verified denied
+          if (status.isPermanentlyDenied) {
+            permissionDeniedPermanently = true;
+          } else {
+            errorMessage = "Permission required";
+          }
+          notifyListeners();
+          return null;
         }
-        notifyListeners();
-        return null; // Stop
       }
 
-      // 2. Save Date
+      // 3. Save Date
       final prefs = await SharedPreferences.getInstance();
       await prefs.setInt('smsStartDate', selectedDate.millisecondsSinceEpoch);
 
-      // 3. Fetch
+      // 4. Fetch
       List<SmsMessage> messages = await _telephony.getInboxSms(
         columns: [SmsColumn.ADDRESS, SmsColumn.BODY, SmsColumn.DATE],
         sortOrder: [OrderBy(SmsColumn.DATE, sort: Sort.DESC)],
       );
 
-      // 4. Filter
+      // 5. Filter
       final int filterTimestamp = selectedDate.millisecondsSinceEpoch;
       final recentMessages =
           messages.where((msg) {
             final msgDate = msg.date ?? 0;
             return msgDate >= filterTimestamp;
           }).toList();
+
+      // 6. Analyze Senders
+      await _analyzeSenders(recentMessages);
 
       isLoading = false;
       notifyListeners();
@@ -78,5 +84,22 @@ class SmsSetupViewModel extends ChangeNotifier {
       notifyListeners();
       return null;
     }
+  }
+
+  Future<void> _analyzeSenders(List<SmsMessage> messages) async {
+    // Group all senders by message count
+    final Map<String, int> counts = {};
+    for (var m in messages) {
+      final addr = m.address ?? "Unknown";
+      counts[addr] = (counts[addr] ?? 0) + 1;
+    }
+
+    // Sort by count
+    final sorted =
+        counts.entries.toList()..sort((a, b) => b.value.compareTo(a.value));
+
+    // Expose all senders (or top 50 to avoid crazy lists, but user asked for "show all")
+    // We'll return just the names for the list
+    potentialSenders = sorted.map((e) => e.key).toList();
   }
 }

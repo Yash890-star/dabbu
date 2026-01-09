@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 import '../services/notification_service.dart';
 import 'package:permission_handler/permission_handler.dart';
-import '../utils/app_colors.dart';
-import '../utils/cms.dart';
 import '../services/background_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -75,6 +73,7 @@ class _NotificationSettingsScreenState
 
   Future<void> _requestPermissions() async {
     final granted = await NotificationService().requestPermissions();
+    if (!mounted) return;
     setState(() {
       _notificationsEnabled = granted;
     });
@@ -89,11 +88,6 @@ class _NotificationSettingsScreenState
         ),
       );
     }
-  }
-
-  Future<void> _checkBatteryOptimizations() async {
-    // In a real app we'd check status, but ignoreBatteryOptimizations status
-    // is a bit tricky. We'll just provide a button to request it.
   }
 
   Future<void> _requestBatteryexempt() async {

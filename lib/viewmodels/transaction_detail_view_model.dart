@@ -13,6 +13,7 @@ class TransactionDetailViewModel extends ChangeNotifier {
   bool isManual = false;
   bool isIgnored = false;
   bool isLiquid = true;
+  bool isExcluded = false;
 
   // Data
   List<Map<String, dynamic>> allCategories = [];
@@ -31,6 +32,7 @@ class TransactionDetailViewModel extends ChangeNotifier {
     isManual = transaction['patternId'] == null;
     isIgnored = (transaction['isIgnored'] as int? ?? 0) == 1;
     isLiquid = (transaction['isLiquid'] as int? ?? 1) == 1;
+    isExcluded = (transaction['isExcluded'] as int? ?? 0) == 1;
 
     _loadData();
   }
@@ -114,6 +116,10 @@ class TransactionDetailViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<void> toggleIgnore() async {
+    await updateIsIgnored(!isIgnored);
+  }
+
   Future<void> updateIsLiquid(bool val) async {
     final db = await DatabaseHelper.instance.database;
     await db.update(
@@ -127,26 +133,47 @@ class TransactionDetailViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> saveChanges(
+  Future<bool> saveChanges(
     double newAmount,
-    String newNote,
-    DateTime newDate,
+    String? newNote, // This is now primarily the "Note" field
+    int newDate,
+    bool excludeFromBudget,
+    bool isIgnored,
   ) async {
-    final updatedRow = {
-      'id': transaction['id'],
-      'amount': newAmount,
-      'date': newDate.millisecondsSinceEpoch,
-      'sender': newNote.isEmpty ? "Manual Entry" : newNote,
-      'body': newNote,
-    };
+    try {
+      final Map<String, dynamic> updateData = {
+        'id': transaction['id'],
+        'amount': newAmount,
+        'date': newDate,
+        'isExcluded': excludeFromBudget ? 1 : 0,
+        'isIgnored': isIgnored ? 1 : 0,
+        'categoryId': selectedCategoryId,
+        'note': newNote, // Save the user's note here
+      };
 
-    await DatabaseHelper.instance.updateTransaction(updatedRow);
+      // For manual transactions, we might still want to update 'sender' or 'body'
+      // if the user edits them. But now we are shifting to using 'note'.
+      // If the transaction is manual, let's say "Sender" is "Manual Entry" and we
+      // don't change it. The "body" was used for description.
+      // We should probably migrate legacy manual usage to 'note' too, but for now
+      // let's just ensure 'note' is saved.
 
-    transaction['amount'] = newAmount;
-    transaction['date'] = newDate.millisecondsSinceEpoch;
-    transaction['sender'] = updatedRow['sender'];
-    transaction['body'] = updatedRow['body'];
-    notifyListeners();
+      await DatabaseHelper.instance.updateTransaction(updateData);
+
+      // Update local state so UI reflects changes immediately
+      transaction['amount'] = newAmount;
+      transaction['date'] = newDate;
+      transaction['isExcluded'] = excludeFromBudget ? 1 : 0;
+      transaction['isIgnored'] = isIgnored ? 1 : 0;
+      transaction['categoryId'] = selectedCategoryId;
+      transaction['note'] = newNote; // Key fix!
+
+      notifyListeners();
+      return true;
+    } catch (e) {
+      debugPrint("Error saving transaction: $e");
+      return false;
+    }
   }
 
   Future<void> deleteTransaction() async {

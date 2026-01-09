@@ -52,7 +52,7 @@ class FilteredSummaryBlock extends StatelessWidget {
                 decoration: BoxDecoration(
                   color: Theme.of(
                     context,
-                  ).colorScheme.surfaceContainerHighest.withOpacity(0.5),
+                  ).colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: Text(
@@ -84,7 +84,7 @@ class FilteredSummaryBlock extends StatelessWidget {
                 ),
                 // Divider
                 VerticalDivider(
-                  color: Theme.of(context).dividerColor.withOpacity(0.2),
+                  color: Theme.of(context).dividerColor.withValues(alpha: 0.2),
                   thickness: 1,
                   width: 32,
                 ),
@@ -119,7 +119,7 @@ class FilteredSummaryBlock extends StatelessWidget {
         Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: 14, color: color.withOpacity(0.8)),
+            Icon(icon, size: 14, color: color.withValues(alpha: 0.8)),
             const SizedBox(width: 4),
             Text(
               label,

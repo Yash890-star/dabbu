@@ -2,14 +2,11 @@ import 'package:flutter/material.dart';
 import '../utils/cms.dart';
 import '../utils/app_colors.dart';
 import '../utils/theme_controller.dart';
-import '../services/notification_service.dart'; // Import Service
 
-import 'sms_parsing_screen.dart';
 import 'notification_settings_screen.dart'; // Import Screen
-import 'sms_setup_screen.dart';
-import 'category_rule_setup_screen.dart';
-import 'subscriptions_screen.dart';
+import 'brain_screen.dart';
 import '../viewmodels/settings_view_model.dart';
+import '../services/backup_service.dart';
 import '../widgets/settings/settings_section.dart';
 
 class SettingsPage extends StatefulWidget {
@@ -105,50 +102,8 @@ class SettingsPageState extends State<SettingsPage>
     await showDialog(
       context: context,
       builder: (ctx) {
-        // Local state for rules - MOVED OUTSIDE StatefulBuilder
-        List<Map<String, dynamic>> rules = [];
-        bool isLoadingRules = true;
-        bool hasStartedLoading = false;
-
         return StatefulBuilder(
           builder: (innerContext, setDialogState) {
-            // Helper to load rules
-            Future<void> loadRules() async {
-              if (existingCategory == null) {
-                if (innerContext.mounted) {
-                  setDialogState(() {
-                    isLoadingRules = false;
-                  });
-                }
-                return;
-              }
-              try {
-                final r = await _viewModel.getCategoryRules(
-                  existingCategory['id'],
-                );
-                if (innerContext.mounted) {
-                  setDialogState(() {
-                    rules = r;
-                    isLoadingRules = false;
-                  });
-                }
-              } catch (e) {
-                debugPrint("Error loading rules: $e");
-                if (innerContext.mounted) {
-                  setDialogState(() {
-                    rules = [];
-                    isLoadingRules = false;
-                  });
-                }
-              }
-            }
-
-            // Load once
-            if (!hasStartedLoading) {
-              hasStartedLoading = true;
-              loadRules();
-            }
-
             return AlertDialog(
               title: Text(
                 existingCategory == null
@@ -242,72 +197,32 @@ class SettingsPageState extends State<SettingsPage>
                     const SizedBox(height: 24),
                     if (existingCategory != null) ...[
                       const Divider(),
-                      Align(
-                        alignment: Alignment.centerLeft,
-                        child: Text(
-                          "Auto-Categorization Rules",
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 13,
-                          ),
-                        ),
-                      ),
                       const SizedBox(height: 8),
-                      if (isLoadingRules)
-                        const Center(
-                          child: SizedBox(
-                            height: 20,
-                            width: 20,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          ),
-                        ),
-                      if (!isLoadingRules && rules.isEmpty)
-                        const Text(
-                          "No keywords set.",
-                          style: TextStyle(color: Colors.grey, fontSize: 12),
-                        ),
-                      if (!isLoadingRules && rules.isNotEmpty)
-                        Wrap(
-                          spacing: 8,
-                          children:
-                              rules
-                                  .map(
-                                    (r) => Chip(
-                                      label: Text(r['keyword']),
-                                      deleteIcon: const Icon(
-                                        Icons.close,
-                                        size: 16,
-                                      ),
-                                      onDeleted: () async {
-                                        await _viewModel.deleteCategoryRule(
-                                          r['id'],
-                                        );
-                                        loadRules(); // Refresh
-                                      },
-                                    ),
-                                  )
-                                  .toList(),
-                        ),
-                      const SizedBox(height: 8),
-                      OutlinedButton.icon(
-                        icon: const Icon(Icons.add, size: 16),
-                        label: const Text("Add Keyword Rule"),
-                        onPressed: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder:
-                                  (context) => CategoryRuleSetupScreen(
-                                    categoryId: existingCategory['id'],
-                                    categoryName: existingCategory['name'],
-                                  ),
+                      // Simplified Rules Link
+                      SizedBox(
+                        width: double.infinity,
+                        child: OutlinedButton.icon(
+                          style: OutlinedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            side: BorderSide(
+                              color: Theme.of(context).colorScheme.primary,
                             ),
-                          ).then((val) {
-                            if (val == true) {
-                              loadRules();
-                            }
-                          });
-                        },
+                          ),
+                          icon: const Icon(Icons.psychology_outlined),
+                          label: const Text("Manage Auto-Rules"),
+                          onPressed: () {
+                            Navigator.pop(context); // Close dialog
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder:
+                                    (context) => BrainScreen(
+                                      initialCategoryId: existingCategory['id'],
+                                    ),
+                              ),
+                            );
+                          },
+                        ),
                       ),
                     ],
                   ],
@@ -426,136 +341,6 @@ class SettingsPageState extends State<SettingsPage>
     );
   }
 
-  // --- Pattern Logic ---
-  Future<void> _editPattern(Map<String, dynamic> pattern) async {
-    final nameController = TextEditingController(text: pattern['name']);
-    bool isLiquid = (pattern['isLiquid'] as int? ?? 1) == 1;
-
-    await showDialog(
-      context: context,
-      builder:
-          (ctx) => StatefulBuilder(
-            builder: (context, setDialogState) {
-              return AlertDialog(
-                title: Text(
-                  CMS.settings['edit_pattern_title'] ?? 'Edit Pattern',
-                ),
-                content: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    TextField(
-                      controller: nameController,
-                      decoration: InputDecoration(
-                        labelText:
-                            CMS.smsParsing['pattern_name_label'] ?? 'Name',
-                        border: const OutlineInputBorder(),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    SwitchListTile(
-                      title: const Text("Affects Bank Balance"),
-                      subtitle: const Text("Include in Tally calculations"),
-                      value: isLiquid,
-                      onChanged: (val) {
-                        setDialogState(() {
-                          isLiquid = val;
-                        });
-                      },
-                      contentPadding: EdgeInsets.zero,
-                    ),
-                    const SizedBox(height: 16),
-                    OutlinedButton.icon(
-                      icon: const Icon(Icons.build),
-                      label: const Text("Edit Extraction Logic"),
-                      onPressed: () async {
-                        // Navigate to logic editor
-                        final sms = await _viewModel.findLatestSms(
-                          pattern['senderId'],
-                        );
-                        if (sms != null && mounted) {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder:
-                                  (context) => SmsParsingScreen(
-                                    message: sms,
-                                    existingPatternId: pattern['id'],
-                                    initialPatternName: nameController.text,
-                                  ),
-                            ),
-                          ).then((_) {
-                            // Refresh parent? Logic editor saves directly.
-                            Navigator.pop(ctx);
-                            _viewModel.loadData();
-                          });
-                        } else if (mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text("No SMS found to edit logic"),
-                            ),
-                          );
-                        }
-                      },
-                    ),
-                  ],
-                ),
-                actions: [
-                  TextButton(
-                    onPressed: () => Navigator.pop(ctx),
-                    child: Text(CMS.common['cancel']!),
-                  ),
-                  ElevatedButton(
-                    onPressed: () async {
-                      await _viewModel.updatePattern(
-                        pattern['id'],
-                        nameController.text,
-                        isLiquid,
-                      );
-                      if (mounted) Navigator.pop(ctx);
-                    },
-                    child: Text(CMS.common['save']!),
-                  ),
-                ],
-              );
-            },
-          ),
-    );
-  }
-
-  Future<void> _deletePattern(int id) async {
-    // Show confirmation dialog
-    final shouldDeleteTransactions = await showDialog<bool>(
-      context: context,
-      builder:
-          (ctx) => AlertDialog(
-            title: Text(CMS.settings['delete_pattern_title']!),
-            content: Text(CMS.settings['delete_pattern_content']!),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(ctx, null), // Cancel
-                child: Text(CMS.common['cancel']!),
-              ),
-              TextButton(
-                onPressed: () => Navigator.pop(ctx, false), // Keep Transactions
-                child: Text(CMS.settings['keep_transactions_btn']!),
-              ),
-              TextButton(
-                onPressed: () => Navigator.pop(ctx, true), // Delete All
-                style: TextButton.styleFrom(foregroundColor: AppColors.delete),
-                child: Text(CMS.settings['delete_all_btn']!),
-              ),
-            ],
-          ),
-    );
-
-    if (shouldDeleteTransactions == null) return;
-
-    await _viewModel.deletePattern(
-      id,
-      deleteTransactions: shouldDeleteTransactions,
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     super.build(context);
@@ -594,7 +379,7 @@ class SettingsPageState extends State<SettingsPage>
                             isDark
                                 ? Icons.dark_mode_outlined
                                 : Icons.light_mode_outlined,
-                            color: isDark ? Colors.purpleAccent : Colors.orange,
+                            color: isDark ? AppColors.primary : Colors.orange,
                           ),
                           title: Text(isDark ? "Dark Mode" : "Light Mode"),
                           value: isDark,
@@ -623,7 +408,7 @@ class SettingsPageState extends State<SettingsPage>
                     ListTile(
                       leading: const Icon(
                         Icons.notifications_outlined,
-                        color: Colors.deepPurple,
+                        color: AppColors.primary,
                       ),
                       title: const Text("Notifications"),
                       subtitle: const Text("Reminders & Alerts"),
@@ -638,25 +423,6 @@ class SettingsPageState extends State<SettingsPage>
                         );
                       },
                     ),
-                    const Divider(height: 1, indent: 56),
-                    ListTile(
-                      leading: const Icon(
-                        Icons.receipt_long_outlined,
-                        color: AppColors.subscriptionIcon,
-                      ),
-                      title: Text(CMS.settings['subscriptions_title']!),
-                      subtitle: Text(CMS.settings['subscriptions_subtitle']!),
-                      trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => const SubscriptionsScreen(),
-                          ),
-                        );
-                      },
-                    ),
-                    const Divider(height: 1, indent: 56),
                     ListTile(
                       leading: const Icon(
                         Icons.archive_outlined,
@@ -666,6 +432,24 @@ class SettingsPageState extends State<SettingsPage>
                       subtitle: Text(CMS.settings['archived_goals_subtitle']!),
                       trailing: const Icon(Icons.arrow_forward_ios, size: 16),
                       onTap: _showArchivedGoals,
+                    ),
+                    const Divider(height: 1, indent: 56),
+                    ListTile(
+                      leading: const Icon(
+                        Icons.psychology_outlined,
+                        color: Colors.purple,
+                      ),
+                      title: Text(CMS.brain['title']!),
+                      subtitle: const Text("Manage Auto-Rules"),
+                      trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const BrainScreen(),
+                          ),
+                        );
+                      },
                     ),
                   ],
                 ),
@@ -745,7 +529,7 @@ class SettingsPageState extends State<SettingsPage>
                       title: Text(
                         CMS.settings['add_category']!,
                         style: const TextStyle(
-                          color: Colors.blue,
+                          color: AppColors.primary,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
@@ -754,66 +538,47 @@ class SettingsPageState extends State<SettingsPage>
                   ],
                 ),
 
-                // 3. PATTERNS
+                // 3. BACKUP & RESTORE
                 SettingsSection(
-                  title: CMS.settings['patterns_tab']!,
-                  icon: Icons.code,
+                  title: "Backup & Restore",
+                  icon: Icons.cloud_sync_outlined,
                   children: [
-                    ..._viewModel.patterns.map(
-                      (p) => Column(
-                        children: [
-                          ListTile(
-                            title: Text(
-                              p['name'] ?? "Unnamed",
-                              style: const TextStyle(
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                            subtitle: Text(
-                              p['senderId'],
-                              style: const TextStyle(fontFamily: 'monospace'),
-                            ),
-                            trailing: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                IconButton(
-                                  icon: const Icon(
-                                    Icons.edit_outlined,
-                                    size: 20,
-                                  ),
-                                  onPressed: () => _editPattern(p),
-                                ),
-                                IconButton(
-                                  icon: const Icon(
-                                    Icons.delete_outline,
-                                    size: 20,
-                                    color: AppColors.delete,
-                                  ),
-                                  onPressed: () => _deletePattern(p['id']),
-                                ),
-                              ],
-                            ),
-                          ),
-                          const Divider(height: 1, indent: 16),
-                        ],
-                      ),
-                    ),
                     ListTile(
-                      leading: const Icon(Icons.add, color: Colors.blue),
-                      title: Text(
-                        CMS.settings['add_pattern_title']!,
-                        style: const TextStyle(
-                          color: Colors.blue,
-                          fontWeight: FontWeight.bold,
-                        ),
+                      leading: const Icon(
+                        Icons.upload_file,
+                        color: Colors.purple,
                       ),
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => const SmsSetupScreen(),
-                          ),
-                        ).then((_) => _viewModel.loadData());
+                      title: const Text("Export Settings"),
+                      subtitle: const Text(
+                        "Backup rules, patterns, categories & budget",
+                      ),
+                      onTap: () async {
+                        await BackupService.instance.exportSettings(context);
+                      },
+                    ),
+                    const Divider(height: 1, indent: 56),
+                    ListTile(
+                      leading: const Icon(
+                        Icons.download_for_offline,
+                        color: Colors.teal,
+                      ),
+                      title: const Text("Import Settings"),
+                      subtitle: const Text(
+                        "Restore from a previously saved backup file",
+                      ),
+                      onTap: () async {
+                        final success = await BackupService.instance
+                            .importSettings(context);
+                        if (success) {
+                          refresh(); // Reload settings
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text("Settings imported successfully"),
+                              ),
+                            );
+                          }
+                        }
                       },
                     ),
                   ],

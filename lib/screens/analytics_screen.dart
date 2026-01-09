@@ -96,7 +96,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen>
                         border: Border.all(
                           color: Theme.of(
                             context,
-                          ).dividerColor.withOpacity(0.1),
+                          ).dividerColor.withValues(alpha: 0.1),
                         ),
                       ),
                       child: Row(

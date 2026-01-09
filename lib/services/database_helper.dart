@@ -19,7 +19,7 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 11,
+      version: 12,
       onCreate: _createDB,
       onUpgrade: _onUpgrade,
     );
@@ -147,6 +147,15 @@ class DatabaseHelper {
         );
       } catch (e) {
         // Ignore if column exists
+      }
+    }
+
+    if (oldVersion < 12) {
+      // 12. Add Note Column
+      try {
+        await db.execute('ALTER TABLE transactions ADD COLUMN note TEXT');
+      } catch (e) {
+        // Ignore
       }
     }
 
@@ -596,6 +605,7 @@ class DatabaseHelper {
       'is_goal_addition',
       'isIgnored',
       'isLiquid',
+      'note',
     ];
     final Map<String, dynamic> sanitized = {};
     for (var key in validColumns) {
@@ -637,6 +647,7 @@ class DatabaseHelper {
         t.is_goal_addition,
         t.isIgnored,
         t.isLiquid,
+        t.note,
         c.name as categoryName, 
         c.color as categoryColor, 
         c.icon as categoryIcon,
@@ -744,6 +755,22 @@ class DatabaseHelper {
     ORDER BY t.date DESC
   ''', args);
   }
+  // --- Helper Checks ---
+
+  Future<bool> hasTransactionsInMonth(int month, int year) async {
+    final db = await instance.database;
+    final start = DateTime(year, month, 1);
+    final end = DateTime(year, month + 1, 0, 23, 59, 59);
+
+    final count = Sqflite.firstIntValue(
+      await db.rawQuery(
+        'SELECT COUNT(*) FROM transactions WHERE date >= ? AND date <= ? AND (isIgnored IS NULL OR isIgnored = 0) LIMIT 1',
+        [start.millisecondsSinceEpoch, end.millisecondsSinceEpoch],
+      ),
+    );
+    return (count ?? 0) > 0;
+  }
+
   // --- Goals CRUD ---
 
   Future<int> createGoal(Map<String, dynamic> goal) async {

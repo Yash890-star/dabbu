@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 class CustomErrorWidget extends StatelessWidget {
@@ -32,7 +33,7 @@ class CustomErrorWidget extends StatelessWidget {
                 style: TextStyle(fontSize: 14, color: Colors.black54),
                 textAlign: TextAlign.center,
               ),
-              if (false) // Set to true to debug in release
+              if (kDebugMode) // Show error details in debug mode
                 Padding(
                   padding: const EdgeInsets.only(top: 16),
                   child: Text(
