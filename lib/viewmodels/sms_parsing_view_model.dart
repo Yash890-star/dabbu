@@ -252,6 +252,19 @@ class SmsParsingViewModel extends ChangeNotifier {
         return true; // Success (Pop)
       } else {
         // --- CREATE MODE ---
+
+        // Check for duplicates
+        final exists = await DatabaseHelper.instance.checkPatternExists(
+          selectedSenderToken!,
+          generatedRegex,
+        );
+
+        if (exists) {
+          throw Exception(
+            'This pattern already exists for $selectedSenderToken.',
+          );
+        }
+
         final patternId = await DatabaseHelper.instance.insertPattern({
           'senderId': selectedSenderToken,
           'name': patternName.trim(),
@@ -262,29 +275,40 @@ class SmsParsingViewModel extends ChangeNotifier {
         });
 
         // Insert manual transaction for immediate feedback
-        final regExp = RegExp(generatedRegex, caseSensitive: false);
-        final match = regExp.firstMatch(message.body ?? "");
-        double amount = 0.0;
-        if (match != null) {
-          String rawString = match.group(1) ?? "0";
-          String cleanString = rawString.replaceAll(',', '');
-          RegExp numberRegex = RegExp(r'(\d*\.?\d+)');
-          Match? numMatch = numberRegex.firstMatch(cleanString);
-          if (numMatch != null) {
-            amount = double.tryParse(numMatch.group(0) ?? "0") ?? 0.0;
-          }
-        }
+        // BUT FIRST: Check if this transaction already exists to key duplicate logic consistent
+        final txDate = message.date ?? DateTime.now().millisecondsSinceEpoch;
+        final txSender = message.address ?? "Unknown";
 
-        await DatabaseHelper.instance.insertTransaction({
-          'amount': amount,
-          'sender': message.address ?? "Unknown",
-          'body': message.body,
-          'date': message.date ?? DateTime.now().millisecondsSinceEpoch,
-          'type': transactionType,
-          'categoryId': selectedCategoryId,
-          'patternId': patternId,
-          'isLiquid': isLiquid ? 1 : 0,
-        });
+        final txExists = await DatabaseHelper.instance.checkTransactionExists(
+          txSender,
+          txDate,
+        );
+
+        if (!txExists) {
+          final regExp = RegExp(generatedRegex, caseSensitive: false);
+          final match = regExp.firstMatch(message.body ?? "");
+          double amount = 0.0;
+          if (match != null) {
+            String rawString = match.group(1) ?? "0";
+            String cleanString = rawString.replaceAll(',', '');
+            RegExp numberRegex = RegExp(r'(\d*\.?\d+)');
+            Match? numMatch = numberRegex.firstMatch(cleanString);
+            if (numMatch != null) {
+              amount = double.tryParse(numMatch.group(0) ?? "0") ?? 0.0;
+            }
+          }
+
+          await DatabaseHelper.instance.insertTransaction({
+            'amount': amount,
+            'sender': txSender,
+            'body': message.body,
+            'date': txDate,
+            'type': transactionType,
+            'categoryId': selectedCategoryId,
+            'patternId': patternId,
+            'isLiquid': isLiquid ? 1 : 0,
+          });
+        }
 
         final prefs = await SharedPreferences.getInstance();
         await prefs.setBool('initialSetupDone', true);
