@@ -1,4 +1,4 @@
-package com.example.dabbu
+package com.togics.dabbu
 
 import android.Manifest
 import android.content.pm.PackageManager
@@ -10,7 +10,7 @@ import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
 
 class MainActivity : FlutterActivity() {
-    private val CHANNEL = "com.example.dabbu/permissions"
+    private val CHANNEL = "com.togics.dabbu/permissions"
     private var pendingResult: MethodChannel.Result? = null
     private val REQUEST_CODE_NOTIFICATION = 3001
 

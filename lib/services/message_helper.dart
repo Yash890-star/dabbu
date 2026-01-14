@@ -185,11 +185,15 @@ class MessageHelper {
     int date,
   ) async {
     final db = await DatabaseHelper.instance.database;
-    // Check for same sender, same amount, and same timestamp (msgDate is very precise)
+    // Strict duplicate check: Same sender and Same timestamp (msgDate).
+    // precise msgDate is unique enough for one sender.
+    // We ignore 'amount' because if we re-parse a message with a BETTER regex,
+    // we don't want to create a SECOND transaction. Redundant data is worse than "wrong amount" in this context
+    // because the user can edit the amount, but deleting duplicates is annoying.
     final result = await db.query(
       'transactions',
-      where: 'sender = ? AND amount = ? AND date = ?',
-      whereArgs: [sender, amount, date],
+      where: 'sender = ? AND date = ?',
+      whereArgs: [sender, date],
     );
     return result.isNotEmpty;
   }

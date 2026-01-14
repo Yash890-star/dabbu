@@ -585,6 +585,17 @@ class DatabaseHelper {
     return await db.update('patterns', row, where: 'id = ?', whereArgs: [id]);
   }
 
+  // Check if a pattern with the same regex and sender already exists
+  Future<bool> checkPatternExists(String senderId, String regex) async {
+    final db = await instance.database;
+    final results = await db.query(
+      'patterns',
+      where: 'senderId = ? AND patternRegex = ?',
+      whereArgs: [senderId, regex],
+    );
+    return results.isNotEmpty;
+  }
+
   Future<void> deleteTransactionsByPatternId(int patternId) async {
     final db = await instance.database;
     await db.delete(
@@ -628,6 +639,17 @@ class DatabaseHelper {
       where: 'id = ?',
       whereArgs: [id],
     );
+  }
+
+  // Check if a transaction exists for this sender and date
+  Future<bool> checkTransactionExists(String sender, int date) async {
+    final db = await instance.database;
+    final result = await db.query(
+      'transactions',
+      where: 'sender = ? AND date = ?',
+      whereArgs: [sender, date],
+    );
+    return result.isNotEmpty;
   }
 
   Future<Map<String, int?>> getTransactionDateRange() async {

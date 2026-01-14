@@ -782,7 +782,7 @@ class _InitialSetupScreenState extends State<InitialSetupScreen> {
   Future<void> _requestNotification() async {
     try {
       // Use custom channel to avoid Request Code 24 conflict with another_telephony
-      const platform = MethodChannel('com.example.dabbu/permissions');
+      const platform = MethodChannel('com.togics.dabbu/permissions');
       final bool granted = await platform.invokeMethod(
         'requestNotificationPermission',
       );
