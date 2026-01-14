@@ -1,9 +1,9 @@
 # Privacy Policy for Dabbu
 
-**Last Updated:** [Date]
+**Last Updated:** 14th January 2026
 
 ## 1. Introduction
-Welcome to **Dabbu** ("we," "our," or "us"). We are committed to protecting your privacy and ensuring you have a positive experience on our mobile application (the "App").
+Welcome to **Dabbu** . We are committed to protecting your privacy and ensuring you have a positive experience on our mobile application (.
 
 This Privacy Policy explains how we collect, use, and share information about you when you use our App. By using the App, you agree to the collection and use of information in accordance with this policy.
 
@@ -47,7 +47,7 @@ Your data is retained on your device for as long as you use the App. You can cle
 We take reasonable measures to help protect information about you from loss, theft, misuse, and unauthorized access, disclosure, alteration, and destruction. However, no method of electronic storage is 100% secure.
 
 ## 8. Children's Privacy
-Our App is not intended for use by children under the age of 13. We do not knowingly collect personal information from children under 13.
+Our App is not intended for use by children under the age of 13. 
 
 ## 9. Changes to This Privacy Policy
 We may update our Privacy Policy from time to time. We will notify you of any changes by posting the new Privacy Policy on this page and updating the "Last Updated" date.
